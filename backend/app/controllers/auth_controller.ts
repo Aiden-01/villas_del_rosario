@@ -1,101 +1,59 @@
-// app/controllers/users_controller.ts
+// app/controllers/auth_controller.ts
 import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
+import Hash from '@adonisjs/core/services/hash'
+import { randomUUID } from 'node:crypto'
 
-export default class UsersController {
-  /**
-   * Listar usuarios (SOLO ADMIN)
-   */
-  async index({ auth, response }: HttpContext) {
+export default class AuthController {
+  public async login({ request, response }: HttpContext) {
+    const { username, password } = request.only(['username', 'password'])
+
     try {
-      // El middleware 'auth' ya verificó la autenticación
-      // Solo verificamos el rol
-      if (auth.user!.role !== 'admin') {
-        return response.forbidden({ message: 'No tienes permisos de administrador' })
-      }
-
-      const users = await User.query().select('id', 'name', 'username', 'email', 'role', 'createdAt')
-      return response.ok(users)
-    } catch (error) {
-      console.error('Error en index:', error)
-      return response.internalServerError({ message: 'Error al obtener usuarios' })
-    }
-  }
-
-  /**
-   * Crear usuario (SOLO ADMIN)
-   */
-  async store({ auth, request, response }: HttpContext) {
-    try {
-      // Verificar que sea admin
-      if (auth.user!.role !== 'admin') {
-        return response.forbidden({ message: 'No tienes permisos de administrador' })
-      }
-
-      const data = request.only(['name', 'email', 'username', 'password', 'role'])
+      // 1. Buscar usuario
+      const user = await User.findBy('username', username)
       
-      // Validaciones
-      if (!data.name || !data.username || !data.password || !data.role) {
-        return response.badRequest({ message: 'Todos los campos son requeridos' })
+      if (!user) {
+        return response.unauthorized({ 
+          message: 'Credenciales incorrectas' 
+        })
       }
-
-      if (!['admin', 'trabajador'].includes(data.role)) {
-        return response.badRequest({ message: 'Rol inválido. Use: admin o trabajador' })
-      }
-
-      // Verificar si el usuario ya existe
-      const existingUser = await User.findBy('username', data.username)
-      if (existingUser) {
-        return response.conflict({ message: 'El nombre de usuario ya está en uso' })
-      }
-
-      // Crear usuario
-      const user = await User.create(data)
       
-      return response.created({
-        message: 'Usuario creado exitosamente',
+      // 2. Verificar contraseña
+      const isValid = await Hash.verify(user.password, password)
+      
+      if (!isValid) {
+        return response.unauthorized({ 
+          message: 'Credenciales incorrectas' 
+        })
+      }
+      
+      // 3. Generar token simple (sin usar auth.use)
+      const tokenValue = randomUUID().replace(/-/g, '')
+      
+      // Crear el token directamente
+      const token = await user.related('apiTokens').create({
+        type: 'api',
+        token: tokenValue,
+        expiresAt: null,
+      })
+      
+      return {
+        type: 'bearer',
+        token: token.token,
         user: {
           id: user.id,
           name: user.name,
           username: user.username,
           email: user.email,
           role: user.role,
-          createdAt: user.createdAt
+          createdAt: user.createdAt,
         }
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      return response.unauthorized({ 
+        message: 'Error en el servidor' 
       })
-    } catch (error) {
-      console.error('Error en store:', error)
-      return response.internalServerError({ message: 'Error al crear usuario' })
-    }
-  }
-
-  /**
-   * Eliminar usuario (SOLO ADMIN)
-   */
-  async destroy({ auth, params, response }: HttpContext) {
-    try {
-      // Verificar que sea admin
-      if (auth.user!.role !== 'admin') {
-        return response.forbidden({ message: 'No tienes permisos de administrador' })
-      }
-
-      const userId = params.id
-      const user = await User.findOrFail(userId)
-      
-      // No permitir auto-eliminación
-      if (user.id === auth.user!.id) {
-        return response.badRequest({ message: 'No puedes eliminarte a ti mismo' })
-      }
-
-      await user.delete()
-      
-      return response.ok({ message: 'Usuario eliminado exitosamente' })
-    } catch (error) {
-      console.error('Error en destroy:', error)
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({ message: 'Usuario no encontrado' })
-      }
-      return response.internalServerError({ message: 'Error al eliminar usuario' })
     }
   }
 }

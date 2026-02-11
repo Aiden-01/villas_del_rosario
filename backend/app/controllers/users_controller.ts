@@ -1,128 +1,116 @@
+// app/controllers/users_controller.ts
 import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
+import ApiToken from '#models/api_token'
 
 export default class UsersController {
-  // Solo admins pueden usar estas rutas
-  private isAdmin(ctx: HttpContext) {
-    if (!ctx.auth.user || ctx.auth.user.role !== 'admin') {
-      ctx.response.forbidden({ message: 'No tienes permisos' })
-      return false
-    }
-    return true
+  /**
+   * Verificar token manualmente
+   */
+  private async verifyToken(token: string) {
+    if (!token) return null
+    
+    const apiToken = await ApiToken.query()
+      .where('token', token.replace('Bearer ', ''))
+      .preload('user')
+      .first()
+    
+    return apiToken?.user || null
   }
 
-  /*
-  |--------------------------------------------------------------------------|
-  | Listar usuarios
-  |--------------------------------------------------------------------------|
-  */
-  async index(ctx: HttpContext) {
-    if (!this.isAdmin(ctx)) return
-
-    const users = await User.query().select([
-      'id',
-      'name',
-      'email',
-      'username',
-      'role',
-      'createdAt',
-    ])
-    return ctx.response.ok(users)
-  }
-
-  /*
-  |--------------------------------------------------------------------------|
-  | Crear usuario
-  |--------------------------------------------------------------------------|
-  */
-  async store(ctx: HttpContext) {
-    if (!this.isAdmin(ctx)) return
-
-    const data = ctx.request.only([
-      'name',
-      'email',
-      'username',
-      'password',
-      'role',
-    ])
-
-    const existsEmail = await User.findBy('email', data.email)
-    if (existsEmail) {
-      return ctx.response.badRequest({ message: 'El email ya existe' })
-    }
-
-    const existsUsername = await User.findBy('username', data.username)
-    if (existsUsername) {
-      return ctx.response.badRequest({ message: 'El username ya existe' })
-    }
-
-    const user = await User.create(data)
-
-    return ctx.response.created({
-      message: 'Usuario creado',
-      user,
-    })
-  }
-
-  /*
-  |--------------------------------------------------------------------------|
-  | Editar usuario
-  |--------------------------------------------------------------------------|
-  */
-  async update(ctx: HttpContext) {
-    if (!this.isAdmin(ctx)) return
-
-    const user = await User.find(ctx.params.id)
-    if (!user) {
-      return ctx.response.notFound({ message: 'Usuario no encontrado' })
-    }
-
-    const data = ctx.request.only([
-      'name',
-      'email',
-      'username',
-      'password',
-      'role',
-    ])
-
-    if (data.email && data.email !== user.email) {
-      const existsEmail = await User.findBy('email', data.email)
-      if (existsEmail) {
-        return ctx.response.badRequest({ message: 'El email ya existe' })
+  /**
+   * Listar usuarios
+   */
+  async index({ request, response }: HttpContext) {
+    try {
+      // Verificar token manualmente
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+      
+      if (!user || user.role !== 'admin') {
+        return response.forbidden({ message: 'No tienes permisos' })
       }
+
+      const users = await User.query().select('id', 'name', 'username', 'email', 'role', 'createdAt')
+      return response.ok(users)
+    } catch (error) {
+      console.error('Error:', error)
+      return response.internalServerError({ message: 'Error al obtener usuarios' })
     }
-
-    if (data.username && data.username !== user.username) {
-      const existsUsername = await User.findBy('username', data.username)
-      if (existsUsername) {
-        return ctx.response.badRequest({ message: 'El username ya existe' })
-      }
-    }
-
-    user.merge(data)
-    await user.save()
-
-    return ctx.response.ok({
-      message: 'Usuario actualizado',
-      user,
-    })
   }
 
-  /*
-  |--------------------------------------------------------------------------|
-  | Eliminar usuario
-  |--------------------------------------------------------------------------|
-  */
-  async destroy(ctx: HttpContext) {
-    if (!this.isAdmin(ctx)) return
+  /**
+   * Crear usuario
+   */
+  async store({ request, response }: HttpContext) {
+    try {
+      // Verificar token manualmente
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+      
+      if (!user || user.role !== 'admin') {
+        return response.forbidden({ message: 'No tienes permisos' })
+      }
 
-    const user = await User.find(ctx.params.id)
-    if (!user) {
-      return ctx.response.notFound({ message: 'Usuario no encontrado' })
+      const data = request.only(['name', 'email', 'username', 'password', 'role'])
+      
+      // Validaciones
+      if (!['admin', 'trabajador'].includes(data.role)) {
+        return response.badRequest({ message: 'Rol inválido' })
+      }
+
+      // Verificar si el usuario ya existe
+      const existingUser = await User.findBy('username', data.username)
+      if (existingUser) {
+        return response.conflict({ message: 'El usuario ya existe' })
+      }
+
+      const newUser = await User.create(data)
+      
+      return response.created({
+        message: 'Usuario creado exitosamente',
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+          createdAt: newUser.createdAt
+        }
+      })
+    } catch (error) {
+      console.error('Error:', error)
+      return response.internalServerError({ message: 'Error al crear usuario' })
     }
+  }
 
-    await user.delete()
+  /**
+   * Eliminar usuario
+   */
+  async destroy({ request, params, response }: HttpContext) {
+    try {
+      // Verificar token manualmente
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+      
+      if (!user || user.role !== 'admin') {
+        return response.forbidden({ message: 'No tienes permisos' })
+      }
 
-    return ctx.response.ok({ message: 'Usuario eliminado' })
+      const userId = params.id
+      const userToDelete = await User.findOrFail(userId)
+      
+      // No permitir auto-eliminación
+      if (userToDelete.id === user.id) {
+        return response.badRequest({ message: 'No puedes eliminarte a ti mismo' })
+      }
+
+      await userToDelete.delete()
+      
+      return response.ok({ message: 'Usuario eliminado exitosamente' })
+    } catch (error) {
+      console.error('Error:', error)
+      return response.internalServerError({ message: 'Error al eliminar usuario' })
+    }
   }
 }

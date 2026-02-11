@@ -1,14 +1,4 @@
-/*
-|--------------------------------------------------------------------------
-| HTTP kernel file
-|--------------------------------------------------------------------------
-|
-| The HTTP kernel file is used to register the middleware with the server
-| or the router.
-|
-*/
-
-import router from '@adonisjs/core/services/router'
+// start/kernel.ts
 import server from '@adonisjs/core/services/server'
 
 /**
@@ -18,31 +8,14 @@ import server from '@adonisjs/core/services/server'
 server.errorHandler(() => import('#exceptions/handler'))
 
 /**
- * The server middleware stack runs middleware on all the HTTP
- * requests, even if there is no route registered for
- * the request URL.
- */
-server.use([
-  () => import('#middleware/container_bindings_middleware'),
-  () => import('#middleware/force_json_response_middleware'),
-  () => import('@adonisjs/cors/cors_middleware'),
-])
-
-/**
- * The router middleware stack runs middleware on all the HTTP
- * requests with a registered route.
+ * ONLY essential middleware from packages
  */
 server.use([
   () => import('@adonisjs/core/bodyparser_middleware'),
-  () => import('@adonisjs/auth/initialize_auth_middleware'),
   () => import('@adonisjs/cors/cors_middleware'),
+  () => import('@adonisjs/auth/initialize_auth_middleware'),
 ])
 
 /**
- * Named middleware collection must be explicitly assigned to
- * the routes or the routes group.
+ * NO named middleware for now
  */
-export const middleware = router.named({
-  auth: () => import('#middleware/auth_middleware'),
-  role: () => import('#middleware/role_middleware')
-}) // ← SOLO ESTO, NADA MÁS DESPUÉS
