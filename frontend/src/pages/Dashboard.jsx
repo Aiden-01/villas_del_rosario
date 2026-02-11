@@ -47,7 +47,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-
       {/* acciones rápidas */}
       <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-lg">
         <h2 className="text-lg font-semibold text-white mb-4">
