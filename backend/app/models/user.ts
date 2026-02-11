@@ -13,16 +13,23 @@ export default class User extends BaseModel {
   @column()
   declare email: string
 
-  // ✅ NUEVO
   @column()
   declare username: string
 
-  // ✅ NUEVO
   @column()
   declare role: 'admin' | 'trabajador'
 
   @column({ serializeAs: null })
   declare password: string
+
+  @hasMany(() => ApiToken)
+  declare apiTokens: HasMany<typeof ApiToken>
+
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: Date
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: Date
 
   @beforeSave()
   static async hashPassword(user: User) {
@@ -31,16 +38,20 @@ export default class User extends BaseModel {
     }
   }
 
-  @hasMany(() => ApiToken)
-  declare apiTokens: HasMany<typeof ApiToken>
-
-  async verifyPassword(password: string) {
-    return Hash.verify(this.password, password)
+  // Método estático para verificar credenciales
+  static async verifyCredentials(username: string, password: string) {
+    const user = await this.findBy('username', username)
+    
+    if (!user) {
+      throw new Error('USER_NOT_FOUND')
+    }
+    
+    const isValid = await Hash.verify(user.password, password)
+    
+    if (!isValid) {
+      throw new Error('INVALID_PASSWORD')
+    }
+    
+    return user
   }
-
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: Date
-
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: Date
 }

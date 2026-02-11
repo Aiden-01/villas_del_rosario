@@ -10,10 +10,12 @@ router.get('/', async () => {
 
 /*
 |--------------------------------------------------------------------------|
-| Auth
+| Auth Routes (Public)
 |--------------------------------------------------------------------------|
 */
 router.post('/api/login', [AuthController, 'login'])
+router.post('/api/logout', [AuthController, 'logout']).middleware(['auth'])
+router.get('/api/me', [AuthController, 'me']).middleware(['auth'])
 
 /*
 |--------------------------------------------------------------------------|
@@ -24,18 +26,21 @@ router.post('/api/login', [AuthController, 'login'])
 // =============================
 // 👑 SOLO ADMIN
 // =============================
-// SOLO ADMIN
-router.group(() => {
-  router.get('/', [UsersController, 'index'])
-  router.post('/', [UsersController, 'store'])
-  router.delete('/:id', [UsersController, 'destroy'])
-})
-.prefix('api/users')       // ✅ prefijo único
-.middleware(['auth', 'admin']) // ✅ middlewares válidos
+router
+  .group(() => {
+    router.get('/', [UsersController, 'index'])
+    router.post('/', [UsersController, 'store'])
+    router.delete('/:id', [UsersController, 'destroy'])
+  })
+  .prefix('api/users')
+ .middleware(['auth', 'role:admin'])
 
+// =============================
 // ADMIN & TRABAJADOR
-router.group(() => {
-  router.get('/', [ClientsController, 'index'])
-})
-.prefix('api/clients')
-.middleware(['auth', 'worker']) // middleware que valida ambos roles
+// =============================
+router
+  .group(() => {
+    router.get('/', [ClientsController, 'index'])
+  })
+  .prefix('api/clients')
+  .middleware(['auth', 'role:admin,trabajador']) // Asegúrate que sea 'trabajador' (no 'worker')
