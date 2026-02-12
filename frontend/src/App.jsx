@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CrearUsuario from "./pages/CrearUsuario";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CrearCliente from "./pages/CrearCliente";
 
 function App() {
   return (
@@ -17,6 +18,15 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+          {/* CREAR CLIENTE - cualquier usuario autenticado */}
+        <Route
+          path="/clientes/crear"
+          element={
+            <ProtectedRoute>
+              <CrearCliente />
             </ProtectedRoute>
           }
         />

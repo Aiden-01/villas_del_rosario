@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+:root {
+  --bg: #f4f6f8;
+  --text: #1f2937;
+
+  --primary: #2bb673; /* verde esperanza */
+  --secondary: #2563eb;
+  --card: #ffffff;
+}
+
+.dark {
+  --bg: #0f172a;
+  --text: #e5e7eb;
+
+  --primary: #34d399;
+  --secondary: #3b82f6;
+  --card: #1e293b;
+}
