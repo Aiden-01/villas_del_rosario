@@ -99,14 +99,8 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
           menuOpen ? "translate-x-0" : "-translate-x-full"
         } z-[100] shadow-2xl`}
       >
-        <div className="relative p-6">
-          {/* botón cerrar */}
-          <button
-            className="absolute top-4 right-4 text-white text-xl hover:scale-110 transition"
-            onClick={() => setMenuOpen(false)}
-          >
-            ✕
-          </button>
+        <div className="relative pt-16 px-6 pb-6">
+    
 
           <h2 className="text-2xl font-bold mb-6">Menú</h2>
 

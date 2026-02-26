@@ -145,4 +145,30 @@ export default class ClientsController {
       return response.internalServerError({ message: 'Error al eliminar cliente' })
     }
   }
+  /**
+   * Obtener cliente por ID
+   */
+  async show({ request, params, response }: HttpContext) {
+    try {
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+
+      if (!user) {
+        return response.forbidden({ message: 'No autorizado' })
+      }
+
+      const client = await Client.find(params.id)
+
+      if (!client) {
+        return response.notFound({ message: 'Cliente no encontrado' })
+      }
+
+      return response.ok(client)
+
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Error al obtener cliente' })
+    }
+  }
+
 }

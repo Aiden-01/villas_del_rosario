@@ -1,55 +1,48 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CrearUsuario from "./pages/CrearUsuario";
-import ProtectedRoute from "./components/ProtectedRoute";
 import CrearCliente from "./pages/CrearCliente";
+import Clientes from "./pages/Clientes";
+
+import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* LOGIN */}
+
+        {/* ================= LOGIN ================= */}
         <Route path="/" element={<Login />} />
 
-        {/* DASHBOARD - cualquier usuario autenticado */}
+        {/* ================= RUTAS PROTEGIDAS GENERALES ================= */}
         <Route
-          path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <Layout />
             </ProtectedRoute>
           }
-        />
-          {/* CREAR CLIENTE - cualquier usuario autenticado */}
-        <Route
-          path="/clientes/crear"
-          element={
-            <ProtectedRoute>
-              <CrearCliente />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/clientes" element={<Clientes />} />
+          <Route path="/clientes/crear" element={<CrearCliente />} />
+          <Route path="/clientes/editar/:id" element={<CrearCliente />} />
+        </Route>
 
-        {/* SOLO ADMIN */}
+        {/* ================= RUTAS SOLO ADMIN ================= */}
         <Route
-          path="/admin"
           element={
             <ProtectedRoute roles={["admin"]}>
-              <h1>Panel Admin</h1>
+              <Layout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route path="/usuarios/crear" element={<CrearUsuario />} />
+          <Route path="/admin" element={<h1>Panel Admin</h1>} />
+        </Route>
 
-        {/* CREAR USUARIO - SOLO ADMIN */}
-        <Route
-          path="/usuarios/crear"
-          element={
-            <ProtectedRoute roles={["admin"]}>
-              <CrearUsuario />
-            </ProtectedRoute>
-          }
-        />
       </Routes>
     </BrowserRouter>
   );
