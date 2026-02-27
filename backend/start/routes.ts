@@ -3,6 +3,7 @@ import router from '@adonisjs/core/services/router'
 const AuthController = () => import('#controllers/auth_controller')
 const UsersController = () => import('#controllers/users_controller')
 const ClientsController = () => import('#controllers/clients_controller')
+const PrestamosController = () => import('#controllers/prestamos_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando 🚀' }
@@ -25,9 +26,20 @@ router
 router
   .group(() => {
     router.get('/', [ClientsController, 'index'])
-    router.get('/:id', [ClientsController, 'show']) // 👈 CORRECTO
+    router.get('/:id', [ClientsController, 'show'])
     router.post('/', [ClientsController, 'store'])
     router.put('/:id', [ClientsController, 'update'])
     router.delete('/:id', [ClientsController, 'destroy'])
   })
   .prefix('api/clientes')
+
+router
+  .group(() => {
+    router.get('/', [PrestamosController, 'index'])
+    router.get('/cliente/:clienteId', [PrestamosController, 'byCliente'])
+    router.get('/:id', [PrestamosController, 'show'])
+    router.post('/', [PrestamosController, 'store'])
+    router.put('/:id', [PrestamosController, 'update'])
+    router.delete('/:id', [PrestamosController, 'destroy'])
+  })
+  .prefix('api/prestamos')

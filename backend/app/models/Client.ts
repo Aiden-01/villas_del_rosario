@@ -1,4 +1,6 @@
-import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
+import type { HasMany } from '@adonisjs/lucid/types/relations'
+import Prestamo from '#models/prestamo'
 
 export default class Client extends BaseModel {
   public static table = 'clientes'
@@ -20,4 +22,9 @@ export default class Client extends BaseModel {
 
   @column()
   declare direccion: string
+
+  @hasMany(() => Prestamo, {
+    foreignKey: 'clienteId',
+  })
+  declare prestamos: HasMany<typeof Prestamo>
 }

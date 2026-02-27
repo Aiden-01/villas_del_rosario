@@ -1,37 +1,34 @@
 import { useEffect, useState } from "react";
-import Sidebar from "../components/Sidebar";
 import { useNavigate } from "react-router-dom";
 
-export const ROUTES = {
+const ROUTES = {
   CLIENTS: "http://localhost:3333/api/clientes",
 };
 
 export default function Clientes() {
   const user = JSON.parse(localStorage.getItem("user"));
-  const [menuOpen, setMenuOpen] = useState(false);
   const [clientes, setClientes] = useState([]);
+  const [filteredClientes, setFilteredClientes] = useState([]);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedCliente, setSelectedCliente] = useState(null);
+
   const navigate = useNavigate();
 
   const fetchClientes = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const res = await fetch(ROUTES.CLIENTS, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.message || "Error cargando clientes");
         return;
       }
-
       setClientes(data);
+      setFilteredClientes(data);
     } catch (err) {
       console.error(err);
       setError("No se pudo conectar con el servidor");
@@ -44,26 +41,36 @@ export default function Clientes() {
     fetchClientes();
   }, []);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!search.trim()) {
+        setFilteredClientes(clientes);
+        return;
+      }
+      const term = search.toLowerCase();
+      const results = clientes.filter((cliente) => {
+        const fullName = `${cliente.nombres} ${cliente.apellidos}`.toLowerCase();
+        return cliente.dpi.includes(term) || fullName.includes(term);
+      });
+      setFilteredClientes(results);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [search, clientes]);
+
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar este cliente?")) return;
-
     try {
       const token = localStorage.getItem("token");
-
       const res = await fetch(`${ROUTES.CLIENTS}/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         alert(data.message || "No se pudo eliminar");
         return;
       }
-
+      setSelectedCliente(null);
       fetchClientes();
     } catch (err) {
       console.error(err);
@@ -71,95 +78,142 @@ export default function Clientes() {
     }
   };
 
+  const getInitials = (nombres, apellidos) => {
+    const n = nombres?.charAt(0).toUpperCase() || "";
+    const a = apellidos?.charAt(0).toUpperCase() || "";
+    return `${n}${a}`;
+  };
+
   return (
-    <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)] transition-colors">
-      <Sidebar menuOpen={menuOpen} setMenuOpen={setMenuOpen} role={user?.role} />
-
-      <button
-        className="p-2 m-4 rounded-lg bg-[var(--secondary)] text-white fixed top-0 left-0 z-50 shadow"
-        onClick={() => setMenuOpen(!menuOpen)}
-      >
-        ☰
-      </button>
-
-      <div
-        className={`transition-transform duration-300 ${
-          menuOpen ? "translate-x-64" : "translate-x-0"
-        } p-8 pt-24`}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Clientes</h1>
-
-          {/* CREAR → TODOS */}
-          <button
-            onClick={() => navigate("/clientes/crear")}
-            className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
-          >
-            + Crear Cliente
-          </button>
-        </div>
-
-        {loading && <p>Cargando clientes...</p>}
-        {error && <p className="text-red-500">{error}</p>}
-
-        {!loading && clientes.length === 0 && (
-          <p>No hay clientes registrados.</p>
-        )}
-
-        {!loading && clientes.length > 0 && (
-          <div className="overflow-x-auto bg-[var(--card)] rounded-xl shadow">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-[var(--secondary)] text-white">
-                <tr>
-                  <th className="p-3">DPI</th>
-                  <th className="p-3">Nombre</th>
-                  <th className="p-3">Teléfono</th>
-                  <th className="p-3">Dirección</th>
-                  <th className="p-3 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clientes.map((cliente) => (
-                  <tr
-                    key={cliente.id}
-                    className="border-b border-gray-200 dark:border-gray-700"
-                  >
-                    <td className="p-3">{cliente.dpi}</td>
-                    <td className="p-3">
-                      {cliente.nombres} {cliente.apellidos}
-                    </td>
-                    <td className="p-3">{cliente.telefono}</td>
-                    <td className="p-3">{cliente.direccion}</td>
-                    <td className="p-3 text-center space-x-2">
-
-                      {/* EDITAR → TODOS */}
-                      <button
-                        className="px-3 py-1 bg-blue-500 text-white rounded hover:opacity-90"
-                        onClick={() =>
-                          navigate(`/clientes/editar/${cliente.id}`)
-                        }
-                      >
-                        Editar
-                      </button>
-
-                      {/* ELIMINAR → SOLO ADMIN */}
-                      {user?.role === "admin" && (
-                        <button
-                          className="px-3 py-1 bg-red-500 text-white rounded hover:opacity-90"
-                          onClick={() => handleDelete(cliente.id)}
-                        >
-                          Eliminar
-                        </button>
-                      )}
-
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+    <div className="pt-16 text-[var(--text)]">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold">Clientes</h1>
+        <button
+          onClick={() => navigate("/clientes/crear")}
+          className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
+        >
+          + Crear Cliente
+        </button>
       </div>
+
+      {/* BUSCADOR */}
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Buscar por DPI, nombre o apellido..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-4 py-2 rounded-lg bg-[var(--card)] border border-gray-300 focus:outline-none"
+        />
+      </div>
+
+      {loading && <p>Cargando clientes...</p>}
+      {error && <p className="text-red-500">{error}</p>}
+      {!loading && filteredClientes.length === 0 && (
+        <p>No se encontraron clientes.</p>
+      )}
+
+      {/* GRID DE TARJETAS */}
+      {!loading && filteredClientes.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredClientes.map((cliente) => (
+            <div
+              key={cliente.id}
+              onClick={() => setSelectedCliente(cliente)}
+              className="bg-[var(--card)] rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-bold text-lg shrink-0">
+                  {getInitials(cliente.nombres, cliente.apellidos)}
+                </div>
+                <div>
+                  <h2 className="font-bold text-base leading-tight">
+                    {cliente.nombres} {cliente.apellidos}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Cliente</p>
+                </div>
+              </div>
+              <div className="space-y-1 text-sm text-gray-500">
+                <p><span className="font-medium text-[var(--text)]">DPI:</span> {cliente.dpi}</p>
+                <p><span className="font-medium text-[var(--text)]">Tel:</span> {cliente.telefono}</p>
+                <p><span className="font-medium text-[var(--text)]">Dir:</span> {cliente.direccion}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* MODAL */}
+      {selectedCliente && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setSelectedCliente(null)}
+        >
+          <div
+            className="bg-[var(--card)] rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: "zoomIn 0.2s ease-out" }}
+          >
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-bold text-3xl mb-3">
+                {getInitials(selectedCliente.nombres, selectedCliente.apellidos)}
+              </div>
+              <h2 className="text-xl font-bold text-center">
+                {selectedCliente.nombres} {selectedCliente.apellidos}
+              </h2>
+              <p className="text-sm text-gray-400">Cliente</p>
+            </div>
+
+            <div className="space-y-2 text-sm mb-6 bg-[var(--bg)] rounded-xl p-4">
+              <p><span className="font-semibold">DPI:</span> {selectedCliente.dpi}</p>
+              <p><span className="font-semibold">Teléfono:</span> {selectedCliente.telefono}</p>
+              <p><span className="font-semibold">Dirección:</span> {selectedCliente.direccion}</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => navigate(`/prestamos/crear?clienteId=${selectedCliente.id}`)}
+                className="w-full py-2 bg-green-500 text-white rounded-xl font-semibold hover:opacity-90"
+              >
+                + Crear Préstamo
+              </button>
+              <button
+                onClick={() => navigate(`/prestamos?clienteId=${selectedCliente.id}`)}
+                className="w-full py-2 bg-[var(--secondary)] text-white rounded-xl font-semibold hover:opacity-90"
+              >
+                Ver Préstamos
+              </button>
+              <button
+                onClick={() => navigate(`/clientes/editar/${selectedCliente.id}`)}
+                className="w-full py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
+              >
+                Editar Cliente
+              </button>
+              {user?.role === "admin" && (
+                <button
+                  onClick={() => handleDelete(selectedCliente.id)}
+                  className="w-full py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
+                >
+                  Eliminar Cliente
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedCliente(null)}
+                className="w-full py-2 bg-gray-300 text-gray-800 rounded-xl font-semibold hover:opacity-90 mt-1"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+          <style>{`
+            @keyframes zoomIn {
+              from { opacity: 0; transform: scale(0.85); }
+              to   { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }

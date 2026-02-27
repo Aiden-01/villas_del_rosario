@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 export default function ClienteForm({ mode, clienteId }) {
-  const navigate = useNavigate(); // 🔥 AGREGADO
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     dpi: "",
@@ -24,18 +24,11 @@ export default function ClienteForm({ mode, clienteId }) {
   const obtenerCliente = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const res = await axios.get(
         `http://localhost:3333/api/clientes/${clienteId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       const cliente = res.data;
-
       setFormData({
         dpi: cliente.dpi || "",
         nombres: cliente.nombres || "",
@@ -43,7 +36,6 @@ export default function ClienteForm({ mode, clienteId }) {
         telefono: cliente.telefono || "",
         direccion: cliente.direccion || "",
       });
-
     } catch (error) {
       console.error("Error cargando cliente:", error);
     }
@@ -51,39 +43,25 @@ export default function ClienteForm({ mode, clienteId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       const token = localStorage.getItem("token");
-
       if (isEdit) {
         await axios.put(
           `http://localhost:3333/api/clientes/${clienteId}`,
           formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         alert("Cliente actualizado correctamente");
       } else {
-        await axios.post(
-          "http://localhost:3333/api/clientes",
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        await axios.post("http://localhost:3333/api/clientes", formData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         alert("Cliente creado correctamente");
       }
-
-      // 🔥 REDIRECCIÓN AUTOMÁTICA
       navigate("/clientes");
-
     } catch (error) {
       console.error(error);
+      alert("Error al guardar el cliente");
     }
   };
 
@@ -96,52 +74,37 @@ export default function ClienteForm({ mode, clienteId }) {
         type="text"
         placeholder="DPI"
         value={formData.dpi}
-        onChange={(e) =>
-          setFormData({ ...formData, dpi: e.target.value })
-        }
-        className="w-full p-2 rounded bg-[var(--bg)]"
+        onChange={(e) => setFormData({ ...formData, dpi: e.target.value })}
+        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
       />
-
       <input
         type="text"
         placeholder="Nombres"
         value={formData.nombres}
-        onChange={(e) =>
-          setFormData({ ...formData, nombres: e.target.value })
-        }
-        className="w-full p-2 rounded bg-[var(--bg)]"
+        onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
       />
-
       <input
         type="text"
         placeholder="Apellidos"
         value={formData.apellidos}
-        onChange={(e) =>
-          setFormData({ ...formData, apellidos: e.target.value })
-        }
-        className="w-full p-2 rounded bg-[var(--bg)]"
+        onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
       />
-
       <input
         type="text"
         placeholder="Teléfono"
         value={formData.telefono}
-        onChange={(e) =>
-          setFormData({ ...formData, telefono: e.target.value })
-        }
-        className="w-full p-2 rounded bg-[var(--bg)]"
+        onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
       />
-
       <input
         type="text"
         placeholder="Dirección"
         value={formData.direccion}
-        onChange={(e) =>
-          setFormData({ ...formData, direccion: e.target.value })
-        }
-        className="w-full p-2 rounded bg-[var(--bg)]"
+        onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
       />
-
       <button
         type="submit"
         className="w-full bg-blue-600 p-2 rounded text-white font-semibold"

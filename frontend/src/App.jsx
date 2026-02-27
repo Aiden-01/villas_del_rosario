@@ -5,6 +5,9 @@ import Dashboard from "./pages/Dashboard";
 import CrearUsuario from "./pages/CrearUsuario";
 import CrearCliente from "./pages/CrearCliente";
 import Clientes from "./pages/Clientes";
+import Prestamos from "./pages/Prestamos";
+import CrearPrestamo from "./pages/CrearPrestamo";
+import GestionUsuarios from "./pages/GestionUsuarios";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -13,11 +16,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* ================= LOGIN ================= */}
         <Route path="/" element={<Login />} />
 
-        {/* ================= RUTAS PROTEGIDAS GENERALES ================= */}
         <Route
           element={
             <ProtectedRoute>
@@ -26,12 +26,16 @@ function App() {
           }
         >
           <Route path="/dashboard" element={<Dashboard />} />
+
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/clientes/crear" element={<CrearCliente />} />
-          <Route path="/clientes/editar/:id" element={<CrearCliente />} />
+          <Route path="/clientes/editar/:clienteId" element={<CrearCliente />} />
+
+          <Route path="/prestamos" element={<Prestamos />} />
+          <Route path="/prestamos/crear" element={<CrearPrestamo />} />
+          <Route path="/prestamos/editar/:prestamoId" element={<CrearPrestamo />} />
         </Route>
 
-        {/* ================= RUTAS SOLO ADMIN ================= */}
         <Route
           element={
             <ProtectedRoute roles={["admin"]}>
@@ -40,9 +44,9 @@ function App() {
           }
         >
           <Route path="/usuarios/crear" element={<CrearUsuario />} />
+          <Route path="/usuarios" element={<GestionUsuarios />} />
           <Route path="/admin" element={<h1>Panel Admin</h1>} />
         </Route>
-
       </Routes>
     </BrowserRouter>
   );
