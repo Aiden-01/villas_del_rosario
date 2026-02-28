@@ -33,14 +33,6 @@ export default function Dashboard() {
           </button>
 
           <button
-            onClick={() => navigate("/cobros")}
-            className="text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            Registrar Pago
-          </button>
-
-          <button
             onClick={() => navigate("/clientes/crear")}
             className="text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
             style={{ backgroundColor: "var(--primary)" }}

@@ -5,6 +5,7 @@ const UsersController = () => import('#controllers/users_controller')
 const ClientsController = () => import('#controllers/clients_controller')
 const PrestamosController = () => import('#controllers/prestamos_controller')
 const PagosController = () => import('#controllers/pagos_controller')
+const ReportesController = () => import('#controllers/reportes_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando 🚀' }
@@ -53,3 +54,13 @@ router
     router.delete('/:id', [PagosController, 'destroy'])
   })
   .prefix('api/pagos')
+
+router
+  .group(() => {
+    router.get('/pagos', [ReportesController, 'pagos'])
+    router.get('/prestamos', [ReportesController, 'prestamos'])
+    router.get('/ganancias', [ReportesController, 'ganancias'])
+    router.get('/exportar/excel', [ReportesController, 'exportarExcel'])
+    router.get('/exportar/pdf', [ReportesController, 'exportarPDF'])
+  })
+  .prefix('api/reportes')

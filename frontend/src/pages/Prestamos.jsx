@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import Toast from "../components/Toast";
+import useToast from "../hooks/useToast";
 
 const ROUTES = {
   PRESTAMOS: "http://localhost:3333/api/prestamos",
   CLIENTES: "http://localhost:3333/api/clientes",
+  PAGOS: "http://localhost:3333/api/pagos",
 };
 
 const ESTADO_COLORS = {
@@ -37,6 +40,10 @@ export default function Prestamos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedPrestamo, setSelectedPrestamo] = useState(null);
+  const [pagos, setPagos] = useState([]);
+  const [loadingPagos, setLoadingPagos] = useState(false);
+  const [registrandoPago, setRegistrandoPago] = useState(false);
+  const { toast, showToast, closeToast } = useToast();
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -74,9 +81,36 @@ export default function Prestamos() {
     }
   };
 
+  const fetchPagos = async (prestamoId) => {
+    setLoadingPagos(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${ROUTES.PAGOS}/prestamo/${prestamoId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setPagos(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingPagos(false);
+    }
+  };
+
   useEffect(() => {
     fetchPrestamos();
   }, [clienteId]);
+
+  const abrirModal = (prestamo) => {
+    setSelectedPrestamo(prestamo);
+    setPagos([]);
+    fetchPagos(prestamo.id);
+  };
+
+  const cerrarModal = () => {
+    setSelectedPrestamo(null);
+    setPagos([]);
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar este préstamo?")) return;
@@ -88,16 +122,88 @@ export default function Prestamos() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || "No se pudo eliminar");
+        showToast(data.message || "No se pudo eliminar", "error");
         return;
       }
-      setSelectedPrestamo(null);
+      cerrarModal();
       fetchPrestamos();
+      showToast("Préstamo eliminado correctamente", "success");
     } catch (err) {
       console.error(err);
-      alert("Error eliminando préstamo");
+      showToast("Error eliminando préstamo", "error");
     }
   };
+
+  const handleRegistrarPago = async () => {
+    if (!selectedPrestamo) return;
+
+    const cuotaSemanal = calcularCuotaSemanal(
+      selectedPrestamo.monto,
+      selectedPrestamo.interes,
+      selectedPrestamo.cuotas
+    );
+
+    const cuotasPagadas = pagos.map((p) => p.numeroCuota);
+    let siguienteCuota = 1;
+    while (cuotasPagadas.includes(siguienteCuota)) siguienteCuota++;
+
+    if (siguienteCuota > selectedPrestamo.cuotas) {
+      showToast("Este préstamo ya tiene todas las cuotas pagadas", "warning");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `¿Registrar pago de cuota #${siguienteCuota} por Q${cuotaSemanal.toLocaleString("es-GT", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}?`
+      )
+    )
+      return;
+
+    setRegistrandoPago(true);
+    try {
+      const token = localStorage.getItem("token");
+      const hoy = new Date().toISOString().split("T")[0];
+
+      const res = await fetch(ROUTES.PAGOS, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          prestamoId: selectedPrestamo.id,
+          numeroCuota: siguienteCuota,
+          montoPagado: cuotaSemanal.toFixed(2),
+          fechaPago: hoy,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.message || "Error al registrar pago", "error");
+        return;
+      }
+
+      await fetchPagos(selectedPrestamo.id);
+      await fetchPrestamos();
+      showToast(`✅ Cuota #${siguienteCuota} registrada correctamente`, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Error al registrar pago", "error");
+    } finally {
+      setRegistrandoPago(false);
+    }
+  };
+
+  const cuotasPagadas = pagos.map((p) => p.numeroCuota);
+  let siguienteCuota = 1;
+  while (cuotasPagadas.includes(siguienteCuota)) siguienteCuota++;
+  const todasPagadas = selectedPrestamo
+    ? siguienteCuota > selectedPrestamo.cuotas
+    : false;
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -146,7 +252,7 @@ export default function Prestamos() {
             return (
               <div
                 key={prestamo.id}
-                onClick={() => setSelectedPrestamo(prestamo)}
+                onClick={() => abrirModal(prestamo)}
                 className="rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
                 style={{
                   backgroundColor: "var(--card)",
@@ -169,7 +275,6 @@ export default function Prestamos() {
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-500">
-                  {/* MONTO Y CUOTA SEMANAL EN LA MISMA FILA */}
                   <div className="flex items-center justify-between">
                     <p>
                       <span className="font-medium text-[var(--text)]">Monto:</span>{" "}
@@ -188,7 +293,6 @@ export default function Prestamos() {
                   <p><span className="font-medium text-[var(--text)]">Fin:</span> {formatearFecha(prestamo.fechaFin)}</p>
                 </div>
 
-                {/* BARRA DE PROGRESO */}
                 {prestamo.estado === "activo" && (
                   <div className="mt-3">
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -198,8 +302,7 @@ export default function Prestamos() {
                           width: `${Math.min(
                             100,
                             ((new Date() - new Date(prestamo.fechaInicio)) /
-                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) *
-                              100
+                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
                           )}%`,
                           backgroundColor: mora ? "#ef4444" : "var(--primary)",
                         }}
@@ -210,8 +313,7 @@ export default function Prestamos() {
                         ? "⚠ Plazo vencido"
                         : `${Math.round(
                             ((new Date() - new Date(prestamo.fechaInicio)) /
-                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) *
-                              100
+                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
                           )}% del plazo`}
                     </p>
                   </div>
@@ -226,17 +328,17 @@ export default function Prestamos() {
       {selectedPrestamo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setSelectedPrestamo(null)}
+          onClick={cerrarModal}
         >
           <div
-            className="bg-[var(--card)] rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4"
+            className="rounded-3xl shadow-2xl p-6 w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             style={{
+              backgroundColor: "var(--card)",
               animation: "zoomIn 0.2s ease-out",
               border: esMora(selectedPrestamo) ? "2px solid #ef4444" : "none",
             }}
           >
-            {/* BADGE ESTADO */}
             <div className="flex justify-center mb-4">
               <span
                 className={`text-sm px-4 py-1 rounded-full font-semibold ${
@@ -249,13 +351,11 @@ export default function Prestamos() {
               </span>
             </div>
 
-            {/* NOMBRE */}
             <h2 className="text-xl font-bold text-center mb-1">
               {selectedPrestamo.cliente?.nombres} {selectedPrestamo.cliente?.apellidos}
             </h2>
 
-            {/* MONTO Y CUOTA SEMANAL JUNTOS */}
-            <div className="flex items-center justify-center gap-3 mb-5">
+            <div className="flex items-center justify-center gap-3 mb-4">
               <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
                 Q{Number(selectedPrestamo.monto).toLocaleString()}
               </p>
@@ -269,15 +369,12 @@ export default function Prestamos() {
               </p>
             </div>
 
-            {/* INFO */}
-            <div className="space-y-2 text-sm mb-6 bg-[var(--bg)] rounded-xl p-4">
+            <div className="space-y-2 text-sm mb-4 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
               <p><span className="font-semibold">Interés:</span> {selectedPrestamo.interes}%</p>
               <p><span className="font-semibold">Cuotas:</span> {selectedPrestamo.cuotas} semanas</p>
               <p><span className="font-semibold">Fecha inicio:</span> {formatearFecha(selectedPrestamo.fechaInicio)}</p>
               <p><span className="font-semibold">Fecha fin:</span> {formatearFecha(selectedPrestamo.fechaFin)}</p>
-
               <hr style={{ borderColor: "var(--card-border)" }} />
-
               <p>
                 <span className="font-semibold">Total a pagar:</span>{" "}
                 Q{(Number(selectedPrestamo.monto) * (1 + Number(selectedPrestamo.interes) / 100)).toLocaleString("es-GT", {
@@ -287,14 +384,81 @@ export default function Prestamos() {
               </p>
             </div>
 
-            {/* ACCIONES */}
+            {selectedPrestamo.estado === "activo" && (
+              <div
+                className="rounded-xl p-4 mb-4 text-center"
+                style={{
+                  backgroundColor: todasPagadas ? "#dcfce7" : "var(--bg)",
+                  border: `1px solid ${todasPagadas ? "#86efac" : "var(--card-border)"}`,
+                }}
+              >
+                {todasPagadas ? (
+                  <p className="text-green-700 font-semibold">✅ Todas las cuotas han sido pagadas</p>
+                ) : (
+                  <>
+                    <p className="text-sm opacity-60 mb-1">Siguiente cuota pendiente</p>
+                    <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>
+                      Cuota #{siguienteCuota} de {selectedPrestamo.cuotas}
+                    </p>
+                    <p className="text-sm font-semibold mt-1">
+                      Q{calcularCuotaSemanal(
+                        selectedPrestamo.monto,
+                        selectedPrestamo.interes,
+                        selectedPrestamo.cuotas
+                      ).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <p className="text-sm font-semibold mb-2">Historial de pagos</p>
+              {loadingPagos ? (
+                <p className="text-xs opacity-50">Cargando pagos...</p>
+              ) : pagos.length === 0 ? (
+                <p className="text-xs opacity-50">Sin pagos registrados aún.</p>
+              ) : (
+                <div className="space-y-2 max-h-36 overflow-y-auto">
+                  {pagos.map((pago) => (
+                    <div
+                      key={pago.id}
+                      className="flex items-center justify-between text-xs rounded-lg px-3 py-2"
+                      style={{
+                        backgroundColor: "var(--bg)",
+                        border: "1px solid var(--card-border)",
+                      }}
+                    >
+                      <span className="font-semibold" style={{ color: "var(--primary)" }}>
+                        Cuota #{pago.numeroCuota}
+                      </span>
+                      <span>Q{Number(pago.montoPagado).toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span>
+                      <span className="opacity-60">{formatearFecha(pago.fechaPago)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-col gap-2">
+              {selectedPrestamo.estado === "activo" && !todasPagadas && (
+                <button
+                  onClick={handleRegistrarPago}
+                  disabled={registrandoPago}
+                  className="w-full py-2 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: "var(--primary)" }}
+                >
+                  {registrandoPago ? "Registrando..." : `💰 Registrar Cuota #${siguienteCuota}`}
+                </button>
+              )}
+
               <button
                 onClick={() => navigate(`/prestamos/editar/${selectedPrestamo.id}`)}
                 className="w-full py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
               >
                 Editar Préstamo
               </button>
+
               {user?.role === "admin" && (
                 <button
                   onClick={() => handleDelete(selectedPrestamo.id)}
@@ -303,8 +467,9 @@ export default function Prestamos() {
                   Eliminar Préstamo
                 </button>
               )}
+
               <button
-                onClick={() => setSelectedPrestamo(null)}
+                onClick={cerrarModal}
                 className="w-full py-2 bg-gray-300 text-gray-800 rounded-xl font-semibold hover:opacity-90 mt-1"
               >
                 Cerrar
@@ -320,6 +485,9 @@ export default function Prestamos() {
           `}</style>
         </div>
       )}
+
+      {/* TOAST */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </div>
   );
 }

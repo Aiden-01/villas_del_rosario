@@ -129,26 +129,14 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
             >
               Préstamos
             </li>
-            <li
-              className="cursor-pointer p-2 rounded transition hover:bg-white/20"
-              onClick={() => handleNavigate("/cobros")}
-            >
-              Registrar Cobro
-            </li>
 
             {isAdmin && (
               <>
                 <li
                   className="cursor-pointer p-2 rounded transition hover:bg-white/20"
-                  onClick={() => handleNavigate("/usuarios/crear")}
-                >
-                  Crear Usuario
-                </li>
-                <li
-                  className="cursor-pointer p-2 rounded transition hover:bg-white/20"
                   onClick={() => handleNavigate("/usuarios")}
                 >
-                  Gestionar Usuarios
+                  Usuarios
                 </li>
                 <li
                   className="cursor-pointer p-2 rounded transition hover:bg-white/20"

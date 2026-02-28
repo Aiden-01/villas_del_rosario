@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import Toast from "./Toast";
+import useToast from "../hooks/useToast";
 
 export default function PrestamoForm({ mode, prestamoId }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const clienteIdFromUrl = searchParams.get("clienteId");
+  const { toast, showToast, closeToast } = useToast();
 
   const [formData, setFormData] = useState({
     clienteId: clienteIdFromUrl || "",
@@ -88,123 +91,127 @@ export default function PrestamoForm({ mode, prestamoId }) {
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        alert("Préstamo actualizado correctamente");
+        showToast("Préstamo actualizado correctamente", "success");
       } else {
         await axios.post("http://localhost:3333/api/prestamos", formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        alert("Préstamo creado correctamente");
+        showToast("Préstamo creado correctamente", "success");
       }
-      navigate("/prestamos");
+      setTimeout(() => navigate("/prestamos"), 1500);
     } catch (error) {
       console.error(error);
-      alert("Error al guardar el préstamo");
+      showToast("Error al guardar el préstamo", "error");
     }
   };
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
-    >
-      {/* CLIENTE */}
-      {clientePreseleccionado && !isEdit ? (
-        <div
-          className="w-full p-2 rounded font-semibold"
-          style={{
-            backgroundColor: "var(--bg)",
-            color: "var(--text)",
-            border: "1px solid var(--card-border)",
-          }}
-        >
-          👤 {clientePreseleccionado.nombres} {clientePreseleccionado.apellidos}
-        </div>
-      ) : (
-        <select
-          value={formData.clienteId}
-          onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
-          className="w-full p-2 rounded"
-          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
-        >
-          <option value="">Seleccionar cliente</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombres} {c.apellidos} — {c.dpi}
-            </option>
-          ))}
-        </select>
-      )}
+return (
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
+      >
+        {/* CLIENTE */}
+        {clientePreseleccionado && !isEdit ? (
+          <div
+            className="w-full p-2 rounded font-semibold"
+            style={{
+              backgroundColor: "var(--bg)",
+              color: "var(--text)",
+              border: "1px solid var(--card-border)",
+            }}
+          >
+            👤 {clientePreseleccionado.nombres} {clientePreseleccionado.apellidos}
+          </div>
+        ) : (
+          <select
+            value={formData.clienteId}
+            onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
+            className="w-full p-2 rounded"
+            style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          >
+            <option value="">Seleccionar cliente</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombres} {c.apellidos} — {c.dpi}
+              </option>
+            ))}
+          </select>
+        )}
 
-      <input
-        type="number"
-        placeholder="Monto"
-        value={formData.monto}
-        onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-        className="w-full p-2 rounded"
-        style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
-      />
-
-      <input
-        type="number"
-        placeholder="Interés (%)"
-        value={formData.interes}
-        onChange={(e) => setFormData({ ...formData, interes: e.target.value })}
-        className="w-full p-2 rounded"
-        style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
-      />
-
-      <input
-        type="number"
-        placeholder="Número de cuotas (semanas)"
-        value={formData.cuotas}
-        onChange={(e) => setFormData({ ...formData, cuotas: e.target.value })}
-        className="w-full p-2 rounded"
-        style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
-      />
-
-      <input
-        type="date"
-        value={formData.fechaInicio}
-        onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
-        className="w-full p-2 rounded"
-        style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
-      />
-
-      {/* FECHA FIN — solo lectura, calculada automáticamente */}
-      <div>
         <input
-          type="date"
-          value={formData.fechaFin}
-          readOnly
-          className="w-full p-2 rounded cursor-not-allowed opacity-70"
+          type="number"
+          placeholder="Monto"
+          value={formData.monto}
+          onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
+          className="w-full p-2 rounded"
           style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
         />
-        {formData.fechaFin && (
-          <p className="text-xs mt-1 opacity-60">
-            📅 Fecha fin calculada automáticamente ({formData.cuotas} semanas desde el inicio)
-          </p>
-        )}
-      </div>
 
-      {isEdit && (
-        <select
-          value={formData.estado}
-          onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+        <input
+          type="number"
+          placeholder="Interés (%)"
+          value={formData.interes}
+          onChange={(e) => setFormData({ ...formData, interes: e.target.value })}
           className="w-full p-2 rounded"
           style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
-        >
-          <option value="activo">Activo</option>
-          <option value="pagado">Pagado</option>
-          <option value="vencido">Vencido</option>
-        </select>
-      )}
+        />
 
-      <button
-        type="submit"
-        className="w-full bg-blue-600 p-2 rounded text-white font-semibold hover:opacity-90"
-      >
-        {isEdit ? "Actualizar Préstamo" : "Crear Préstamo"}
-      </button>
-    </form>
+        <input
+          type="number"
+          placeholder="Número de cuotas (semanas)"
+          value={formData.cuotas}
+          onChange={(e) => setFormData({ ...formData, cuotas: e.target.value })}
+          className="w-full p-2 rounded"
+          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+        />
+
+        <input
+          type="date"
+          value={formData.fechaInicio}
+          onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
+          className="w-full p-2 rounded"
+          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+        />
+
+        <div>
+          <input
+            type="date"
+            value={formData.fechaFin}
+            readOnly
+            className="w-full p-2 rounded cursor-not-allowed opacity-70"
+            style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          />
+          {formData.fechaFin && (
+            <p className="text-xs mt-1 opacity-60">
+              📅 Fecha fin calculada automáticamente ({formData.cuotas} semanas desde el inicio)
+            </p>
+          )}
+        </div>
+
+        {isEdit && (
+          <select
+            value={formData.estado}
+            onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+            className="w-full p-2 rounded"
+            style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          >
+            <option value="activo">Activo</option>
+            <option value="pagado">Pagado</option>
+            <option value="vencido">Vencido</option>
+          </select>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-blue-600 p-2 rounded text-white font-semibold hover:opacity-90"
+        >
+          {isEdit ? "Actualizar Préstamo" : "Crear Préstamo"}
+        </button>
+      </form>
+
+      {/* 👇 FUERA del form */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+    </>
   );
 }

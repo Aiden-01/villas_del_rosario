@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Toast from "../components/Toast";
+import useToast from "../hooks/useToast";
 
 const ROUTES = {
   CLIENTS: "http://localhost:3333/api/clientes",
@@ -13,6 +15,7 @@ export default function Clientes() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedCliente, setSelectedCliente] = useState(null);
+  const { toast, showToast, closeToast } = useToast();
 
   const navigate = useNavigate();
 
@@ -67,14 +70,15 @@ export default function Clientes() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || "No se pudo eliminar");
+       showToast(data.message || "No se pudo eliminar", "error")
         return;
       }
       setSelectedCliente(null);
       fetchClientes();
+      showToast("Cliente eliminado correctamente", "success");
     } catch (err) {
       console.error(err);
-      alert("Error eliminando cliente");
+     showToast("Error eliminando cliente", "error")
     }
   };
 
@@ -214,6 +218,7 @@ export default function Clientes() {
           `}</style>
         </div>
       )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </div>
   );
 }

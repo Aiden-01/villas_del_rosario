@@ -8,6 +8,7 @@ import Clientes from "./pages/Clientes";
 import Prestamos from "./pages/Prestamos";
 import CrearPrestamo from "./pages/CrearPrestamo";
 import GestionUsuarios from "./pages/GestionUsuarios";
+import Reportes from "./pages/Reportes";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -45,6 +46,7 @@ function App() {
         >
           <Route path="/usuarios/crear" element={<CrearUsuario />} />
           <Route path="/usuarios" element={<GestionUsuarios />} />
+          <Route path="/reportes" element={<Reportes />} />
           <Route path="/admin" element={<h1>Panel Admin</h1>} />
         </Route>
       </Routes>

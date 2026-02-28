@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import Toast from "./Toast";
+import useToast from "../hooks/useToast";
 
 export default function ClienteForm({ mode, clienteId }) {
   const navigate = useNavigate();
+  const { toast, showToast, closeToast } = useToast();
 
   const [formData, setFormData] = useState({
     dpi: "",
@@ -51,66 +54,71 @@ export default function ClienteForm({ mode, clienteId }) {
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        alert("Cliente actualizado correctamente");
+        showToast("Cliente actualizado correctamente", "success");
       } else {
         await axios.post("http://localhost:3333/api/clientes", formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        alert("Cliente creado correctamente");
+        showToast("Cliente creado correctamente", "success");
       }
-      navigate("/clientes");
+      setTimeout(() => navigate("/clientes"), 1500);
     } catch (error) {
       console.error(error);
-      alert("Error al guardar el cliente");
+      showToast("Error al guardar el cliente", "error");
     }
   };
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
-    >
-      <input
-        type="text"
-        placeholder="DPI"
-        value={formData.dpi}
-        onChange={(e) => setFormData({ ...formData, dpi: e.target.value })}
-        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
-      />
-      <input
-        type="text"
-        placeholder="Nombres"
-        value={formData.nombres}
-        onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
-        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
-      />
-      <input
-        type="text"
-        placeholder="Apellidos"
-        value={formData.apellidos}
-        onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
-        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
-      />
-      <input
-        type="text"
-        placeholder="Teléfono"
-        value={formData.telefono}
-        onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
-      />
-      <input
-        type="text"
-        placeholder="Dirección"
-        value={formData.direccion}
-        onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-        className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
-      />
-      <button
-        type="submit"
-        className="w-full bg-blue-600 p-2 rounded text-white font-semibold"
+return (
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
-        {isEdit ? "Actualizar Cliente" : "Crear Cliente"}
-      </button>
-    </form>
+        <input
+          type="text"
+          placeholder="DPI"
+          value={formData.dpi}
+          onChange={(e) => setFormData({ ...formData, dpi: e.target.value })}
+          className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
+        />
+        <input
+          type="text"
+          placeholder="Nombres"
+          value={formData.nombres}
+          onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+          className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
+        />
+        <input
+          type="text"
+          placeholder="Apellidos"
+          value={formData.apellidos}
+          onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+          className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
+        />
+        <input
+          type="text"
+          placeholder="Teléfono"
+          value={formData.telefono}
+          onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+          className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
+        />
+        <input
+          type="text"
+          placeholder="Dirección"
+          value={formData.direccion}
+          onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+          className="w-full p-2 rounded bg-[var(--bg)] text-[var(--text)]"
+        />
+        <button
+          type="submit"
+          className="w-full bg-blue-600 p-2 rounded text-white font-semibold"
+        >
+          {isEdit ? "Actualizar Cliente" : "Crear Cliente"}
+        </button>
+      </form>
+
+      {/* 👇 FUERA del form */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+    </>
   );
 }
