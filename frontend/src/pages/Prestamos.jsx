@@ -12,7 +12,6 @@ const ESTADO_COLORS = {
   vencido: "bg-red-100 text-red-700",
 };
 
-// Si fecha_fin ya pasó y el estado es activo → mora
 const esMora = (prestamo) => {
   if (prestamo.estado !== "activo") return false;
   const hoy = new Date();
@@ -23,6 +22,12 @@ const esMora = (prestamo) => {
 const calcularCuotaSemanal = (monto, interes, cuotas) => {
   const total = Number(monto) * (1 + Number(interes) / 100);
   return total / Number(cuotas);
+};
+
+const formatearFecha = (fecha) => {
+  if (!fecha) return "";
+  const [year, month, day] = fecha.split("T")[0].split("-");
+  return `${day}-${month}-${year}`;
 };
 
 export default function Prestamos() {
@@ -164,20 +169,26 @@ export default function Prestamos() {
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-500">
-                  <p><span className="font-medium text-[var(--text)]">Monto:</span> Q{Number(prestamo.monto).toLocaleString()}</p>
+                  {/* MONTO Y CUOTA SEMANAL EN LA MISMA FILA */}
+                  <div className="flex items-center justify-between">
+                    <p>
+                      <span className="font-medium text-[var(--text)]">Monto:</span>{" "}
+                      Q{Number(prestamo.monto).toLocaleString()}
+                    </p>
+                    <p className="font-bold" style={{ color: "var(--primary)" }}>
+                      Q{cuotaSemanal.toLocaleString("es-GT", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}/sem
+                    </p>
+                  </div>
                   <p><span className="font-medium text-[var(--text)]">Interés:</span> {prestamo.interes}%</p>
                   <p><span className="font-medium text-[var(--text)]">Cuotas:</span> {prestamo.cuotas} semanas</p>
-                  <p>
-                    <span className="font-medium text-[var(--text)]">Cuota semanal:</span>{" "}
-                    <span className="font-bold" style={{ color: "var(--primary)" }}>
-                      Q{cuotaSemanal.toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </p>
-                  <p><span className="font-medium text-[var(--text)]">Inicio:</span> {prestamo.fechaInicio?.split("T")[0]}</p>
-                  <p><span className="font-medium text-[var(--text)]">Fin:</span> {prestamo.fechaFin?.split("T")[0]}</p>
+                  <p><span className="font-medium text-[var(--text)]">Inicio:</span> {formatearFecha(prestamo.fechaInicio)}</p>
+                  <p><span className="font-medium text-[var(--text)]">Fin:</span> {formatearFecha(prestamo.fechaFin)}</p>
                 </div>
 
-                {/* Barra de progreso de tiempo */}
+                {/* BARRA DE PROGRESO */}
                 {prestamo.estado === "activo" && (
                   <div className="mt-3">
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -225,6 +236,7 @@ export default function Prestamos() {
               border: esMora(selectedPrestamo) ? "2px solid #ef4444" : "none",
             }}
           >
+            {/* BADGE ESTADO */}
             <div className="flex justify-center mb-4">
               <span
                 className={`text-sm px-4 py-1 rounded-full font-semibold ${
@@ -237,35 +249,45 @@ export default function Prestamos() {
               </span>
             </div>
 
+            {/* NOMBRE */}
             <h2 className="text-xl font-bold text-center mb-1">
               {selectedPrestamo.cliente?.nombres} {selectedPrestamo.cliente?.apellidos}
             </h2>
-            <p className="text-center text-2xl font-bold mb-5" style={{ color: "var(--primary)" }}>
-              Q{Number(selectedPrestamo.monto).toLocaleString()}
-            </p>
 
+            {/* MONTO Y CUOTA SEMANAL JUNTOS */}
+            <div className="flex items-center justify-center gap-3 mb-5">
+              <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
+                Q{Number(selectedPrestamo.monto).toLocaleString()}
+              </p>
+              <span className="text-gray-400">|</span>
+              <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>
+                Q{calcularCuotaSemanal(
+                  selectedPrestamo.monto,
+                  selectedPrestamo.interes,
+                  selectedPrestamo.cuotas
+                ).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/sem
+              </p>
+            </div>
+
+            {/* INFO */}
             <div className="space-y-2 text-sm mb-6 bg-[var(--bg)] rounded-xl p-4">
               <p><span className="font-semibold">Interés:</span> {selectedPrestamo.interes}%</p>
               <p><span className="font-semibold">Cuotas:</span> {selectedPrestamo.cuotas} semanas</p>
-              <p><span className="font-semibold">Fecha inicio:</span> {selectedPrestamo.fechaInicio?.split("T")[0]}</p>
-              <p><span className="font-semibold">Fecha fin:</span> {selectedPrestamo.fechaFin?.split("T")[0]}</p>
+              <p><span className="font-semibold">Fecha inicio:</span> {formatearFecha(selectedPrestamo.fechaInicio)}</p>
+              <p><span className="font-semibold">Fecha fin:</span> {formatearFecha(selectedPrestamo.fechaFin)}</p>
 
               <hr style={{ borderColor: "var(--card-border)" }} />
 
               <p>
                 <span className="font-semibold">Total a pagar:</span>{" "}
-                Q{(Number(selectedPrestamo.monto) * (1 + Number(selectedPrestamo.interes) / 100)).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              <p className="font-bold text-base" style={{ color: "var(--primary)" }}>
-                Cuota semanal:{" "}
-                Q{calcularCuotaSemanal(
-                  selectedPrestamo.monto,
-                  selectedPrestamo.interes,
-                  selectedPrestamo.cuotas
-                ).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                Q{(Number(selectedPrestamo.monto) * (1 + Number(selectedPrestamo.interes) / 100)).toLocaleString("es-GT", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </p>
             </div>
 
+            {/* ACCIONES */}
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => navigate(`/prestamos/editar/${selectedPrestamo.id}`)}
