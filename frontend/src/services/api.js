@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3333'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333';
 
 export const ROUTES = {
   LOGIN: `${API_URL}/api/login`,
