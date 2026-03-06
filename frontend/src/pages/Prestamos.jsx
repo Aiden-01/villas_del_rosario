@@ -3,10 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+
 const ROUTES = {
-  PRESTAMOS: "http://localhost:3333/api/prestamos",
-  CLIENTES: "http://localhost:3333/api/clientes",
-  PAGOS: "http://localhost:3333/api/pagos",
+  PRESTAMOS: API = `${API_URL}/api/prestamos`,
+  CLIENTES: API = `${API_URL}/api/clientes`,
+  PAGOS: API = `${API_URL}/api/pagos`,
 };
 
 const ESTADO_COLORS = {

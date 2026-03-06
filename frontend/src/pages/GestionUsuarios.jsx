@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+
 const ROUTES = {
-  USERS: "http://localhost:3333/api/users",
+  USERS: `${API_URL}/api/users`,
 };
 
 const ROLE_COLORS = {

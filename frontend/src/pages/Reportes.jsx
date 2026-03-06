@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-const API = "http://localhost:3333/api/reportes";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+const API = `${API_URL}/api/reportes`;
 
 const ESTADOS = ["activo", "pagado", "vencido"];
 

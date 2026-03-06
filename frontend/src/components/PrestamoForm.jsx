@@ -4,6 +4,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+
 export default function PrestamoForm({ mode, prestamoId }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -44,7 +46,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
   const obtenerClientes = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:3333/api/clientes", {
+      const res = await axios.get(`${API_URL}/api/clientes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setClientes(res.data);
@@ -63,7 +65,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `http://localhost:3333/api/prestamos/${prestamoId}`,
+        `${API_URL}/api/prestamos/${prestamoId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const prestamo = res.data;
@@ -87,13 +89,13 @@ export default function PrestamoForm({ mode, prestamoId }) {
       const token = localStorage.getItem("token");
       if (isEdit) {
         await axios.put(
-          `http://localhost:3333/api/prestamos/${prestamoId}`,
+          `${API_URL}/api/prestamos/${prestamoId}`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         showToast("Préstamo actualizado correctamente", "success");
       } else {
-        await axios.post("http://localhost:3333/api/prestamos", formData, {
+        await axios.post(`${API_URL}/api/prestamos`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Préstamo creado correctamente", "success");

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+
 export default function ClienteForm({ mode, clienteId }) {
   const navigate = useNavigate();
   const { toast, showToast, closeToast } = useToast();
@@ -28,7 +30,7 @@ export default function ClienteForm({ mode, clienteId }) {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `http://localhost:3333/api/clientes/${clienteId}`,
+        `${API_URL}/api/clientes/${clienteId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const cliente = res.data;
@@ -50,13 +52,13 @@ export default function ClienteForm({ mode, clienteId }) {
       const token = localStorage.getItem("token");
       if (isEdit) {
         await axios.put(
-          `http://localhost:3333/api/clientes/${clienteId}`,
+          `${API_URL}/api/clientes/${clienteId}`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         showToast("Cliente actualizado correctamente", "success");
-      } else {
-        await axios.post("http://localhost:3333/api/clientes", formData, {
+     } else {
+        await axios.post(`${API_URL}/api/clientes`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Cliente creado correctamente", "success");
