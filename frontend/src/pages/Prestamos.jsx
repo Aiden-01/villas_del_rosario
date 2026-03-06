@@ -6,9 +6,9 @@ import useToast from "../hooks/useToast";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
 const ROUTES = {
-  PRESTAMOS: API = `${API_URL}/api/prestamos`,
-  CLIENTES: API = `${API_URL}/api/clientes`,
-  PAGOS: API = `${API_URL}/api/pagos`,
+  PRESTAMOS: `${API_URL}/api/prestamos`,
+  CLIENTES: `${API_URL}/api/clientes`,
+  PAGOS: `${API_URL}/api/pagos`,
 };
 
 const ESTADO_COLORS = {
