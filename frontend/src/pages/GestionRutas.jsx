@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { authFetch } from "../services/api";
-import { useToast } from "../hooks/useToast";
+import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
@@ -10,7 +10,7 @@ export default function GestionRutas() {
   const [rutas, setRutas] = useState([]);
   const [form, setForm] = useState({ nombre: "", descripcion: "", diaCobro: "lunes" });
   const [creando, setCreando] = useState(false);
-  const { toast, showToast } = useToast();
+  const { toast, showToast, closeToast } = useToast();
 
   const cargarRutas = async () => {
     try {
@@ -57,7 +57,7 @@ export default function GestionRutas() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-10">
-      <Toast toast={toast} />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
       <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
         🗺️ Gestión de Rutas

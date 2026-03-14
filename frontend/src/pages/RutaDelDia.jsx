@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { authFetch } from "../services/api";
-import { useToast } from "../hooks/useToast";
+import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
@@ -9,7 +9,7 @@ export default function RutaDelDia() {
   const [datos, setDatos] = useState(null);
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(null);
-  const { toast, showToast } = useToast();
+  const { toast, showToast, closeToast } = useToast();
 
   const diasSemana = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
   const hoyNombre = diasSemana[new Date().getDay()];
@@ -45,7 +45,7 @@ export default function RutaDelDia() {
       });
 
       if (res.ok) {
-        showToast(`✅ Pago de ${item.cliente.nombres} registrado`, "success");
+        showToast(`Pago de ${item.cliente.nombres} registrado`, "success");
         cargarRuta();
       } else {
         const err = await res.json();
@@ -68,7 +68,7 @@ export default function RutaDelDia() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pb-10">
-      <Toast toast={toast} />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
       {/* ENCABEZADO */}
       <div className="mb-6">
