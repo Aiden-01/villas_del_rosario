@@ -23,6 +23,9 @@ export default class Client extends BaseModel {
   @column()
   declare direccion: string
 
+  @column()
+  declare zona: string | null
+
   @hasMany(() => Prestamo, {
     foreignKey: 'clienteId',
   })

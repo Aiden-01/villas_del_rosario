@@ -31,6 +31,12 @@ export default class Prestamo extends BaseModel {
   @column()
   declare estado: string
 
+  @column()
+  declare frecuenciaPago: string | null
+
+  @column()
+  declare diaVisita: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

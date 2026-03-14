@@ -6,6 +6,7 @@ const ClientsController = () => import('#controllers/clients_controller')
 const PrestamosController = () => import('#controllers/prestamos_controller')
 const PagosController = () => import('#controllers/pagos_controller')
 const ReportesController = () => import('#controllers/reportes_controller')
+const RutasController = () => import('#controllers/rutas_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando 🚀' }
@@ -64,3 +65,13 @@ router
     router.get('/exportar/pdf', [ReportesController, 'exportarPDF'])
   })
   .prefix('api/reportes')
+
+router
+  .group(() => {
+    router.get('/', [RutasController, 'index'])
+    router.post('/', [RutasController, 'store'])
+    router.put('/:id', [RutasController, 'update'])
+    router.delete('/:id', [RutasController, 'destroy'])
+    router.get('/hoy', [RutasController, 'rutaDelDia'])
+  })
+  .prefix('api/rutas')
