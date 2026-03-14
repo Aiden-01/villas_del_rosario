@@ -60,7 +60,7 @@ export default function GestionRutas() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
       <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
-        🗺️ Gestión de Rutas
+        Gestión de Rutas
       </h1>
 
       {/* FORMULARIO */}
