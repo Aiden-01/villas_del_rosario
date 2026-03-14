@@ -113,7 +113,7 @@ export default function GestionRutas() {
             <div>
               <p className="font-bold" style={{ color: "var(--text)" }}>{ruta.nombre}</p>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                📅 {ruta.diaCobro} {ruta.descripcion && `— ${ruta.descripcion}`}
+                {ruta.diaCobro} {ruta.descripcion && `— ${ruta.descripcion}`}
               </p>
             </div>
             <button

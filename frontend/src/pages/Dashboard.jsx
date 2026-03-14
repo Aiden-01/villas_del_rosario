@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 export default function Dashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
+  const isAdmin = user?.role === "admin";
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -39,6 +40,14 @@ export default function Dashboard() {
           >
             + Crear Cliente
           </button>
+
+          <button
+            onClick={() => navigate("/ruta-del-dia")}
+            className="text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
+            style={{ backgroundColor: "#16a34a" }}
+          >
+            📍 Ruta de Hoy
+          </button>
         </div>
       </div>
 
@@ -67,12 +76,24 @@ export default function Dashboard() {
         <div
           className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-          onClick={() => navigate("/cobros")}
+          onClick={() => navigate("/ruta-del-dia")}
         >
-          <p className="text-3xl font-bold" style={{ color: "var(--primary)" }}>📋</p>
-          <p className="font-semibold mt-2">Cobros</p>
-          <p className="text-sm opacity-60">Registrar pagos</p>
+          <p className="text-3xl font-bold">📍</p>
+          <p className="font-semibold mt-2">Ruta de Hoy</p>
+          <p className="text-sm opacity-60">Ver cobros del día</p>
         </div>
+
+        {isAdmin && (
+          <div
+            className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
+            style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
+            onClick={() => navigate("/rutas")}
+          >
+            <p className="text-3xl font-bold">🗺️</p>
+            <p className="font-semibold mt-2">Rutas</p>
+            <p className="text-sm opacity-60">Gestionar rutas de cobro</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import Toast from "./Toast";
 import useToast from "../hooks/useToast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+const DIAS = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
+const FRECUENCIAS = ["diario","semanal","quincenal"];
 
 export default function PrestamoForm({ mode, prestamoId }) {
   const navigate = useNavigate();
@@ -20,13 +22,14 @@ export default function PrestamoForm({ mode, prestamoId }) {
     fechaInicio: "",
     fechaFin: "",
     estado: "activo",
+    frecuenciaPago: "semanal",
+    diaVisita: "lunes",
   });
 
   const [clientes, setClientes] = useState([]);
   const [clientePreseleccionado, setClientePreseleccionado] = useState(null);
   const isEdit = mode === "edit";
 
-  // CALCULAR FECHA FIN AUTOMÁTICAMENTE (tanto en crear como editar)
   useEffect(() => {
     if (formData.fechaInicio && formData.cuotas) {
       const inicio = new Date(formData.fechaInicio);
@@ -77,6 +80,8 @@ export default function PrestamoForm({ mode, prestamoId }) {
         fechaInicio: prestamo.fechaInicio?.split("T")[0] || "",
         fechaFin: prestamo.fechaFin?.split("T")[0] || "",
         estado: prestamo.estado || "activo",
+        frecuenciaPago: prestamo.frecuenciaPago || "semanal",
+        diaVisita: prestamo.diaVisita || "lunes",
       });
     } catch (error) {
       console.error("Error cargando préstamo:", error);
@@ -107,7 +112,13 @@ export default function PrestamoForm({ mode, prestamoId }) {
     }
   };
 
-return (
+  const inputStyle = {
+    backgroundColor: "var(--bg)",
+    color: "var(--text)",
+    border: "1px solid var(--card-border)",
+  };
+
+  return (
     <>
       <form
         onSubmit={handleSubmit}
@@ -117,11 +128,7 @@ return (
         {clientePreseleccionado && !isEdit ? (
           <div
             className="w-full p-2 rounded font-semibold"
-            style={{
-              backgroundColor: "var(--bg)",
-              color: "var(--text)",
-              border: "1px solid var(--card-border)",
-            }}
+            style={inputStyle}
           >
             👤 {clientePreseleccionado.nombres} {clientePreseleccionado.apellidos}
           </div>
@@ -130,7 +137,7 @@ return (
             value={formData.clienteId}
             onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
             className="w-full p-2 rounded"
-            style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+            style={inputStyle}
           >
             <option value="">Seleccionar cliente</option>
             {clientes.map((c) => (
@@ -147,7 +154,7 @@ return (
           value={formData.monto}
           onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
           className="w-full p-2 rounded"
-          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          style={inputStyle}
         />
 
         <input
@@ -156,7 +163,7 @@ return (
           value={formData.interes}
           onChange={(e) => setFormData({ ...formData, interes: e.target.value })}
           className="w-full p-2 rounded"
-          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          style={inputStyle}
         />
 
         <input
@@ -165,7 +172,7 @@ return (
           value={formData.cuotas}
           onChange={(e) => setFormData({ ...formData, cuotas: e.target.value })}
           className="w-full p-2 rounded"
-          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          style={inputStyle}
         />
 
         <input
@@ -173,7 +180,7 @@ return (
           value={formData.fechaInicio}
           onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
           className="w-full p-2 rounded"
-          style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+          style={inputStyle}
         />
 
         <div>
@@ -182,7 +189,7 @@ return (
             value={formData.fechaFin}
             readOnly
             className="w-full p-2 rounded cursor-not-allowed opacity-70"
-            style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+            style={inputStyle}
           />
           {formData.fechaFin && (
             <p className="text-xs mt-1 opacity-60">
@@ -191,12 +198,50 @@ return (
           )}
         </div>
 
+        {/* FRECUENCIA DE PAGO */}
+        <div>
+          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
+            Frecuencia de pago
+          </label>
+          <select
+            value={formData.frecuenciaPago}
+            onChange={(e) => setFormData({ ...formData, frecuenciaPago: e.target.value })}
+            className="w-full p-2 rounded"
+            style={inputStyle}
+          >
+            {FRECUENCIAS.map((f) => (
+              <option key={f} value={f}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* DÍA DE VISITA */}
+        <div>
+          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
+            Día de visita
+          </label>
+          <select
+            value={formData.diaVisita}
+            onChange={(e) => setFormData({ ...formData, diaVisita: e.target.value })}
+            className="w-full p-2 rounded"
+            style={inputStyle}
+          >
+            {DIAS.map((d) => (
+              <option key={d} value={d}>
+                {d.charAt(0).toUpperCase() + d.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {isEdit && (
           <select
             value={formData.estado}
             onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
             className="w-full p-2 rounded"
-            style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+            style={inputStyle}
           >
             <option value="activo">Activo</option>
             <option value="pagado">Pagado</option>
@@ -206,13 +251,13 @@ return (
 
         <button
           type="submit"
-          className="w-full bg-blue-600 p-2 rounded text-white font-semibold hover:opacity-90"
+          className="w-full p-2 rounded text-white font-semibold hover:opacity-90 transition"
+          style={{ backgroundColor: "var(--secondary)" }}
         >
           {isEdit ? "Actualizar Préstamo" : "Crear Préstamo"}
         </button>
       </form>
 
-      {/* 👇 FUERA del form */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </>
   );

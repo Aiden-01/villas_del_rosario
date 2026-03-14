@@ -168,7 +168,7 @@ export default function RutaDelDia() {
                       ✅ {item.cliente.nombres} {item.cliente.apellidos}
                     </p>
                     <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                      📍 {item.cliente.zona || item.cliente.direccion}
+                      {item.cliente.zona || item.cliente.direccion}
                     </p>
                   </div>
                   <p className="font-bold text-green-500">
