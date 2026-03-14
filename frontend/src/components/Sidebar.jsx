@@ -129,9 +129,21 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
             >
               Préstamos
             </li>
+            <li
+              className="cursor-pointer p-2 rounded transition hover:bg-white/20 font-semibold"
+              onClick={() => handleNavigate("/ruta-del-dia")}
+            >
+              📍 Ruta de Hoy
+            </li>
 
             {isAdmin && (
               <>
+                <li
+                  className="cursor-pointer p-2 rounded transition hover:bg-white/20"
+                  onClick={() => handleNavigate("/rutas")}
+                >
+                  🗺️ Rutas
+                </li>
                 <li
                   className="cursor-pointer p-2 rounded transition hover:bg-white/20"
                   onClick={() => handleNavigate("/usuarios")}

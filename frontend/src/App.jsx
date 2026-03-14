@@ -9,6 +9,8 @@ import Prestamos from "./pages/Prestamos";
 import CrearPrestamo from "./pages/CrearPrestamo";
 import GestionUsuarios from "./pages/GestionUsuarios";
 import Reportes from "./pages/Reportes";
+import RutaDelDia from "./pages/RutaDelDia";
+import GestionRutas from "./pages/GestionRutas";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -35,6 +37,8 @@ function App() {
           <Route path="/prestamos" element={<Prestamos />} />
           <Route path="/prestamos/crear" element={<CrearPrestamo />} />
           <Route path="/prestamos/editar/:prestamoId" element={<CrearPrestamo />} />
+
+          <Route path="/ruta-del-dia" element={<RutaDelDia />} />
         </Route>
 
         <Route
@@ -47,6 +51,7 @@ function App() {
           <Route path="/usuarios/crear" element={<CrearUsuario />} />
           <Route path="/usuarios" element={<GestionUsuarios />} />
           <Route path="/reportes" element={<Reportes />} />
+          <Route path="/rutas" element={<GestionRutas />} />
           <Route path="/admin" element={<h1>Panel Admin</h1>} />
         </Route>
       </Routes>
