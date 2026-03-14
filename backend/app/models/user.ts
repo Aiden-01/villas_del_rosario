@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'  // ← AGREGAR ESTE IMPORT
 import { BaseModel, column, beforeSave, hasMany } from '@adonisjs/lucid/orm'
 import Hash from '@adonisjs/core/services/hash'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
@@ -25,11 +26,16 @@ export default class User extends BaseModel {
   @hasMany(() => ApiToken)
   declare apiTokens: HasMany<typeof ApiToken>
 
+  // ✅ CAMBIAR Date → DateTime
   @column.dateTime({ autoCreate: true })
-  declare createdAt: Date
+  declare createdAt: DateTime
 
+  // ✅ CAMBIAR Date → DateTime
   @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: Date
+  declare updatedAt: DateTime
+
+  // ✅ AGREGAR ESTO - requerido por el auth guard
+  static accessTokens = ApiToken
 
   @beforeSave()
   static async hashPassword(user: User) {
@@ -38,20 +44,11 @@ export default class User extends BaseModel {
     }
   }
 
-  // Método estático para verificar credenciales
   static async verifyCredentials(username: string, password: string) {
     const user = await this.findBy('username', username)
-    
-    if (!user) {
-      throw new Error('USER_NOT_FOUND')
-    }
-    
+    if (!user) throw new Error('USER_NOT_FOUND')
     const isValid = await Hash.verify(user.password, password)
-    
-    if (!isValid) {
-      throw new Error('INVALID_PASSWORD')
-    }
-    
+    if (!isValid) throw new Error('INVALID_PASSWORD')
     return user
   }
 }
