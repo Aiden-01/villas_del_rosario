@@ -15,7 +15,6 @@ export default class RutasController {
     return apiToken?.user || null
   }
 
-  // Listar todas las rutas
   async index({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -29,7 +28,6 @@ export default class RutasController {
     }
   }
 
-  // Crear ruta
   async store({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -44,7 +42,6 @@ export default class RutasController {
     }
   }
 
-  // Actualizar ruta
   async update({ request, params, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -61,7 +58,6 @@ export default class RutasController {
     }
   }
 
-  // Eliminar ruta
   async destroy({ request, params, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -76,34 +72,41 @@ export default class RutasController {
     }
   }
 
-  // ⭐ RUTA DEL DÍA — el corazón del módulo
   async rutaDelDia({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      // Detectar qué día es hoy en español
-      const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-      const hoy = diasSemana[DateTime.now().weekday % 7]
+      // Luxon weekday: 1=lunes, 2=martes, 3=miercoles, 4=jueves, 5=viernes, 6=sabado, 7=domingo
+      const diasSemana: Record<number, string> = {
+        1: 'lunes',
+        2: 'martes',
+        3: 'miercoles',
+        4: 'jueves',
+        5: 'viernes',
+        6: 'sabado',
+        7: 'domingo',
+      }
+      const ahora = DateTime.now().setZone('America/Guatemala')
+      const hoy = diasSemana[ahora.weekday]
+      const fechaHoy = ahora.toISODate()
 
-      // Buscar préstamos activos cuyo día de visita es hoy
       const prestamos = await Prestamo.query()
         .where('estado', 'activo')
         .where('dia_visita', hoy)
         .preload('cliente')
         .preload('pagos')
 
-      // Calcular cuota y cuántas ya pagaron
-        const cobros = prestamos.map((prestamo) => {
-        const cuotasSemana = prestamo.cuotas
+      const cobros = prestamos.map((prestamo) => {
         const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
-        const montoCuota = Number((montoTotal / cuotasSemana).toFixed(2))
+        const montoCuota = Number((montoTotal / prestamo.cuotas).toFixed(2))
         const cuotasPagadas = prestamo.pagos.length
         const proximaCuota = cuotasPagadas + 1
         const yaPagoHoy = prestamo.pagos.some((p) => {
-          const fechaPago = DateTime.fromJSDate(p.fechaPago as any).toISODate()
-          const fechaHoy = DateTime.now().toISODate()
+          const fechaPago = DateTime.fromJSDate(p.fechaPago as any)
+            .setZone('America/Guatemala')
+            .toISODate()
           return fechaPago === fechaHoy
         })
 
@@ -120,7 +123,7 @@ export default class RutasController {
           montoCuota,
           proximaCuota,
           cuotasPagadas,
-          totalCuotas: cuotasSemana,
+          totalCuotas: prestamo.cuotas,
           yaPagoHoy,
           frecuenciaPago: prestamo.frecuenciaPago,
         }
@@ -131,7 +134,7 @@ export default class RutasController {
 
       return response.ok({
         dia: hoy,
-        fecha: DateTime.now().toISODate(),
+        fecha: fechaHoy,
         totalPendientes: pendientes.length,
         totalCobrados: cobrados.length,
         totalRecaudado: cobrados.reduce((sum, c) => sum + c.montoCuota, 0),
