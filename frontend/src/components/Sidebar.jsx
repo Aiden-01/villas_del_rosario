@@ -133,7 +133,7 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
               className="cursor-pointer p-2 rounded transition hover:bg-white/20 font-semibold"
               onClick={() => handleNavigate("/ruta-del-dia")}
             >
-              📍 Ruta de Hoy
+              Ruta de Hoy
             </li>
 
             {isAdmin && (
@@ -142,7 +142,7 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
                   className="cursor-pointer p-2 rounded transition hover:bg-white/20"
                   onClick={() => handleNavigate("/rutas")}
                 >
-                  🗺️ Rutas
+                  Rutas
                 </li>
                 <li
                   className="cursor-pointer p-2 rounded transition hover:bg-white/20"
