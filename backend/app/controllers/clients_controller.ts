@@ -1,63 +1,45 @@
-// app/controllers/clients_controller.ts
 import type { HttpContext } from '@adonisjs/core/http'
 import Client from '#models/client'
 import ApiToken from '#models/api_token'
 
 export default class ClientsController {
 
-  /**
-   * Verificar token manualmente
-   */
   private async verifyToken(token: string) {
     if (!token) return null
-
     const apiToken = await ApiToken.query()
       .where('token', token.replace('Bearer ', ''))
       .preload('user')
       .first()
-
     return apiToken?.user || null
   }
 
-  /**
-   * Listar clientes
-   */
   async index({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
+      if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      if (!user) {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const clients = await Client.query()
+        .preload('ruta')
+        .orderBy('ruta_id', 'asc')
+        .orderBy('orden_visita', 'asc')
 
-      const clients = await Client.all()
       return response.ok(clients)
-
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al obtener clientes' })
     }
   }
 
-  /**
-   * Crear cliente
-   */
   async store({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
-
-      if (!user) {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const data = request.only([
-        'dpi',
-        'nombres',
-        'apellidos',
-        'telefono',
-        'direccion'
+        'dpi', 'nombres', 'apellidos', 'telefono', 'direccion',
+        'zona', 'rutaId', 'ordenVisita'
       ])
 
       if (!data.dpi || !data.nombres || !data.apellidos || !data.telefono || !data.direccion) {
@@ -70,67 +52,42 @@ export default class ClientsController {
       }
 
       const newClient = await Client.create(data)
-
-      return response.created({
-        message: 'Cliente creado exitosamente',
-        client: newClient
-      })
-
+      return response.created({ message: 'Cliente creado exitosamente', client: newClient })
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al crear cliente' })
     }
   }
 
-  /**
-   * Actualizar cliente
-   */
   async update({ request, params, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
-
-      if (!user) {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const client = await Client.findOrFail(params.id)
 
       const data = request.only([
-        'dpi',
-        'nombres',
-        'apellidos',
-        'telefono',
-        'direccion'
+        'dpi', 'nombres', 'apellidos', 'telefono', 'direccion',
+        'zona', 'rutaId', 'ordenVisita'
       ])
 
       client.merge(data)
       await client.save()
 
-      return response.ok({
-        message: 'Cliente actualizado exitosamente',
-        client
-      })
-
+      return response.ok({ message: 'Cliente actualizado exitosamente', client })
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al actualizar cliente' })
     }
   }
 
-  /**
-   * Eliminar cliente (solo admin)
-   */
   async destroy({ request, params, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
+      if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      if (!user) {
-        return response.forbidden({ message: 'No autorizado' })
-      }
-
-      // 🔥 Solo admin puede eliminar
       if (user.role !== 'admin') {
         return response.forbidden({ message: 'Solo el administrador puede eliminar clientes' })
       }
@@ -139,36 +96,79 @@ export default class ClientsController {
       await client.delete()
 
       return response.ok({ message: 'Cliente eliminado exitosamente' })
-
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al eliminar cliente' })
     }
   }
-  /**
-   * Obtener cliente por ID
-   */
+
   async show({ request, params, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
+      if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      if (!user) {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const client = await Client.query()
+        .where('id', params.id)
+        .preload('ruta')
+        .first()
 
-      const client = await Client.find(params.id)
-
-      if (!client) {
-        return response.notFound({ message: 'Cliente no encontrado' })
-      }
+      if (!client) return response.notFound({ message: 'Cliente no encontrado' })
 
       return response.ok(client)
-
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al obtener cliente' })
     }
   }
 
+  // Actualizar orden de múltiples clientes a la vez
+  async actualizarOrdenes({ request, response }: HttpContext) {
+    try {
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+      if (!user) return response.forbidden({ message: 'No autorizado' })
+
+      const { ordenes } = request.body()
+      // ordenes = [{ id: 1, ordenVisita: 1 }, { id: 2, ordenVisita: 2 }...]
+
+      for (const item of ordenes) {
+        const client = await Client.find(item.id)
+        if (client) {
+          client.ordenVisita = item.ordenVisita
+          await client.save()
+        }
+      }
+
+      return response.ok({ message: 'Orden actualizado correctamente' })
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Error al actualizar orden' })
+    }
+  }
+
+  // Actualizar orden de múltiples rutas a la vez
+  async actualizarOrdenRutas({ request, response }: HttpContext) {
+    try {
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+      if (!user) return response.forbidden({ message: 'No autorizado' })
+
+      const { ordenes } = request.body()
+      const Ruta = (await import('#models/ruta')).default
+
+      for (const item of ordenes) {
+        const ruta = await Ruta.find(item.id)
+        if (ruta) {
+          ruta.orden = item.orden
+          await ruta.save()
+        }
+      }
+
+      return response.ok({ message: 'Orden de rutas actualizado' })
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Error al actualizar orden de rutas' })
+    }
+  }
 }

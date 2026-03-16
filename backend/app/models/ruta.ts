@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 
 export default class Ruta extends BaseModel {
@@ -17,6 +17,9 @@ export default class Ruta extends BaseModel {
 
   @column()
   declare diaCobro: string | null
+
+  @column()
+  declare orden: number | null
 
   @column()
   declare trabajadorId: number | null

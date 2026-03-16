@@ -29,6 +29,8 @@ router
 router
   .group(() => {
     router.get('/', [ClientsController, 'index'])
+    router.put('/ordenar', [ClientsController, 'actualizarOrdenes'])
+    router.put('/ordenar-rutas', [ClientsController, 'actualizarOrdenRutas'])
     router.get('/:id', [ClientsController, 'show'])
     router.post('/', [ClientsController, 'store'])
     router.put('/:id', [ClientsController, 'update'])
@@ -68,10 +70,10 @@ router
 
 router
   .group(() => {
+    router.get('/hoy', [RutasController, 'rutaDelDia'])
     router.get('/', [RutasController, 'index'])
     router.post('/', [RutasController, 'store'])
     router.put('/:id', [RutasController, 'update'])
     router.delete('/:id', [RutasController, 'destroy'])
-    router.get('/hoy', [RutasController, 'rutaDelDia'])
   })
   .prefix('api/rutas')

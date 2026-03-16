@@ -21,7 +21,9 @@ export default class RutasController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const rutas = await Ruta.query().preload('trabajador')
+      const rutas = await Ruta.query()
+        .preload('trabajador')
+        .orderBy('orden', 'asc')
       return response.ok(rutas)
     } catch (error) {
       return response.internalServerError({ message: 'Error al obtener rutas' })
@@ -34,7 +36,7 @@ export default class RutasController {
       const user = await this.verifyToken(authHeader || '')
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only(['nombre', 'descripcion', 'diaCobro', 'trabajadorId'])
+      const data = request.only(['nombre', 'descripcion', 'diaCobro', 'trabajadorId', 'orden'])
       const ruta = await Ruta.create(data)
       return response.created({ message: 'Ruta creada exitosamente', ruta })
     } catch (error) {
@@ -49,7 +51,7 @@ export default class RutasController {
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const ruta = await Ruta.findOrFail(params.id)
-      const data = request.only(['nombre', 'descripcion', 'diaCobro', 'trabajadorId'])
+      const data = request.only(['nombre', 'descripcion', 'diaCobro', 'trabajadorId', 'orden'])
       ruta.merge(data)
       await ruta.save()
       return response.ok({ message: 'Ruta actualizada', ruta })
@@ -78,7 +80,6 @@ export default class RutasController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      // Luxon weekday: 1=lunes, 2=martes, 3=miercoles, 4=jueves, 5=viernes, 6=sabado, 7=domingo
       const diasSemana: Record<number, string> = {
         1: 'lunes',
         2: 'martes',
@@ -92,11 +93,16 @@ export default class RutasController {
       const hoy = diasSemana[ahora.weekday]
       const fechaHoy = ahora.toISODate()
 
+      // Ordenar por ruta.orden y luego por cliente.orden_visita
       const prestamos = await Prestamo.query()
-        .where('estado', 'activo')
-        .where('dia_visita', hoy)
-        .preload('cliente')
+        .where('prestamos.estado', 'activo')
+        .where('prestamos.dia_visita', hoy)
+        .preload('cliente', (q) => q.preload('ruta'))
         .preload('pagos')
+        .join('clientes', 'prestamos.cliente_id', 'clientes.id')
+        .leftJoin('rutas', 'clientes.ruta_id', 'rutas.id')
+        .orderByRaw('rutas.orden asc nulls last, clientes.orden_visita asc nulls last')
+        .select('prestamos.*')
 
       const cobros = prestamos.map((prestamo) => {
         const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
@@ -112,6 +118,8 @@ export default class RutasController {
 
         return {
           prestamoId: prestamo.id,
+          rutaNombre: prestamo.cliente.ruta?.nombre || null,
+          rutaOrden: prestamo.cliente.ruta?.orden || null,
           cliente: {
             id: prestamo.cliente.id,
             nombres: prestamo.cliente.nombres,
@@ -119,6 +127,7 @@ export default class RutasController {
             telefono: prestamo.cliente.telefono,
             direccion: prestamo.cliente.direccion,
             zona: prestamo.cliente.zona,
+            ordenVisita: prestamo.cliente.ordenVisita,
           },
           montoCuota,
           proximaCuota,

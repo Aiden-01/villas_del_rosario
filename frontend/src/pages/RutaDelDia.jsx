@@ -69,6 +69,60 @@ export default function RutaDelDia() {
     }
   };
 
+  // Agrupar items por rutaNombre
+  const agruparPorRuta = (items) => {
+    return items.reduce((grupos, item) => {
+      const key = item.rutaNombre || "📌 Sin zona asignada";
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(item);
+      return grupos;
+    }, {});
+  };
+
+  const CardCliente = ({ item }) => (
+    <div
+      className="rounded-2xl shadow-md p-5"
+      style={{ backgroundColor: "var(--card)", border: "2px solid var(--primary)" }}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <h3 className="font-bold text-base">
+            {item.cliente.nombres} {item.cliente.apellidos}
+          </h3>
+          <p className="text-sm opacity-60">📍 {item.cliente.zona || item.cliente.direccion}</p>
+          <p className="text-sm opacity-60">📞 {item.cliente.telefono}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xl font-bold" style={{ color: "var(--primary)" }}>
+            Q{Number(item.montoCuota).toFixed(2)}
+          </p>
+          <p className="text-xs opacity-60">
+            Cuota {item.proximaCuota}/{item.totalCuotas}
+          </p>
+        </div>
+      </div>
+
+      <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
+        <div
+          className="h-1.5 rounded-full"
+          style={{
+            width: `${Math.round((item.cuotasPagadas / item.totalCuotas) * 100)}%`,
+            backgroundColor: "var(--primary)",
+          }}
+        />
+      </div>
+
+      <button
+        onClick={() => registrarPago(item)}
+        disabled={registrando === item.prestamoId}
+        className="w-full py-2 rounded-xl font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+        style={{ backgroundColor: "#16a34a" }}
+      >
+        {registrando === item.prestamoId ? "Registrando..." : `💰 Registrar Cuota #${item.proximaCuota}`}
+      </button>
+    </div>
+  );
+
   return (
     <div className="pt-16 text-[var(--text)]">
       {/* HEADER */}
@@ -95,26 +149,20 @@ export default function RutaDelDia() {
         <>
           {/* RESUMEN */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div
-              className="p-4 rounded-xl shadow text-center"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-            >
+            <div className="p-4 rounded-xl shadow text-center"
+              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
               <p className="text-3xl font-bold" style={{ color: "var(--primary)" }}>
                 {datos.totalPendientes}
               </p>
               <p className="text-sm opacity-60 mt-1">Pendientes</p>
             </div>
-            <div
-              className="p-4 rounded-xl shadow text-center"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-            >
+            <div className="p-4 rounded-xl shadow text-center"
+              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
               <p className="text-3xl font-bold text-green-500">{datos.totalCobrados}</p>
               <p className="text-sm opacity-60 mt-1">Cobrados</p>
             </div>
-            <div
-              className="p-4 rounded-xl shadow text-center"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-            >
+            <div className="p-4 rounded-xl shadow text-center"
+              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
               <p className="text-xl font-bold text-green-500">
                 Q{Number(datos.totalRecaudado).toFixed(2)}
               </p>
@@ -122,95 +170,77 @@ export default function RutaDelDia() {
             </div>
           </div>
 
-          {/* PENDIENTES */}
+          {/* PENDIENTES AGRUPADOS POR ZONA */}
           {datos.pendientes?.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-lg font-bold mb-3">⏳ Pendientes</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {datos.pendientes.map((item) => (
-                  <div
-                    key={item.prestamoId}
-                    className="rounded-2xl shadow-md p-5"
-                    style={{
-                      backgroundColor: "var(--card)",
-                      border: "2px solid var(--primary)",
-                    }}
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-bold text-base">
-                          {item.cliente.nombres} {item.cliente.apellidos}
-                        </h3>
-                        <p className="text-sm opacity-60">📍 {item.cliente.zona || item.cliente.direccion}</p>
-                        <p className="text-sm opacity-60">📞 {item.cliente.telefono}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold" style={{ color: "var(--primary)" }}>
-                          Q{Number(item.montoCuota).toFixed(2)}
-                        </p>
-                        <p className="text-xs opacity-60">
-                          Cuota {item.proximaCuota}/{item.totalCuotas}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
-                      <div
-                        className="h-1.5 rounded-full"
-                        style={{
-                          width: `${Math.round((item.cuotasPagadas / item.totalCuotas) * 100)}%`,
-                          backgroundColor: "var(--primary)",
-                        }}
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => registrarPago(item)}
-                      disabled={registrando === item.prestamoId}
-                      className="w-full py-2 rounded-xl font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
-                      style={{ backgroundColor: "#16a34a" }}
+              <h2 className="text-lg font-bold mb-4">⏳ Pendientes</h2>
+              {Object.entries(agruparPorRuta(datos.pendientes)).map(([zona, items]) => (
+                <div key={zona} className="mb-6">
+                  {/* SEPARADOR DE ZONA */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
+                    <span
+                      className="text-sm font-bold px-4 py-1 rounded-full text-white whitespace-nowrap"
+                      style={{ backgroundColor: "var(--secondary)" }}
                     >
-                      {registrando === item.prestamoId ? "Registrando..." : `💰 Registrar Cuota #${item.proximaCuota}`}
-                    </button>
+                      📍 {zona} — {items.length} cobro{items.length !== 1 ? "s" : ""}
+                    </span>
+                    <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
                   </div>
-                ))}
-              </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {items.map((item) => (
+                      <CardCliente key={item.prestamoId} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* COBRADOS */}
+          {/* COBRADOS AGRUPADOS POR ZONA */}
           {datos.cobrados?.length > 0 && (
             <div>
-              <h2 className="text-lg font-bold mb-3">✅ Cobrados hoy</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {datos.cobrados.map((item) => (
-                  <div
-                    key={item.prestamoId}
-                    className="rounded-2xl shadow-md p-5 opacity-60"
-                    style={{
-                      backgroundColor: "var(--card)",
-                      border: "2px solid #16a34a",
-                    }}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-bold">✅ {item.cliente.nombres} {item.cliente.apellidos}</h3>
-                        <p className="text-sm opacity-60">📍 {item.cliente.zona || item.cliente.direccion}</p>
-                      </div>
-                      <p className="font-bold text-green-500">Q{Number(item.montoCuota).toFixed(2)}</p>
-                    </div>
+              <h2 className="text-lg font-bold mb-4">✅ Cobrados hoy</h2>
+              {Object.entries(agruparPorRuta(datos.cobrados)).map(([zona, items]) => (
+                <div key={zona} className="mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
+                    <span
+                      className="text-sm font-bold px-4 py-1 rounded-full text-white whitespace-nowrap"
+                      style={{ backgroundColor: "#16a34a" }}
+                    >
+                      ✅ {zona} — {items.length} cobro{items.length !== 1 ? "s" : ""}
+                    </span>
+                    <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
                   </div>
-                ))}
-              </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {items.map((item) => (
+                      <div
+                        key={item.prestamoId}
+                        className="rounded-2xl shadow-md p-5 opacity-60"
+                        style={{ backgroundColor: "var(--card)", border: "2px solid #16a34a" }}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="font-bold">✅ {item.cliente.nombres} {item.cliente.apellidos}</h3>
+                            <p className="text-sm opacity-60">📍 {item.cliente.zona || item.cliente.direccion}</p>
+                          </div>
+                          <p className="font-bold text-green-500">Q{Number(item.montoCuota).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* SIN COBROS */}
           {datos.totalPendientes === 0 && datos.totalCobrados === 0 && (
-            <div
-              className="rounded-2xl p-10 text-center shadow"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-            >
+            <div className="rounded-2xl p-10 text-center shadow"
+              style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
               <p className="text-5xl mb-4">🎉</p>
               <p className="text-xl font-bold">¡No hay cobros para hoy!</p>
               <p className="text-sm opacity-60 mt-1">
