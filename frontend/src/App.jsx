@@ -11,6 +11,7 @@ import GestionUsuarios from "./pages/GestionUsuarios";
 import Reportes from "./pages/Reportes";
 import RutaDelDia from "./pages/RutaDelDia";
 import GestionRutas from "./pages/GestionRutas";
+import Historial from "./pages/Historial";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -52,6 +53,7 @@ function App() {
           <Route path="/usuarios" element={<GestionUsuarios />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="/rutas" element={<GestionRutas />} />
+          <Route path="/historial" element={<Historial />} />
           <Route path="/admin" element={<h1>Panel Admin</h1>} />
         </Route>
       </Routes>
