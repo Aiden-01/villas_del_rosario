@@ -7,6 +7,7 @@ const PrestamosController = () => import('#controllers/prestamos_controller')
 const PagosController = () => import('#controllers/pagos_controller')
 const ReportesController = () => import('#controllers/reportes_controller')
 const RutasController = () => import('#controllers/rutas_controller')
+const ActividadesController = () => import('#controllers/actividades_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando 🚀' }
@@ -77,3 +78,9 @@ router
     router.delete('/:id', [RutasController, 'destroy'])
   })
   .prefix('api/rutas')
+
+router
+  .group(() => {
+    router.get('/', [ActividadesController, 'index'])
+  })
+  .prefix('api/historial')

@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Client from '#models/client'
 import ApiToken from '#models/api_token'
+import { registrarActividad } from '../helpers/registrar_actividad.js'
 
 export default class ClientsController {
 
@@ -52,6 +53,16 @@ export default class ClientsController {
       }
 
       const newClient = await Client.create(data)
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'crear',
+        entidad: 'cliente',
+        entidadId: newClient.id,
+        descripcion: `Creó el cliente ${newClient.nombres} ${newClient.apellidos}`,
+        detalle: { dpi: newClient.dpi, telefono: newClient.telefono },
+      })
+
       return response.created({ message: 'Cliente creado exitosamente', client: newClient })
     } catch (error) {
       console.error(error)
@@ -66,7 +77,6 @@ export default class ClientsController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const client = await Client.findOrFail(params.id)
-
       const data = request.only([
         'dpi', 'nombres', 'apellidos', 'telefono', 'direccion',
         'zona', 'rutaId', 'ordenVisita'
@@ -74,6 +84,14 @@ export default class ClientsController {
 
       client.merge(data)
       await client.save()
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'actualizar',
+        entidad: 'cliente',
+        entidadId: client.id,
+        descripcion: `Actualizó el cliente ${client.nombres} ${client.apellidos}`,
+      })
 
       return response.ok({ message: 'Cliente actualizado exitosamente', client })
     } catch (error) {
@@ -93,7 +111,16 @@ export default class ClientsController {
       }
 
       const client = await Client.findOrFail(params.id)
+      const nombre = `${client.nombres} ${client.apellidos}`
       await client.delete()
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'eliminar',
+        entidad: 'cliente',
+        entidadId: Number(params.id),
+        descripcion: `Eliminó el cliente ${nombre}`,
+      })
 
       return response.ok({ message: 'Cliente eliminado exitosamente' })
     } catch (error) {
@@ -114,7 +141,6 @@ export default class ClientsController {
         .first()
 
       if (!client) return response.notFound({ message: 'Cliente no encontrado' })
-
       return response.ok(client)
     } catch (error) {
       console.error(error)
@@ -122,7 +148,6 @@ export default class ClientsController {
     }
   }
 
-  // Actualizar orden de múltiples clientes a la vez
   async actualizarOrdenes({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -130,8 +155,6 @@ export default class ClientsController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const { ordenes } = request.body()
-      // ordenes = [{ id: 1, ordenVisita: 1 }, { id: 2, ordenVisita: 2 }...]
-
       for (const item of ordenes) {
         const client = await Client.find(item.id)
         if (client) {
@@ -147,7 +170,6 @@ export default class ClientsController {
     }
   }
 
-  // Actualizar orden de múltiples rutas a la vez
   async actualizarOrdenRutas({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')

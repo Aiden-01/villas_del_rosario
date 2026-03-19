@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Prestamo from '#models/prestamo'
 import ApiToken from '#models/api_token'
+import { registrarActividad } from '../helpers/registrar_actividad.js'
 
 export default class PrestamosController {
 
@@ -69,15 +70,8 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const data = request.only([
-        'clienteId',
-        'monto',
-        'interes',
-        'cuotas',
-        'fechaInicio',
-        'fechaFin',
-        'estado',
-        'frecuenciaPago',
-        'diaVisita',
+        'clienteId', 'monto', 'interes', 'cuotas',
+        'fechaInicio', 'fechaFin', 'estado', 'frecuenciaPago', 'diaVisita',
       ])
 
       if (!data.clienteId || !data.monto || !data.interes || !data.cuotas || !data.fechaInicio || !data.fechaFin) {
@@ -86,6 +80,15 @@ export default class PrestamosController {
 
       const prestamo = await Prestamo.create(data)
       await prestamo.load('cliente')
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'crear',
+        entidad: 'prestamo',
+        entidadId: prestamo.id,
+        descripcion: `Creó préstamo de Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`,
+        detalle: { monto: prestamo.monto, cuotas: prestamo.cuotas, interes: prestamo.interes },
+      })
 
       return response.created({ message: 'Préstamo creado exitosamente', prestamo })
     } catch (error) {
@@ -101,21 +104,22 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const prestamo = await Prestamo.findOrFail(params.id)
-
       const data = request.only([
-        'monto',
-        'interes',
-        'cuotas',
-        'fechaInicio',
-        'fechaFin',
-        'estado',
-        'frecuenciaPago',
-        'diaVisita',
+        'monto', 'interes', 'cuotas', 'fechaInicio',
+        'fechaFin', 'estado', 'frecuenciaPago', 'diaVisita',
       ])
 
       prestamo.merge(data)
       await prestamo.save()
       await prestamo.load('cliente')
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'actualizar',
+        entidad: 'prestamo',
+        entidadId: prestamo.id,
+        descripcion: `Actualizó préstamo de ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos} — estado: ${prestamo.estado}`,
+      })
 
       return response.ok({ message: 'Préstamo actualizado exitosamente', prestamo })
     } catch (error) {
@@ -135,7 +139,17 @@ export default class PrestamosController {
       }
 
       const prestamo = await Prestamo.findOrFail(params.id)
+      await prestamo.load('cliente')
+      const desc = `${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`
       await prestamo.delete()
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'eliminar',
+        entidad: 'prestamo',
+        entidadId: Number(params.id),
+        descripcion: `Eliminó préstamo de ${desc}`,
+      })
 
       return response.ok({ message: 'Préstamo eliminado exitosamente' })
     } catch (error) {
