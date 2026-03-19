@@ -38,6 +38,17 @@ export default function RutaDelDia() {
   const registrarPago = async (item) => {
     if (!window.confirm(`¿Registrar pago de Q${Number(item.montoCuota).toFixed(2)} para ${item.cliente.nombres}?`)) return;
     setRegistrando(item.prestamoId);
+
+    // Quitar inmediatamente de pendientes en el estado local
+    setDatos(prev => ({
+      ...prev,
+      totalPendientes: prev.totalPendientes - 1,
+      totalCobrados: prev.totalCobrados + 1,
+      totalRecaudado: prev.totalRecaudado + item.montoCuota,
+      pendientes: prev.pendientes.filter(p => p.prestamoId !== item.prestamoId),
+      cobrados: [...prev.cobrados, { ...item, yaPagoHoy: true }],
+    }));
+
     try {
       const token = localStorage.getItem("token");
       const hoy = new Date().toISOString().split("T")[0];
@@ -58,12 +69,14 @@ export default function RutaDelDia() {
       const data = await res.json();
       if (!res.ok) {
         showToast(data.message || "Error al registrar pago", "error");
+        // Si falló, recargar para restaurar estado real
+        cargarRuta();
         return;
       }
-      showToast(`Cuota #${item.proximaCuota} de ${item.cliente.nombres} registrada`, "success");
-      cargarRuta();
+      showToast(`✅ Cuota #${item.proximaCuota} de ${item.cliente.nombres} registrada`, "success");
     } catch {
       showToast("Error al registrar pago", "error");
+      cargarRuta();
     } finally {
       setRegistrando(null);
     }
