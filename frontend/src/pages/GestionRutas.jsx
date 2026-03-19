@@ -79,65 +79,91 @@ export default function GestionRutas() {
     }
   };
 
-  // DRAG AND DROP — RUTAS
-  const onDragStartRuta = (index) => setDragIndex(index);
+  // DRAG AND DROP — RUTAS (con soporte móvil)
+const onDragStartRuta = (index) => setDragIndex(index);
 
-  const onDropRuta = async (dropIndex) => {
-    if (dragIndex === null || dragIndex === dropIndex) return;
-    const nuevasRutas = [...rutas];
-    const [moved] = nuevasRutas.splice(dragIndex, 1);
-    nuevasRutas.splice(dropIndex, 0, moved);
-    const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
-    setRutas(rutasConOrden);
+const onTouchStartRuta = (index) => setDragIndex(index);
+
+const onTouchEndRuta = (e, dropIndex) => {
+  e.preventDefault();
+  if (dragIndex === null || dragIndex === dropIndex) {
     setDragIndex(null);
+    return;
+  }
+  onDropRuta(dropIndex);
+};
 
-    try {
-      await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
-      });
-      showToast("Orden de rutas guardado", "success");
-    } catch {
-      showToast("Error al guardar orden", "error");
-    }
-  };
+const onDropRuta = async (dropIndex) => {
+  if (dragIndex === null || dragIndex === dropIndex) {
+    setDragIndex(null);
+    return;
+  }
+  const nuevasRutas = [...rutas];
+  const [moved] = nuevasRutas.splice(dragIndex, 1);
+  nuevasRutas.splice(dropIndex, 0, moved);
+  const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
+  setRutas(rutasConOrden);
+  setDragIndex(null);
 
-  // DRAG AND DROP — CLIENTES DENTRO DE RUTA
+  try {
+    await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
+    });
+    showToast("Orden de rutas guardado", "success");
+  } catch {
+    showToast("Error al guardar orden", "error");
+  }
+};
+
+// DRAG AND DROP — CLIENTES (con soporte móvil)
+const onDragStartCliente = (index) => setDragClienteIndex(index);
+
+const onTouchStartCliente = (index) => setDragClienteIndex(index);
+
+const onTouchEndCliente = (e, dropIndex) => {
+  e.preventDefault();
+  if (dragClienteIndex === null || dragClienteIndex === dropIndex) {
+    setDragClienteIndex(null);
+    return;
+  }
+  onDropCliente(dropIndex);
+};
+
+const onDropCliente = async (dropIndex) => {
+  if (dragClienteIndex === null || dragClienteIndex === dropIndex) {
+    setDragClienteIndex(null);
+    return;
+  }
+  const nuevos = [...clientesDeRuta];
+  const [moved] = nuevos.splice(dragClienteIndex, 1);
+  nuevos.splice(dropIndex, 0, moved);
+  const conOrden = nuevos.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
+
+  setClientes(prev => {
+    const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
+    return [...sinRuta, ...conOrden];
+  });
+  setDragClienteIndex(null);
+
+  try {
+    await fetch(`${API_URL}/api/clientes/ordenar`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ ordenes: conOrden.map(c => ({ id: c.id, ordenVisita: c.ordenVisita })) }),
+    });
+    showToast("Orden guardado", "success");
+  } catch {
+    showToast("Error al guardar orden", "error");
+  }
+};
   const clientesDeRuta = rutaSeleccionada
     ? clientes
         .filter(c => c.rutaId === rutaSeleccionada.id)
         .sort((a, b) => (a.ordenVisita || 0) - (b.ordenVisita || 0))
     : [];
-
-  const onDragStartCliente = (index) => setDragClienteIndex(index);
-
-  const onDropCliente = async (dropIndex) => {
-    if (dragClienteIndex === null || dragClienteIndex === dropIndex) return;
-    const nuevos = [...clientesDeRuta];
-    const [moved] = nuevos.splice(dragClienteIndex, 1);
-    nuevos.splice(dropIndex, 0, moved);
-    const conOrden = nuevos.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
-
-    setClientes(prev => {
-      const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
-      return [...sinRuta, ...conOrden];
-    });
-    setDragClienteIndex(null);
-
-    try {
-      await fetch(`${API_URL}/api/clientes/ordenar`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ ordenes: conOrden.map(c => ({ id: c.id, ordenVisita: c.ordenVisita })) }),
-      });
-      showToast("Orden de clientes guardado", "success");
-    } catch {
-      showToast("Error al guardar orden", "error");
-    }
-  };
-
-  return (
+    return (
     <div className="pt-16 text-[var(--text)]">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
@@ -222,10 +248,13 @@ export default function GestionRutas() {
                 return (
                   <div
                     key={ruta.id}
+                    // En la tarjeta de RUTA — agrega estos eventos:
                     draggable
                     onDragStart={() => onDragStartRuta(index)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => onDropRuta(index)}
+                    onTouchStart={() => onTouchStartRuta(index)}
+                    onTouchEnd={(e) => onTouchEndRuta(e, index)}
                     onClick={() => setRutaSeleccionada(rutaSeleccionada?.id === ruta.id ? null : ruta)}
                     className="rounded-2xl p-4 cursor-pointer hover:scale-[1.01] transition-all shadow-md select-none"
                     style={{
@@ -300,10 +329,13 @@ export default function GestionRutas() {
                 {clientesDeRuta.map((cliente, index) => (
                   <div
                     key={cliente.id}
+                    // En la tarjeta de CLIENTE — agrega estos eventos:
                     draggable
                     onDragStart={() => onDragStartCliente(index)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => onDropCliente(index)}
+                    onTouchStart={() => onTouchStartCliente(index)}
+                    onTouchEnd={(e) => onTouchEndCliente(e, index)}
                     className="rounded-2xl p-4 cursor-grab shadow-md select-none hover:scale-[1.01] transition-all"
                     style={{
                       backgroundColor: "var(--card)",
