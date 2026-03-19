@@ -19,6 +19,8 @@ export default function GestionRutas() {
   const [rutaSeleccionada, setRutaSeleccionada] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragClienteIndex, setDragClienteIndex] = useState(null);
+  const [editandoPrioridad, setEditandoPrioridad] = useState(false);
+  const [prioridades, setPrioridades] = useState({});
   const { toast, showToast, closeToast } = useToast();
 
   const token = localStorage.getItem("token");
@@ -79,91 +81,100 @@ export default function GestionRutas() {
     }
   };
 
-  // DRAG AND DROP — RUTAS (con soporte móvil)
-const onDragStartRuta = (index) => setDragIndex(index);
+  // PRIORIDAD NUMÉRICA
+  const iniciarEdicionPrioridad = () => {
+    const p = {};
+    rutas.forEach((r, i) => { p[r.id] = r.orden || i + 1; });
+    setPrioridades(p);
+    setEditandoPrioridad(true);
+  };
 
-const onTouchStartRuta = (index) => setDragIndex(index);
+  const guardarPorPrioridad = async () => {
+    const rutasOrdenadas = [...rutas].sort((a, b) =>
+      (prioridades[a.id] || 0) - (prioridades[b.id] || 0)
+    );
+    const rutasConOrden = rutasOrdenadas.map((r, i) => ({ ...r, orden: i + 1 }));
+    setRutas(rutasConOrden);
+    setEditandoPrioridad(false);
 
-const onTouchEndRuta = (e, dropIndex) => {
-  e.preventDefault();
-  if (dragIndex === null || dragIndex === dropIndex) {
+    try {
+      await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
+      });
+      showToast("Orden por prioridad guardado", "success");
+    } catch {
+      showToast("Error al guardar", "error");
+    }
+  };
+
+  // DRAG AND DROP — RUTAS
+  const onDragStartRuta = (index) => setDragIndex(index);
+  const onTouchStartRuta = (index) => setDragIndex(index);
+  const onTouchEndRuta = (e, dropIndex) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === dropIndex) { setDragIndex(null); return; }
+    onDropRuta(dropIndex);
+  };
+  const onDropRuta = async (dropIndex) => {
+    if (dragIndex === null || dragIndex === dropIndex) { setDragIndex(null); return; }
+    const nuevasRutas = [...rutas];
+    const [moved] = nuevasRutas.splice(dragIndex, 1);
+    nuevasRutas.splice(dropIndex, 0, moved);
+    const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
+    setRutas(rutasConOrden);
     setDragIndex(null);
-    return;
-  }
-  onDropRuta(dropIndex);
-};
+    try {
+      await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
+      });
+      showToast("Orden de rutas guardado", "success");
+    } catch {
+      showToast("Error al guardar orden", "error");
+    }
+  };
 
-const onDropRuta = async (dropIndex) => {
-  if (dragIndex === null || dragIndex === dropIndex) {
-    setDragIndex(null);
-    return;
-  }
-  const nuevasRutas = [...rutas];
-  const [moved] = nuevasRutas.splice(dragIndex, 1);
-  nuevasRutas.splice(dropIndex, 0, moved);
-  const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
-  setRutas(rutasConOrden);
-  setDragIndex(null);
-
-  try {
-    await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
+  // DRAG AND DROP — CLIENTES
+  const onDragStartCliente = (index) => setDragClienteIndex(index);
+  const onTouchStartCliente = (index) => setDragClienteIndex(index);
+  const onTouchEndCliente = (e, dropIndex) => {
+    e.preventDefault();
+    if (dragClienteIndex === null || dragClienteIndex === dropIndex) { setDragClienteIndex(null); return; }
+    onDropCliente(dropIndex);
+  };
+  const onDropCliente = async (dropIndex) => {
+    if (dragClienteIndex === null || dragClienteIndex === dropIndex) { setDragClienteIndex(null); return; }
+    const nuevos = [...clientesDeRuta];
+    const [moved] = nuevos.splice(dragClienteIndex, 1);
+    nuevos.splice(dropIndex, 0, moved);
+    const conOrden = nuevos.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
+    setClientes(prev => {
+      const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
+      return [...sinRuta, ...conOrden];
     });
-    showToast("Orden de rutas guardado", "success");
-  } catch {
-    showToast("Error al guardar orden", "error");
-  }
-};
-
-// DRAG AND DROP — CLIENTES (con soporte móvil)
-const onDragStartCliente = (index) => setDragClienteIndex(index);
-
-const onTouchStartCliente = (index) => setDragClienteIndex(index);
-
-const onTouchEndCliente = (e, dropIndex) => {
-  e.preventDefault();
-  if (dragClienteIndex === null || dragClienteIndex === dropIndex) {
     setDragClienteIndex(null);
-    return;
-  }
-  onDropCliente(dropIndex);
-};
+    try {
+      await fetch(`${API_URL}/api/clientes/ordenar`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ ordenes: conOrden.map(c => ({ id: c.id, ordenVisita: c.ordenVisita })) }),
+      });
+      showToast("Orden guardado", "success");
+    } catch {
+      showToast("Error al guardar orden", "error");
+    }
+  };
 
-const onDropCliente = async (dropIndex) => {
-  if (dragClienteIndex === null || dragClienteIndex === dropIndex) {
-    setDragClienteIndex(null);
-    return;
-  }
-  const nuevos = [...clientesDeRuta];
-  const [moved] = nuevos.splice(dragClienteIndex, 1);
-  nuevos.splice(dropIndex, 0, moved);
-  const conOrden = nuevos.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
-
-  setClientes(prev => {
-    const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
-    return [...sinRuta, ...conOrden];
-  });
-  setDragClienteIndex(null);
-
-  try {
-    await fetch(`${API_URL}/api/clientes/ordenar`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({ ordenes: conOrden.map(c => ({ id: c.id, ordenVisita: c.ordenVisita })) }),
-    });
-    showToast("Orden guardado", "success");
-  } catch {
-    showToast("Error al guardar orden", "error");
-  }
-};
   const clientesDeRuta = rutaSeleccionada
     ? clientes
         .filter(c => c.rutaId === rutaSeleccionada.id)
         .sort((a, b) => (a.ordenVisita || 0) - (b.ordenVisita || 0))
     : [];
-    return (
+
+  return (
     <div className="pt-16 text-[var(--text)]">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
@@ -227,12 +238,40 @@ const onDropCliente = async (dropIndex) => {
       {!loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* COLUMNA IZQUIERDA — LISTA DE RUTAS ORDENABLES */}
+          {/* COLUMNA IZQUIERDA */}
           <div>
-            <h2 className="font-bold mb-3 text-lg">
-              📋 Orden de visita de zonas
-            </h2>
-            <p className="text-sm opacity-60 mb-4">Arrastra para reordenar en qué zona cobras primero</p>
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-bold text-lg">📋 Orden de visita de zonas</h2>
+              {!editandoPrioridad ? (
+                <button
+                  onClick={iniciarEdicionPrioridad}
+                  className="text-xs px-3 py-1 rounded-lg font-semibold text-white transition hover:opacity-90"
+                  style={{ backgroundColor: "var(--secondary)" }}
+                >
+                  🔢 Ordenar por número
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={guardarPorPrioridad}
+                    className="text-xs px-3 py-1 rounded-lg font-semibold text-white bg-green-500 hover:opacity-90"
+                  >
+                    ✓ Aplicar
+                  </button>
+                  <button
+                    onClick={() => setEditandoPrioridad(false)}
+                    className="text-xs px-3 py-1 rounded-lg font-semibold text-white bg-red-400 hover:opacity-90"
+                  >
+                    ✕ Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-sm opacity-60 mb-4">
+              {editandoPrioridad
+                ? "Asigna un número a cada zona y presiona Aplicar"
+                : "Arrastra para reordenar en qué zona cobras primero"}
+            </p>
 
             {rutas.length === 0 && (
               <div className="rounded-2xl p-8 text-center"
@@ -248,14 +287,13 @@ const onDropCliente = async (dropIndex) => {
                 return (
                   <div
                     key={ruta.id}
-                    // En la tarjeta de RUTA — agrega estos eventos:
-                    draggable
-                    onDragStart={() => onDragStartRuta(index)}
+                    draggable={!editandoPrioridad}
+                    onDragStart={() => !editandoPrioridad && onDragStartRuta(index)}
                     onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => onDropRuta(index)}
-                    onTouchStart={() => onTouchStartRuta(index)}
-                    onTouchEnd={(e) => onTouchEndRuta(e, index)}
-                    onClick={() => setRutaSeleccionada(rutaSeleccionada?.id === ruta.id ? null : ruta)}
+                    onDrop={() => !editandoPrioridad && onDropRuta(index)}
+                    onTouchStart={() => !editandoPrioridad && onTouchStartRuta(index)}
+                    onTouchEnd={(e) => !editandoPrioridad && onTouchEndRuta(e, index)}
+                    onClick={() => !editandoPrioridad && setRutaSeleccionada(rutaSeleccionada?.id === ruta.id ? null : ruta)}
                     className="rounded-2xl p-4 cursor-pointer hover:scale-[1.01] transition-all shadow-md select-none"
                     style={{
                       backgroundColor: "var(--card)",
@@ -265,7 +303,23 @@ const onDropCliente = async (dropIndex) => {
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl opacity-40 cursor-grab">⠿</span>
+                      {editandoPrioridad ? (
+                        <input
+                          type="number"
+                          min="1"
+                          value={prioridades[ruta.id] || ""}
+                          onChange={(e) => setPrioridades({ ...prioridades, [ruta.id]: Number(e.target.value) })}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-12 text-center p-1 rounded font-bold text-sm"
+                          style={{
+                            backgroundColor: "var(--bg)",
+                            color: "var(--text)",
+                            border: "2px solid var(--primary)",
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xl opacity-40 cursor-grab">⠿</span>
+                      )}
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
                         style={{ backgroundColor: "var(--primary)" }}
@@ -283,12 +337,14 @@ const onDropCliente = async (dropIndex) => {
                           style={{ backgroundColor: "var(--secondary)" }}>
                           {clientesEnRuta.length} clientes
                         </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); eliminarRuta(ruta.id); }}
-                          className="text-red-400 hover:text-red-600 transition text-sm font-bold"
-                        >
-                          ✕
-                        </button>
+                        {!editandoPrioridad && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); eliminarRuta(ruta.id); }}
+                            className="text-red-400 hover:text-red-600 transition text-sm font-bold"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -297,7 +353,7 @@ const onDropCliente = async (dropIndex) => {
             </div>
           </div>
 
-          {/* COLUMNA DERECHA — CLIENTES DE LA RUTA SELECCIONADA */}
+          {/* COLUMNA DERECHA */}
           <div>
             <h2 className="font-bold mb-3 text-lg">
               👥 {rutaSeleccionada ? `Clientes — ${rutaSeleccionada.nombre}` : "Selecciona una ruta"}
@@ -329,7 +385,6 @@ const onDropCliente = async (dropIndex) => {
                 {clientesDeRuta.map((cliente, index) => (
                   <div
                     key={cliente.id}
-                    // En la tarjeta de CLIENTE — agrega estos eventos:
                     draggable
                     onDragStart={() => onDragStartCliente(index)}
                     onDragOver={(e) => e.preventDefault()}
@@ -337,10 +392,7 @@ const onDropCliente = async (dropIndex) => {
                     onTouchStart={() => onTouchStartCliente(index)}
                     onTouchEnd={(e) => onTouchEndCliente(e, index)}
                     className="rounded-2xl p-4 cursor-grab shadow-md select-none hover:scale-[1.01] transition-all"
-                    style={{
-                      backgroundColor: "var(--card)",
-                      border: "1px solid var(--card-border)",
-                    }}
+                    style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-xl opacity-40">⠿</span>
