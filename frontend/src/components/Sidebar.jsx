@@ -171,7 +171,7 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
               $
             </div>
             <div>
-              <p className="font-bold text-base leading-tight">Cartagena</p>
+              <p className="font-bold text-base leading-tight">Inversiones CRUMAN</p>
               <p className="text-xs opacity-50 capitalize">{role}</p>
             </div>
           </div>

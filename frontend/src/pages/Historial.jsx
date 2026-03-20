@@ -1,48 +1,53 @@
 import { useState, useEffect } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
+import {
+  ClipboardList, RefreshCw, Plus, Pencil, X,
+  HandCoins, KeyRound, User, DollarSign, Map,
+  Users, Pin, Inbox, Calendar, Clock
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
 const TIPO_CONFIG = {
-  crear:     { color: "#16a34a", bg: "#dcfce7", icon: "✚", label: "Creado" },
-  actualizar: { color: "#2563eb", bg: "#dbeafe", icon: "✎", label: "Actualizado" },
-  eliminar:  { color: "#dc2626", bg: "#fee2e2", icon: "✕", label: "Eliminado" },
-  pago:      { color: "#7c3aed", bg: "#ede9fe", icon: "💰", label: "Pago" },
-  login:     { color: "#d97706", bg: "#fef3c7", icon: "🔑", label: "Login" },
+  crear:      { color: "#16a34a", bg: "#dcfce7", icon: Plus,     label: "Creado"      },
+  actualizar: { color: "#2563eb", bg: "#dbeafe", icon: Pencil,   label: "Actualizado" },
+  eliminar:   { color: "#dc2626", bg: "#fee2e2", icon: X,        label: "Eliminado"   },
+  pago:       { color: "#7c3aed", bg: "#ede9fe", icon: HandCoins,label: "Pago"        },
+  login:      { color: "#d97706", bg: "#fef3c7", icon: KeyRound, label: "Login"       },
 };
 
 const ENTIDAD_CONFIG = {
-  cliente:  { icon: "👤", label: "Cliente" },
-  prestamo: { icon: "💵", label: "Préstamo" },
-  pago:     { icon: "💰", label: "Pago" },
-  ruta:     { icon: "🗺️", label: "Ruta" },
-  usuario:  { icon: "👥", label: "Usuario" },
+  cliente:  { icon: User,      label: "Cliente"   },
+  prestamo: { icon: DollarSign,label: "Préstamo"  },
+  pago:     { icon: HandCoins, label: "Pago"      },
+  ruta:     { icon: Map,       label: "Ruta"      },
+  usuario:  { icon: Users,     label: "Usuario"   },
 };
 
-const FILTROS_TIPO = ["todos", "crear", "actualizar", "eliminar", "pago"];
-const FILTROS_ENTIDAD = ["todos", "cliente", "prestamo", "pago", "ruta", "usuario"];
+const FILTROS_TIPO     = ["todos", "crear", "actualizar", "eliminar", "pago"];
+const FILTROS_ENTIDAD  = ["todos", "cliente", "prestamo", "pago", "ruta", "usuario"];
 
 export default function Historial() {
-  const [actividades, setActividades] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [actividades, setActividades]     = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState("");
+  const [filtroTipo, setFiltroTipo]       = useState("todos");
   const [filtroEntidad, setFiltroEntidad] = useState("todos");
-  const [busqueda, setBusqueda] = useState("");
-  const { toast, showToast, closeToast } = useToast();
+  const [busqueda, setBusqueda]           = useState("");
+  const { toast, showToast, closeToast }  = useToast();
 
-  const token = localStorage.getItem("token");
+  const token  = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}` };
 
   const cargarHistorial = async () => {
     setLoading(true);
     try {
       let url = `${API_URL}/api/historial?limit=100`;
-      if (filtroTipo !== "todos") url += `&tipo=${filtroTipo}`;
+      if (filtroTipo    !== "todos") url += `&tipo=${filtroTipo}`;
       if (filtroEntidad !== "todos") url += `&entidad=${filtroEntidad}`;
 
-      const res = await fetch(url, { headers });
+      const res  = await fetch(url, { headers });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Error al cargar historial"); return; }
       setActividades(Array.isArray(data) ? data : []);
@@ -84,15 +89,19 @@ export default function Historial() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">📋 Historial de Actividad</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <ClipboardList size={24} style={{ color: "var(--primary)" }} />
+            Historial de Actividad
+          </h1>
           <p className="text-sm opacity-60 mt-1">Registro de todas las acciones del sistema</p>
         </div>
         <button
           onClick={cargarHistorial}
-          className="text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
+          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
           style={{ backgroundColor: "var(--primary)" }}
         >
-          🔄 Actualizar
+          <RefreshCw size={16} />
+          Actualizar
         </button>
       </div>
 
@@ -120,20 +129,25 @@ export default function Historial() {
           <div>
             <p className="text-xs font-semibold opacity-60 mb-2">Tipo de acción:</p>
             <div className="flex flex-wrap gap-2">
-              {FILTROS_TIPO.map(tipo => (
-                <button
-                  key={tipo}
-                  onClick={() => setFiltroTipo(tipo)}
-                  className="px-3 py-1 rounded-full text-xs font-semibold transition"
-                  style={{
-                    backgroundColor: filtroTipo === tipo ? "var(--primary)" : "var(--bg)",
-                    color: filtroTipo === tipo ? "white" : "var(--text)",
-                    border: "1px solid var(--card-border)"
-                  }}
-                >
-                  {tipo === "todos" ? "Todos" : TIPO_CONFIG[tipo]?.label || tipo}
-                </button>
-              ))}
+              {FILTROS_TIPO.map(tipo => {
+                const conf = TIPO_CONFIG[tipo];
+                const Icon = conf?.icon;
+                return (
+                  <button
+                    key={tipo}
+                    onClick={() => setFiltroTipo(tipo)}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition"
+                    style={{
+                      backgroundColor: filtroTipo === tipo ? "var(--primary)" : "var(--bg)",
+                      color: filtroTipo === tipo ? "white" : "var(--text)",
+                      border: "1px solid var(--card-border)"
+                    }}
+                  >
+                    {Icon && <Icon size={11} />}
+                    {tipo === "todos" ? "Todos" : conf?.label || tipo}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -141,20 +155,25 @@ export default function Historial() {
           <div>
             <p className="text-xs font-semibold opacity-60 mb-2">Categoría:</p>
             <div className="flex flex-wrap gap-2">
-              {FILTROS_ENTIDAD.map(entidad => (
-                <button
-                  key={entidad}
-                  onClick={() => setFiltroEntidad(entidad)}
-                  className="px-3 py-1 rounded-full text-xs font-semibold transition"
-                  style={{
-                    backgroundColor: filtroEntidad === entidad ? "var(--secondary)" : "var(--bg)",
-                    color: filtroEntidad === entidad ? "white" : "var(--text)",
-                    border: "1px solid var(--card-border)"
-                  }}
-                >
-                  {entidad === "todos" ? "Todas" : `${ENTIDAD_CONFIG[entidad]?.icon} ${ENTIDAD_CONFIG[entidad]?.label}`}
-                </button>
-              ))}
+              {FILTROS_ENTIDAD.map(entidad => {
+                const conf = ENTIDAD_CONFIG[entidad];
+                const Icon = conf?.icon;
+                return (
+                  <button
+                    key={entidad}
+                    onClick={() => setFiltroEntidad(entidad)}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition"
+                    style={{
+                      backgroundColor: filtroEntidad === entidad ? "var(--secondary)" : "var(--bg)",
+                      color: filtroEntidad === entidad ? "white" : "var(--text)",
+                      border: "1px solid var(--card-border)"
+                    }}
+                  >
+                    {Icon && <Icon size={11} />}
+                    {entidad === "todos" ? "Todas" : conf?.label || entidad}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -168,20 +187,23 @@ export default function Historial() {
       )}
 
       {loading && <p className="opacity-60">Cargando historial...</p>}
-      {error && <p className="text-red-500">{error}</p>}
+      {error   && <p className="text-red-500">{error}</p>}
 
-      {/* LISTA AGRUPADA POR FECHA */}
+      {/* EMPTY STATE */}
       {!loading && actividadesFiltradas.length === 0 && (
         <div
           className="rounded-2xl p-10 text-center shadow"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
         >
-          <p className="text-4xl mb-3">📭</p>
+          <div className="flex justify-center mb-3">
+            <Inbox size={40} className="opacity-30" />
+          </div>
           <p className="font-semibold">No hay actividad registrada</p>
           <p className="text-sm opacity-60 mt-1">Las acciones del sistema aparecerán aquí</p>
         </div>
       )}
 
+      {/* LISTA AGRUPADA POR FECHA */}
       {!loading && actividadesFiltradas.length > 0 && (
         <div className="space-y-6">
           {Object.entries(agruparPorFecha(actividadesFiltradas)).map(([fecha, items]) => (
@@ -190,22 +212,25 @@ export default function Historial() {
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
                 <span
-                  className="text-xs font-bold px-3 py-1 rounded-full capitalize"
+                  className="flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full capitalize"
                   style={{
                     backgroundColor: "var(--card)",
                     border: "1px solid var(--card-border)",
                     color: "var(--text)"
                   }}
                 >
-                  📅 {fecha}
+                  <Calendar size={11} />
+                  {fecha}
                 </span>
                 <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
               </div>
 
               <div className="space-y-2">
                 {items.map((actividad) => {
-                  const tipoConf = TIPO_CONFIG[actividad.tipo] || TIPO_CONFIG.crear;
-                  const entidadConf = ENTIDAD_CONFIG[actividad.entidad] || { icon: "📌", label: actividad.entidad };
+                  const tipoConf   = TIPO_CONFIG[actividad.tipo]     || TIPO_CONFIG.crear;
+                  const entidadConf = ENTIDAD_CONFIG[actividad.entidad] || { icon: Pin, label: actividad.entidad };
+                  const TipoIcon    = tipoConf.icon;
+                  const EntidadIcon = entidadConf.icon;
 
                   return (
                     <div
@@ -218,35 +243,42 @@ export default function Historial() {
                     >
                       {/* ICONO TIPO */}
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                         style={{ backgroundColor: tipoConf.bg, color: tipoConf.color }}
                       >
-                        {tipoConf.icon}
+                        <TipoIcon size={16} />
                       </div>
 
                       {/* CONTENIDO */}
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
+                          {/* Badge tipo */}
                           <span
-                            className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                            className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold"
                             style={{ backgroundColor: tipoConf.bg, color: tipoConf.color }}
                           >
+                            <TipoIcon size={10} />
                             {tipoConf.label}
                           </span>
-                          <span className="text-xs opacity-60">
-                            {entidadConf.icon} {entidadConf.label}
+                          {/* Entidad */}
+                          <span className="flex items-center gap-1 text-xs opacity-60">
+                            <EntidadIcon size={11} />
+                            {entidadConf.label}
                           </span>
+                          {/* Usuario */}
                           {actividad.usuario && (
-                            <span className="text-xs opacity-60">
-                              👤 @{actividad.usuario.username}
+                            <span className="flex items-center gap-1 text-xs opacity-60">
+                              <User size={11} />
+                              @{actividad.usuario.username}
                             </span>
                           )}
                         </div>
 
                         <p className="text-sm font-medium">{actividad.descripcion}</p>
 
-                        <p className="text-xs opacity-40 mt-1">
-                          🕐 {formatearFecha(actividad.createdAt)}
+                        <p className="flex items-center gap-1 text-xs opacity-40 mt-1">
+                          <Clock size={10} />
+                          {formatearFecha(actividad.createdAt)}
                         </p>
                       </div>
                     </div>

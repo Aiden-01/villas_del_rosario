@@ -14,6 +14,7 @@ export default function Dashboard() {
           Bienvenido, {user?.username || "Usuario"}
         </h1>
         <p className="opacity-70">Panel principal del sistema de préstamos</p>
+        <p className="opacity-70">Inversiones CRUMAN</p>
       </div>
 
       {/* ACCIONES RÁPIDAS */}
