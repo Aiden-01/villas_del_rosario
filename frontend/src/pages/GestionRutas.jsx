@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
+import { useDragSort } from "../hooks/useDragSort";
 import {
   Map, Plus, X, Check, ListOrdered,
   MapPin, Phone, Users, GripVertical,
@@ -23,8 +24,6 @@ export default function GestionRutas() {
   const [creando, setCreando] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [rutaSeleccionada, setRutaSeleccionada] = useState(null);
-  const [dragIndex, setDragIndex] = useState(null);
-  const [dragClienteIndex, setDragClienteIndex] = useState(null);
   const [editandoPrioridad, setEditandoPrioridad] = useState(false);
   const [prioridades, setPrioridades] = useState({});
 
@@ -37,6 +36,52 @@ export default function GestionRutas() {
   const { toast, showToast, closeToast } = useToast();
   const token = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  // ── Drag & drop rutas ────────────────────────────────────────────────────────
+  const { dragHandlers: dragHandlersRuta } = useDragSort({
+    items: rutas,
+    onReorder: async (nuevasRutas) => {
+      const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
+      setRutas(rutasConOrden);
+      try {
+        await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
+          method: "PUT", headers,
+          body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
+        });
+        showToast("Orden de rutas guardado", "success");
+      } catch {
+        showToast("Error al guardar orden", "error");
+      }
+    },
+  });
+
+  // ── Drag & drop clientes de la ruta seleccionada ─────────────────────────────
+  const clientesDeRuta = rutaSeleccionada
+    ? clientes
+        .filter(c => c.rutaId === rutaSeleccionada.id)
+        .sort((a, b) => (a.ordenVisita || 0) - (b.ordenVisita || 0))
+    : [];
+
+  const { dragHandlers: dragHandlersCliente } = useDragSort({
+    items: clientesDeRuta,
+    onReorder: async (nuevosClientes) => {
+      const conOrden = nuevosClientes.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
+      // Actualizar estado local
+      setClientes(prev => {
+        const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
+        return [...sinRuta, ...conOrden];
+      });
+      try {
+        await fetch(`${API_URL}/api/clientes/ordenar`, {
+          method: "PUT", headers,
+          body: JSON.stringify({ ordenes: conOrden.map(c => ({ id: c.id, ordenVisita: c.ordenVisita })) }),
+        });
+        showToast("Orden guardado", "success");
+      } catch {
+        showToast("Error al guardar orden", "error");
+      }
+    },
+  });
 
   const cargarDatos = async () => {
     try {
@@ -59,7 +104,6 @@ export default function GestionRutas() {
 
   useEffect(() => { cargarDatos(); }, []);
 
-  // Bloquea scroll del body cuando el panel está abierto
   useEffect(() => {
     document.body.style.overflow = panelVisible ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -70,8 +114,7 @@ export default function GestionRutas() {
     setCreando(true);
     try {
       const res = await fetch(`${API_URL}/api/rutas`, {
-        method: "POST",
-        headers,
+        method: "POST", headers,
         body: JSON.stringify({ ...form, orden: rutas.length + 1 }),
       });
       if (res.ok) {
@@ -99,7 +142,6 @@ export default function GestionRutas() {
     }
   };
 
-  // ── Panel edición ────────────────────────────────────────────────────────────
   const abrirPanelEdicion = (ruta, e) => {
     e.stopPropagation();
     setRutaEditando(ruta);
@@ -117,8 +159,7 @@ export default function GestionRutas() {
     setGuardandoDia(true);
     try {
       const res = await fetch(`${API_URL}/api/rutas/${rutaEditando.id}`, {
-        method: "PUT",
-        headers,
+        method: "PUT", headers,
         body: JSON.stringify({ diaCobro: diaCobroEdit }),
       });
       if (res.ok) {
@@ -135,7 +176,6 @@ export default function GestionRutas() {
     }
   };
 
-  // ── Prioridad numérica ───────────────────────────────────────────────────────
   const iniciarEdicionPrioridad = () => {
     const p = {};
     rutas.forEach((r, i) => { p[r.id] = r.orden || i + 1; });
@@ -152,8 +192,7 @@ export default function GestionRutas() {
     setEditandoPrioridad(false);
     try {
       await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
-        method: "PUT",
-        headers,
+        method: "PUT", headers,
         body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
       });
       showToast("Orden por prioridad guardado", "success");
@@ -161,69 +200,6 @@ export default function GestionRutas() {
       showToast("Error al guardar", "error");
     }
   };
-
-  // ── Drag & drop rutas ────────────────────────────────────────────────────────
-  const onDragStartRuta  = (index) => setDragIndex(index);
-  const onTouchStartRuta = (index) => setDragIndex(index);
-  const onTouchEndRuta   = (e, dropIndex) => {
-    e.preventDefault();
-    if (dragIndex === null || dragIndex === dropIndex) { setDragIndex(null); return; }
-    onDropRuta(dropIndex);
-  };
-  const onDropRuta = async (dropIndex) => {
-    if (dragIndex === null || dragIndex === dropIndex) { setDragIndex(null); return; }
-    const nuevasRutas = [...rutas];
-    const [moved] = nuevasRutas.splice(dragIndex, 1);
-    nuevasRutas.splice(dropIndex, 0, moved);
-    const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
-    setRutas(rutasConOrden);
-    setDragIndex(null);
-    try {
-      await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
-        method: "PUT", headers,
-        body: JSON.stringify({ ordenes: rutasConOrden.map(r => ({ id: r.id, orden: r.orden })) }),
-      });
-      showToast("Orden de rutas guardado", "success");
-    } catch {
-      showToast("Error al guardar orden", "error");
-    }
-  };
-
-  // ── Drag & drop clientes ─────────────────────────────────────────────────────
-  const onDragStartCliente  = (index) => setDragClienteIndex(index);
-  const onTouchStartCliente = (index) => setDragClienteIndex(index);
-  const onTouchEndCliente   = (e, dropIndex) => {
-    e.preventDefault();
-    if (dragClienteIndex === null || dragClienteIndex === dropIndex) { setDragClienteIndex(null); return; }
-    onDropCliente(dropIndex);
-  };
-  const onDropCliente = async (dropIndex) => {
-    if (dragClienteIndex === null || dragClienteIndex === dropIndex) { setDragClienteIndex(null); return; }
-    const nuevos = [...clientesDeRuta];
-    const [moved] = nuevos.splice(dragClienteIndex, 1);
-    nuevos.splice(dropIndex, 0, moved);
-    const conOrden = nuevos.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
-    setClientes(prev => {
-      const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
-      return [...sinRuta, ...conOrden];
-    });
-    setDragClienteIndex(null);
-    try {
-      await fetch(`${API_URL}/api/clientes/ordenar`, {
-        method: "PUT", headers,
-        body: JSON.stringify({ ordenes: conOrden.map(c => ({ id: c.id, ordenVisita: c.ordenVisita })) }),
-      });
-      showToast("Orden guardado", "success");
-    } catch {
-      showToast("Error al guardar orden", "error");
-    }
-  };
-
-  const clientesDeRuta = rutaSeleccionada
-    ? clientes
-        .filter(c => c.rutaId === rutaSeleccionada.id)
-        .sort((a, b) => (a.ordenVisita || 0) - (b.ordenVisita || 0))
-    : [];
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -266,7 +242,7 @@ export default function GestionRutas() {
               {DIAS.map((d) => <option key={d} value={d}>{DIAS_LABELS[d]}</option>)}
             </select>
             <button onClick={crearRuta} disabled={creando}
-              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg font-semibold text-white hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: "var(--primary)" }}>
               <Plus size={16} />{creando ? "Creando..." : "Crear Ruta"}
             </button>
@@ -287,7 +263,7 @@ export default function GestionRutas() {
               </h2>
               {!editandoPrioridad ? (
                 <button onClick={iniciarEdicionPrioridad}
-                  className="flex items-center gap-1 text-xs px-3 py-1 rounded-lg font-semibold text-white transition hover:opacity-90"
+                  className="flex items-center gap-1 text-xs px-3 py-1 rounded-lg font-semibold text-white hover:opacity-90"
                   style={{ backgroundColor: "var(--secondary)" }}>
                   <ListOrdered size={13} /> Ordenar por número
                 </button>
@@ -321,19 +297,22 @@ export default function GestionRutas() {
             <div className="space-y-2">
               {rutas.map((ruta, index) => {
                 const clientesEnRuta = clientes.filter(c => c.rutaId === ruta.id);
+                // Solo aplicar drag handlers si NO está en modo edición de prioridad
+                const handlers = editandoPrioridad ? {} : dragHandlersRuta(index);
                 return (
                   <div key={ruta.id}
-                    draggable={!editandoPrioridad}
-                    onDragStart={() => !editandoPrioridad && onDragStartRuta(index)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => !editandoPrioridad && onDropRuta(index)}
-                    onTouchStart={() => !editandoPrioridad && onTouchStartRuta(index)}
-                    onTouchEnd={(e) => !editandoPrioridad && onTouchEndRuta(e, index)}
-                    onClick={() => !editandoPrioridad && setRutaSeleccionada(rutaSeleccionada?.id === ruta.id ? null : ruta)}
-                    className="rounded-2xl p-4 cursor-pointer hover:scale-[1.01] transition-all shadow-md select-none"
+                    {...handlers}
+                    onClick={() => !editandoPrioridad && setRutaSeleccionada(
+                      rutaSeleccionada?.id === ruta.id ? null : ruta
+                    )}
+                    className="rounded-2xl p-4 cursor-pointer hover:scale-[1.01] shadow-md select-none"
                     style={{
+                      ...handlers.style,
                       backgroundColor: "var(--card)",
-                      border: rutaSeleccionada?.id === ruta.id ? "2px solid var(--primary)" : "2px solid transparent",
+                      border: rutaSeleccionada?.id === ruta.id
+                        ? "2px solid var(--primary)"
+                        : "2px solid transparent",
+                      transition: "border 0.15s, " + (handlers.style?.transition || ""),
                     }}>
                     <div className="flex items-center gap-3">
                       {editandoPrioridad ? (
@@ -368,15 +347,13 @@ export default function GestionRutas() {
                         </span>
                         {!editandoPrioridad && (
                           <>
-                            <button
-                              onClick={(e) => abrirPanelEdicion(ruta, e)}
+                            <button onClick={(e) => abrirPanelEdicion(ruta, e)}
                               title="Editar día de cobro"
                               className="w-7 h-7 flex items-center justify-center rounded-lg transition hover:opacity-80"
                               style={{ backgroundColor: "var(--bg)", color: "var(--secondary)", border: "1px solid var(--card-border)" }}>
                               <Pencil size={13} />
                             </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); eliminarRuta(ruta.id); }}
+                            <button onClick={(e) => { e.stopPropagation(); eliminarRuta(ruta.id); }}
                               title="Eliminar ruta"
                               className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 transition"
                               style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}>
@@ -399,7 +376,9 @@ export default function GestionRutas() {
               {rutaSeleccionada ? `Clientes — ${rutaSeleccionada.nombre}` : "Selecciona una ruta"}
             </h2>
             <p className="text-sm opacity-60 mb-4">
-              {rutaSeleccionada ? "Arrastra para cambiar el orden de visita" : "Haz clic en una ruta para ver sus clientes"}
+              {rutaSeleccionada
+                ? "Arrastra para cambiar el orden de visita"
+                : "Haz clic en una ruta para ver sus clientes"}
             </p>
 
             {!rutaSeleccionada && (
@@ -422,33 +401,37 @@ export default function GestionRutas() {
 
             {rutaSeleccionada && clientesDeRuta.length > 0 && (
               <div className="space-y-2">
-                {clientesDeRuta.map((cliente, index) => (
-                  <div key={cliente.id} draggable
-                    onDragStart={() => onDragStartCliente(index)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => onDropCliente(index)}
-                    onTouchStart={() => onTouchStartCliente(index)}
-                    onTouchEnd={(e) => onTouchEndCliente(e, index)}
-                    className="rounded-2xl p-4 cursor-grab shadow-md select-none hover:scale-[1.01] transition-all"
-                    style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
-                    <div className="flex items-center gap-3">
-                      <GripVertical size={18} className="opacity-30 shrink-0" />
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                        style={{ backgroundColor: "var(--primary)" }}>
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold">{cliente.nombres} {cliente.apellidos}</p>
-                        <p className="flex items-center gap-1 text-xs opacity-60">
-                          <MapPin size={11} />{cliente.zona || cliente.direccion}
-                        </p>
-                        <p className="flex items-center gap-1 text-xs opacity-60">
-                          <Phone size={11} />{cliente.telefono}
-                        </p>
+                {clientesDeRuta.map((cliente, index) => {
+                  const handlers = dragHandlersCliente(index);
+                  return (
+                    <div key={cliente.id}
+                      {...handlers}
+                      className="rounded-2xl p-4 shadow-md select-none hover:scale-[1.01]"
+                      style={{
+                        ...handlers.style,
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--card-border)",
+                        transition: "border 0.15s, " + (handlers.style?.transition || ""),
+                      }}>
+                      <div className="flex items-center gap-3">
+                        <GripVertical size={18} className="opacity-30 shrink-0" />
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                          style={{ backgroundColor: "var(--primary)" }}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold">{cliente.nombres} {cliente.apellidos}</p>
+                          <p className="flex items-center gap-1 text-xs opacity-60">
+                            <MapPin size={11} />{cliente.zona || cliente.direccion}
+                          </p>
+                          <p className="flex items-center gap-1 text-xs opacity-60">
+                            <Phone size={11} />{cliente.telefono}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -456,9 +439,8 @@ export default function GestionRutas() {
       )}
 
       {/* ── BACKDROP ── */}
-      <div
-        onClick={cerrarPanel}
-        className="fixed inset-0 z-[90] transition-all duration-300"
+      <div onClick={cerrarPanel}
+        className="fixed inset-0 z-[130] transition-all duration-300"
         style={{
           backgroundColor: "rgba(0,0,0,0.4)",
           backdropFilter: panelVisible ? "blur(2px)" : "blur(0px)",
@@ -468,8 +450,7 @@ export default function GestionRutas() {
       />
 
       {/* ── PANEL LATERAL ── */}
-      <div
-        className="fixed top-0 right-0 h-full w-80 z-[100] shadow-2xl flex flex-col"
+      <div className="fixed top-0 right-0 h-full w-80 z-[140] shadow-2xl flex flex-col"
         style={{
           backgroundColor: "var(--card)",
           borderLeft: "1px solid var(--card-border)",
@@ -477,9 +458,7 @@ export default function GestionRutas() {
           transition: panelVisible
             ? "transform 0.38s cubic-bezier(0.34, 1.4, 0.64, 1)"
             : "transform 0.25s cubic-bezier(0.4, 0, 1, 1)",
-        }}
-      >
-        {/* Header */}
+        }}>
         <div className="flex items-center justify-between px-6 py-5 border-b"
           style={{ borderColor: "var(--card-border)" }}>
           <div>
@@ -495,7 +474,6 @@ export default function GestionRutas() {
           </button>
         </div>
 
-        {/* Cuerpo */}
         <div className="flex-1 px-6 py-6">
           <label className="flex items-center gap-2 text-sm font-semibold mb-4"
             style={{ color: "var(--text)" }}>
@@ -517,17 +495,15 @@ export default function GestionRutas() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 pb-6 pt-2 border-t flex flex-col gap-2"
           style={{ borderColor: "var(--card-border)" }}>
           <button onClick={guardarDiaCobro} disabled={guardandoDia}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: "var(--primary)" }}>
-            <Check size={16} />
-            {guardandoDia ? "Guardando..." : "Guardar cambios"}
+            <Check size={16} />{guardandoDia ? "Guardando..." : "Guardar cambios"}
           </button>
           <button onClick={cerrarPanel}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition hover:opacity-70"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold hover:opacity-70"
             style={{ backgroundColor: "var(--bg)", color: "var(--text)", border: "1px solid var(--card-border)" }}>
             <X size={16} /> Cancelar
           </button>
