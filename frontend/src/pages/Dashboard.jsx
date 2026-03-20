@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Users, HandCoins, MapPin, Map, Plus } from "lucide-react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -27,26 +28,29 @@ export default function Dashboard() {
         <div className="flex flex-wrap gap-4">
           <button
             onClick={() => navigate("/prestamos/crear")}
-            className="text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
             style={{ backgroundColor: "var(--secondary)" }}
           >
-            + Nuevo Préstamo
+            <Plus size={16} />
+            Nuevo Préstamo
           </button>
 
           <button
             onClick={() => navigate("/clientes/crear")}
-            className="text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
             style={{ backgroundColor: "var(--primary)" }}
           >
-            + Crear Cliente
+            <Plus size={16} />
+            Crear Cliente
           </button>
 
           <button
             onClick={() => navigate("/ruta-del-dia")}
-            className="text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
             style={{ backgroundColor: "#16a34a" }}
           >
-            📍 Ruta de Hoy
+            <MapPin size={16} />
+            Ruta de Hoy
           </button>
         </div>
       </div>
@@ -58,7 +62,9 @@ export default function Dashboard() {
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
           onClick={() => navigate("/clientes")}
         >
-          <p className="text-3xl font-bold" style={{ color: "var(--primary)" }}>👥</p>
+          <div className="flex justify-center mb-2">
+            <Users size={32} style={{ color: "var(--primary)" }} />
+          </div>
           <p className="font-semibold mt-2">Clientes</p>
           <p className="text-sm opacity-60">Ver todos los clientes</p>
         </div>
@@ -68,7 +74,9 @@ export default function Dashboard() {
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
           onClick={() => navigate("/prestamos")}
         >
-          <p className="text-3xl font-bold" style={{ color: "var(--secondary)" }}>💰</p>
+          <div className="flex justify-center mb-2">
+            <HandCoins size={32} style={{ color: "var(--secondary)" }} />
+          </div>
           <p className="font-semibold mt-2">Préstamos</p>
           <p className="text-sm opacity-60">Ver todos los préstamos</p>
         </div>
@@ -78,7 +86,9 @@ export default function Dashboard() {
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
           onClick={() => navigate("/ruta-del-dia")}
         >
-          <p className="text-3xl font-bold">📍</p>
+          <div className="flex justify-center mb-2">
+            <MapPin size={32} style={{ color: "#16a34a" }} />
+          </div>
           <p className="font-semibold mt-2">Ruta de Hoy</p>
           <p className="text-sm opacity-60">Ver cobros del día</p>
         </div>
@@ -89,7 +99,9 @@ export default function Dashboard() {
             style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
             onClick={() => navigate("/rutas")}
           >
-            <p className="text-3xl font-bold">🗺️</p>
+            <div className="flex justify-center mb-2">
+              <Map size={32} style={{ color: "var(--secondary)" }} />
+            </div>
             <p className="font-semibold mt-2">Rutas</p>
             <p className="text-sm opacity-60">Gestionar rutas de cobro</p>
           </div>
