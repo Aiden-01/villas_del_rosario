@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import {
+  HandCoins, CheckCircle2, Plus, Pencil, Trash2,
+  X, AlertTriangle, PartyPopper, Inbox, ClipboardList,
+  MapPin
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -46,7 +51,6 @@ export default function Prestamos() {
   const [pagos, setPagos] = useState([]);
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [registrandoPago, setRegistrandoPago] = useState(false);
-  // ✅ NUEVA: pestaña activa
   const [pestana, setPestana] = useState("activos");
   const { toast, showToast, closeToast } = useToast();
 
@@ -195,13 +199,12 @@ export default function Prestamos() {
       await fetchPagos(selectedPrestamo.id);
       await fetchPrestamos();
 
-      // ✅ Si era la última cuota, cerrar modal y cambiar a pestaña finalizados
       if (siguienteCuota >= selectedPrestamo.cuotas) {
         cerrarModal();
         setPestana("finalizados");
-        showToast(`🎉 ¡Préstamo cancelado! Todas las cuotas pagadas`, "success");
+        showToast("¡Préstamo cancelado! Todas las cuotas pagadas", "success");
       } else {
-        showToast(`✅ Cuota #${siguienteCuota} registrada correctamente`, "success");
+        showToast(`Cuota #${siguienteCuota} registrada correctamente`, "success");
       }
     } catch (err) {
       console.error(err);
@@ -218,7 +221,6 @@ export default function Prestamos() {
     ? siguienteCuota > selectedPrestamo.cuotas
     : false;
 
-  // ✅ Filtrar por pestaña
   const prestamosActivos = prestamos.filter((p) => p.estado !== "cancelado");
   const prestamosFinalizados = prestamos.filter((p) => p.estado === "cancelado");
   const prestamosVisibles = pestana === "activos" ? prestamosActivos : prestamosFinalizados;
@@ -246,48 +248,47 @@ export default function Prestamos() {
           onClick={() =>
             navigate(clienteId ? `/prestamos/crear?clienteId=${clienteId}` : "/prestamos/crear")
           }
-          className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
+          className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
         >
-          + Crear Préstamo
+          <Plus size={16} />
+          Crear Préstamo
         </button>
       </div>
 
-      {/* ✅ PESTAÑAS */}
+      {/* PESTAÑAS */}
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setPestana("activos")}
-          className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
-            pestana === "activos"
-              ? "text-white shadow"
-              : "opacity-50 hover:opacity-80"
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
+            pestana === "activos" ? "text-white shadow" : "opacity-50 hover:opacity-80"
           }`}
           style={{
             backgroundColor: pestana === "activos" ? "var(--primary)" : "var(--card)",
             border: "1px solid var(--card-border)",
           }}
         >
-          💰 Activos
+          <HandCoins size={15} />
+          Activos
           {prestamosActivos.length > 0 && (
-            <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
               {prestamosActivos.length}
             </span>
           )}
         </button>
         <button
           onClick={() => setPestana("finalizados")}
-          className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
-            pestana === "finalizados"
-              ? "text-white shadow"
-              : "opacity-50 hover:opacity-80"
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
+            pestana === "finalizados" ? "text-white shadow" : "opacity-50 hover:opacity-80"
           }`}
           style={{
             backgroundColor: pestana === "finalizados" ? "#6b7280" : "var(--card)",
             border: "1px solid var(--card-border)",
           }}
         >
-          ✅ Finalizados
+          <CheckCircle2 size={15} />
+          Finalizados
           {prestamosFinalizados.length > 0 && (
-            <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
               {prestamosFinalizados.length}
             </span>
           )}
@@ -301,7 +302,12 @@ export default function Prestamos() {
           className="rounded-2xl p-10 text-center shadow"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
         >
-          <p className="text-4xl mb-3">{pestana === "activos" ? "📭" : "🎉"}</p>
+          <div className="flex justify-center mb-3">
+            {pestana === "activos"
+              ? <Inbox size={40} className="opacity-40" />
+              : <PartyPopper size={40} className="opacity-40" />
+            }
+          </div>
           <p className="font-semibold opacity-70">
             {pestana === "activos"
               ? "No hay préstamos activos."
@@ -342,7 +348,7 @@ export default function Prestamos() {
                     {prestamo.cliente?.nombres} {prestamo.cliente?.apellidos}
                   </h2>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${
                       cancelado
                         ? "bg-gray-100 text-gray-500"
                         : mora
@@ -350,7 +356,12 @@ export default function Prestamos() {
                         : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {cancelado ? "✅ cancelado" : mora ? "⚠ mora" : prestamo.estado}
+                    {cancelado
+                      ? <><CheckCircle2 size={11} /> cancelado</>
+                      : mora
+                      ? <><AlertTriangle size={11} /> mora</>
+                      : prestamo.estado
+                    }
                   </span>
                 </div>
 
@@ -373,7 +384,6 @@ export default function Prestamos() {
                   <p><span className="font-medium text-[var(--text)]">Fin:</span> {formatearFecha(prestamo.fechaFin)}</p>
                 </div>
 
-                {/* Barra de progreso solo en activos */}
                 {prestamo.estado === "activo" && (
                   <div className="mt-3">
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -390,18 +400,22 @@ export default function Prestamos() {
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1 text-right">
-                      {mora ? "⚠ Plazo vencido" : `${Math.round(
-                        ((new Date() - new Date(prestamo.fechaInicio)) /
-                          (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
-                      )}% del plazo`}
+                      {mora
+                        ? <span className="flex items-center justify-end gap-1"><AlertTriangle size={10} /> Plazo vencido</span>
+                        : `${Math.round(
+                            ((new Date() - new Date(prestamo.fechaInicio)) /
+                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
+                          )}% del plazo`
+                      }
                     </p>
                   </div>
                 )}
 
-                {/* Indicador visual en cancelados */}
                 {cancelado && (
                   <div className="mt-3 text-center">
-                    <span className="text-xs text-gray-400">✅ Todas las cuotas pagadas</span>
+                    <span className="flex items-center justify-center gap-1 text-xs text-gray-400">
+                      <CheckCircle2 size={12} /> Todas las cuotas pagadas
+                    </span>
                   </div>
                 )}
               </div>
@@ -431,7 +445,7 @@ export default function Prestamos() {
           >
             <div className="flex justify-center mb-4">
               <span
-                className={`text-sm px-4 py-1 rounded-full font-semibold ${
+                className={`flex items-center gap-1 text-sm px-4 py-1 rounded-full font-semibold ${
                   selectedPrestamo.estado === "cancelado"
                     ? "bg-gray-100 text-gray-500"
                     : esMora(selectedPrestamo)
@@ -440,10 +454,11 @@ export default function Prestamos() {
                 }`}
               >
                 {selectedPrestamo.estado === "cancelado"
-                  ? "✅ Cancelado"
+                  ? <><CheckCircle2 size={13} /> Cancelado</>
                   : esMora(selectedPrestamo)
-                  ? "⚠ En mora"
-                  : selectedPrestamo.estado}
+                  ? <><AlertTriangle size={13} /> En mora</>
+                  : selectedPrestamo.estado
+                }
               </span>
             </div>
 
@@ -480,11 +495,12 @@ export default function Prestamos() {
               </p>
             </div>
 
-            {/* ✅ Banner de cancelado */}
+            {/* Banner cancelado */}
             {selectedPrestamo.estado === "cancelado" && (
-              <div className="rounded-xl p-4 mb-4 text-center bg-gray-100"
-                style={{ border: "1px solid #d1d5db" }}>
-                <p className="text-2xl mb-1">🎉</p>
+              <div className="rounded-xl p-4 mb-4 text-center bg-gray-100" style={{ border: "1px solid #d1d5db" }}>
+                <div className="flex justify-center mb-1">
+                  <PartyPopper size={28} className="text-gray-500" />
+                </div>
                 <p className="text-gray-600 font-semibold">¡Préstamo finalizado!</p>
                 <p className="text-xs text-gray-400 mt-1">Todas las {selectedPrestamo.cuotas} cuotas fueron pagadas</p>
               </div>
@@ -499,7 +515,9 @@ export default function Prestamos() {
                 }}
               >
                 {todasPagadas ? (
-                  <p className="text-green-700 font-semibold">✅ Todas las cuotas han sido pagadas</p>
+                  <p className="flex items-center justify-center gap-2 text-green-700 font-semibold">
+                    <CheckCircle2 size={16} /> Todas las cuotas han sido pagadas
+                  </p>
                 ) : (
                   <>
                     <p className="text-sm opacity-60 mb-1">Siguiente cuota pendiente</p>
@@ -518,8 +536,11 @@ export default function Prestamos() {
               </div>
             )}
 
+            {/* Historial de pagos */}
             <div className="mb-4">
-              <p className="text-sm font-semibold mb-2">Historial de pagos</p>
+              <p className="flex items-center gap-2 text-sm font-semibold mb-2">
+                <ClipboardList size={15} /> Historial de pagos
+              </p>
               {loadingPagos ? (
                 <p className="text-xs opacity-50">Cargando pagos...</p>
               ) : pagos.length === 0 ? (
@@ -546,39 +567,43 @@ export default function Prestamos() {
               )}
             </div>
 
+            {/* Botones */}
             <div className="flex flex-col gap-2">
-              {/* Botón de pago solo si está activo y hay cuotas pendientes */}
               {selectedPrestamo.estado === "activo" && !todasPagadas && (
                 <button
                   onClick={handleRegistrarPago}
                   disabled={registrandoPago}
-                  className="w-full py-2 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 py-2 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: "var(--primary)" }}
                 >
-                  {registrandoPago ? "Registrando..." : `💰 Registrar Cuota #${siguienteCuota}`}
+                  <HandCoins size={16} />
+                  {registrandoPago ? "Registrando..." : `Registrar Cuota #${siguienteCuota}`}
                 </button>
               )}
 
               <button
                 onClick={() => navigate(`/prestamos/editar/${selectedPrestamo.id}`)}
-                className="w-full py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
+                className="w-full flex items-center justify-center gap-2 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
               >
+                <Pencil size={15} />
                 Editar Préstamo
               </button>
 
               {user?.role === "admin" && (
                 <button
                   onClick={() => handleDelete(selectedPrestamo.id)}
-                  className="w-full py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
                 >
+                  <Trash2 size={15} />
                   Eliminar Préstamo
                 </button>
               )}
 
               <button
                 onClick={cerrarModal}
-                className="w-full py-2 bg-gray-300 text-gray-800 rounded-xl font-semibold hover:opacity-90 mt-1"
+                className="w-full flex items-center justify-center gap-2 py-2 bg-gray-300 text-gray-800 rounded-xl font-semibold hover:opacity-90 mt-1"
               >
+                <X size={15} />
                 Cerrar
               </button>
             </div>
