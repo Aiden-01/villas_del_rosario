@@ -71,7 +71,7 @@ export default function Layout() {
       {/* FOOTER */}
       <footer className="text-center py-4 px-6">
         <p className="text-xs opacity-25">
-          © 2025 <span className="font-semibold">hercor.nexus</span> — Todos los derechos reservados
+          © 2026 <span className="font-semibold">hercor.nexus</span> — Todos los derechos reservados
         </p>
       </footer>
 

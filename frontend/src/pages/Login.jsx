@@ -179,7 +179,7 @@ export default function Login() {
 
       {/* FOOTER */}
       <p className="text-xs opacity-30 mt-6 text-center">
-        © 2025 <span className="font-semibold">hercor.nexus</span> — Todos los derechos reservados
+        © 2026 <span className="font-semibold">hercor.nexus</span> — Todos los derechos reservados
       </p>
     </div>
   );
