@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
+import {
+  Map, Plus, X, Check, ListOrdered,
+  MapPin, Phone, Users, GripVertical,
+  ClipboardList, MousePointerClick, UserX
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const DIAS = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
@@ -81,7 +86,6 @@ export default function GestionRutas() {
     }
   };
 
-  // PRIORIDAD NUMÉRICA
   const iniciarEdicionPrioridad = () => {
     const p = {};
     rutas.forEach((r, i) => { p[r.id] = r.orden || i + 1; });
@@ -96,7 +100,6 @@ export default function GestionRutas() {
     const rutasConOrden = rutasOrdenadas.map((r, i) => ({ ...r, orden: i + 1 }));
     setRutas(rutasConOrden);
     setEditandoPrioridad(false);
-
     try {
       await fetch(`${API_URL}/api/clientes/ordenar-rutas`, {
         method: "PUT",
@@ -179,15 +182,18 @@ export default function GestionRutas() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">🗺️ Gestión de Rutas</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <Map size={24} style={{ color: "var(--primary)" }} />
+            Gestión de Rutas
+          </h1>
           <p className="text-sm opacity-60 mt-1">Organiza y ordena tus zonas de cobro</p>
         </div>
         <button
           onClick={() => setMostrarForm(!mostrarForm)}
-          className="text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
-          style={{ backgroundColor: "var(--primary)" }}
+          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
+          style={{ backgroundColor: mostrarForm ? "#6b7280" : "var(--primary)" }}
         >
-          {mostrarForm ? "Cancelar" : "+ Nueva Ruta"}
+          {mostrarForm ? <><X size={16} /> Cancelar</> : <><Plus size={16} /> Nueva Ruta</>}
         </button>
       </div>
 
@@ -224,10 +230,11 @@ export default function GestionRutas() {
             <button
               onClick={crearRuta}
               disabled={creando}
-              className="w-full py-2 rounded-lg font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
               style={{ backgroundColor: "var(--primary)" }}
             >
-              {creando ? "Creando..." : "+ Crear Ruta"}
+              <Plus size={16} />
+              {creando ? "Creando..." : "Crear Ruta"}
             </button>
           </div>
         </div>
@@ -238,31 +245,37 @@ export default function GestionRutas() {
       {!loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* COLUMNA IZQUIERDA */}
+          {/* COLUMNA IZQUIERDA — RUTAS */}
           <div>
             <div className="flex justify-between items-center mb-3">
-              <h2 className="font-bold text-lg">📋 Orden de visita de zonas</h2>
+              <h2 className="flex items-center gap-2 font-bold text-lg">
+                <ClipboardList size={18} />
+                Orden de visita de zonas
+              </h2>
               {!editandoPrioridad ? (
                 <button
                   onClick={iniciarEdicionPrioridad}
-                  className="text-xs px-3 py-1 rounded-lg font-semibold text-white transition hover:opacity-90"
+                  className="flex items-center gap-1 text-xs px-3 py-1 rounded-lg font-semibold text-white transition hover:opacity-90"
                   style={{ backgroundColor: "var(--secondary)" }}
                 >
-                  🔢 Ordenar por número
+                  <ListOrdered size={13} />
+                  Ordenar por número
                 </button>
               ) : (
                 <div className="flex gap-2">
                   <button
                     onClick={guardarPorPrioridad}
-                    className="text-xs px-3 py-1 rounded-lg font-semibold text-white bg-green-500 hover:opacity-90"
+                    className="flex items-center gap-1 text-xs px-3 py-1 rounded-lg font-semibold text-white bg-green-500 hover:opacity-90"
                   >
-                    ✓ Aplicar
+                    <Check size={13} />
+                    Aplicar
                   </button>
                   <button
                     onClick={() => setEditandoPrioridad(false)}
-                    className="text-xs px-3 py-1 rounded-lg font-semibold text-white bg-red-400 hover:opacity-90"
+                    className="flex items-center gap-1 text-xs px-3 py-1 rounded-lg font-semibold text-white bg-red-400 hover:opacity-90"
                   >
-                    ✕ Cancelar
+                    <X size={13} />
+                    Cancelar
                   </button>
                 </div>
               )}
@@ -276,7 +289,9 @@ export default function GestionRutas() {
             {rutas.length === 0 && (
               <div className="rounded-2xl p-8 text-center"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
-                <p className="text-2xl mb-2">🗺️</p>
+                <div className="flex justify-center mb-2">
+                  <Map size={32} className="opacity-30" />
+                </div>
                 <p className="font-semibold">No hay rutas creadas</p>
               </div>
             )}
@@ -318,10 +333,10 @@ export default function GestionRutas() {
                           }}
                         />
                       ) : (
-                        <span className="text-xl opacity-40 cursor-grab">⠿</span>
+                        <GripVertical size={18} className="opacity-30 shrink-0" />
                       )}
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
                         style={{ backgroundColor: "var(--primary)" }}
                       >
                         {ruta.orden || index + 1}
@@ -333,16 +348,17 @@ export default function GestionRutas() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 rounded-full text-white"
+                        <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full text-white"
                           style={{ backgroundColor: "var(--secondary)" }}>
-                          {clientesEnRuta.length} clientes
+                          <Users size={11} />
+                          {clientesEnRuta.length}
                         </span>
                         {!editandoPrioridad && (
                           <button
                             onClick={(e) => { e.stopPropagation(); eliminarRuta(ruta.id); }}
-                            className="text-red-400 hover:text-red-600 transition text-sm font-bold"
+                            className="text-red-400 hover:text-red-600 transition"
                           >
-                            ✕
+                            <X size={16} />
                           </button>
                         )}
                       </div>
@@ -353,19 +369,24 @@ export default function GestionRutas() {
             </div>
           </div>
 
-          {/* COLUMNA DERECHA */}
+          {/* COLUMNA DERECHA — CLIENTES */}
           <div>
-            <h2 className="font-bold mb-3 text-lg">
-              👥 {rutaSeleccionada ? `Clientes — ${rutaSeleccionada.nombre}` : "Selecciona una ruta"}
+            <h2 className="flex items-center gap-2 font-bold mb-3 text-lg">
+              <Users size={18} />
+              {rutaSeleccionada ? `Clientes — ${rutaSeleccionada.nombre}` : "Selecciona una ruta"}
             </h2>
             <p className="text-sm opacity-60 mb-4">
-              {rutaSeleccionada ? "Arrastra para cambiar el orden de visita" : "Haz clic en una ruta para ver sus clientes"}
+              {rutaSeleccionada
+                ? "Arrastra para cambiar el orden de visita"
+                : "Haz clic en una ruta para ver sus clientes"}
             </p>
 
             {!rutaSeleccionada && (
               <div className="rounded-2xl p-8 text-center"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
-                <p className="text-2xl mb-2">👈</p>
+                <div className="flex justify-center mb-2">
+                  <MousePointerClick size={32} className="opacity-30" />
+                </div>
                 <p className="font-semibold">Selecciona una ruta</p>
                 <p className="text-sm opacity-60 mt-1">para ver y ordenar sus clientes</p>
               </div>
@@ -374,7 +395,9 @@ export default function GestionRutas() {
             {rutaSeleccionada && clientesDeRuta.length === 0 && (
               <div className="rounded-2xl p-8 text-center"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
-                <p className="text-2xl mb-2">👤</p>
+                <div className="flex justify-center mb-2">
+                  <UserX size={32} className="opacity-30" />
+                </div>
                 <p className="font-semibold">Sin clientes asignados</p>
                 <p className="text-sm opacity-60 mt-1">Edita un cliente y asígnale esta ruta</p>
               </div>
@@ -395,7 +418,7 @@ export default function GestionRutas() {
                     style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl opacity-40">⠿</span>
+                      <GripVertical size={18} className="opacity-30 shrink-0" />
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
                         style={{ backgroundColor: "var(--primary)" }}
@@ -404,8 +427,14 @@ export default function GestionRutas() {
                       </div>
                       <div className="flex-1">
                         <p className="font-bold">{cliente.nombres} {cliente.apellidos}</p>
-                        <p className="text-xs opacity-60">📍 {cliente.zona || cliente.direccion}</p>
-                        <p className="text-xs opacity-60">📞 {cliente.telefono}</p>
+                        <p className="flex items-center gap-1 text-xs opacity-60">
+                          <MapPin size={11} />
+                          {cliente.zona || cliente.direccion}
+                        </p>
+                        <p className="flex items-center gap-1 text-xs opacity-60">
+                          <Phone size={11} />
+                          {cliente.telefono}
+                        </p>
                       </div>
                     </div>
                   </div>

@@ -5,6 +5,85 @@ import Prestamo from '#models/prestamo'
 import ExcelJS from 'exceljs'
 import PDFDocument from 'pdfkit'
 
+// ─── Utilidad: convierte cualquier fecha a "DD-MM-YYYY" ───────────────────────
+const fechaCorta = (fecha: any): string => {
+  if (!fecha) return ''
+  const str = String(fecha).split('T')[0] // "2026-03-19"
+  const [year, month, day] = str.split('-')
+  return `${day}-${month}-${year}`
+}
+
+// ─── Colores corporativos para Excel ─────────────────────────────────────────
+const COLOR_PRIMARY   = 'FF2563EB' // azul
+const COLOR_SECONDARY = 'FF1E40AF' // azul oscuro
+const COLOR_WHITE     = 'FFFFFFFF'
+const COLOR_HEADER_BG = 'FFE8F0FE' // azul muy claro para filas pares
+const COLOR_GREEN     = 'FF16A34A'
+const COLOR_TOTAL_BG  = 'FFDBEAFE' // celeste para fila de totales
+
+// Aplica estilo completo a la fila de encabezado
+const estilizarEncabezado = (row: ExcelJS.Row) => {
+  row.height = 28
+  row.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: COLOR_WHITE }, size: 11 }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_PRIMARY } }
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: COLOR_SECONDARY } },
+    }
+  })
+}
+
+// Aplica estilo a fila de datos
+const estilizarFila = (row: ExcelJS.Row, esImpar: boolean) => {
+  row.height = 22
+  row.eachCell((cell) => {
+    cell.alignment = { vertical: 'middle', horizontal: 'left' }
+    if (!esImpar) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } }
+    }
+    cell.border = {
+      bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+    }
+  })
+}
+
+// Fila de totales al final
+const agregarFilaTotales = (sheet: ExcelJS.Worksheet, valores: (string | number)[]) => {
+  const row = sheet.addRow(valores)
+  row.height = 26
+  row.eachCell((cell) => {
+    cell.font = { bold: true, size: 11, color: { argb: COLOR_SECONDARY } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } }
+    cell.alignment = { vertical: 'middle', horizontal: 'left' }
+    cell.border = {
+      top: { style: 'medium', color: { argb: COLOR_PRIMARY } },
+    }
+  })
+}
+
+// Bloque de información superior (filtros aplicados)
+const agregarInfoReporte = (
+  sheet: ExcelJS.Worksheet,
+  titulo: string,
+  filtros: { label: string; valor: string }[]
+) => {
+  // Fila título
+  const filaT = sheet.addRow([titulo])
+  filaT.getCell(1).font = { bold: true, size: 14, color: { argb: COLOR_PRIMARY } }
+  filaT.height = 30
+
+  // Filas de filtros
+  filtros.forEach(({ label, valor }) => {
+    const fila = sheet.addRow([`${label}: ${valor}`])
+    fila.getCell(1).font = { italic: true, size: 10, color: { argb: 'FF6B7280' } }
+    fila.height = 16
+  })
+
+  // Línea separadora vacía
+  sheet.addRow([])
+}
+
 export default class ReportesController {
 
   private async verifyToken(token: string) {
@@ -16,23 +95,15 @@ export default class ReportesController {
     return apiToken?.user || null
   }
 
-  /**
-   * Pagos por rango de fechas
-   */
+  // ─── GET /api/reportes/pagos ────────────────────────────────────────────────
   async pagos({ request, response }: HttpContext) {
     try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-
-      if (!user || user.role !== 'admin') {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const user = await this.verifyToken(request.header('authorization') || '')
+      if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { fechaInicio, fechaFin } = request.qs()
-
-      if (!fechaInicio || !fechaFin) {
+      if (!fechaInicio || !fechaFin)
         return response.badRequest({ message: 'fechaInicio y fechaFin son requeridos' })
-      }
 
       const pagos = await Pago.query()
         .whereBetween('fecha_pago', [fechaInicio, fechaFin])
@@ -47,28 +118,17 @@ export default class ReportesController {
     }
   }
 
-  /**
-   * Préstamos por estado
-   */
+  // ─── GET /api/reportes/prestamos ───────────────────────────────────────────
   async prestamos({ request, response }: HttpContext) {
     try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-
-      if (!user || user.role !== 'admin') {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const user = await this.verifyToken(request.header('authorization') || '')
+      if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { estado } = request.qs()
-
       const query = Prestamo.query().preload('cliente')
-
-      if (estado) {
-        query.where('estado', estado)
-      }
+      if (estado) query.where('estado', estado)
 
       const prestamos = await query.orderBy('created_at', 'desc')
-
       return response.ok(prestamos)
     } catch (error) {
       console.error(error)
@@ -76,56 +136,40 @@ export default class ReportesController {
     }
   }
 
-  /**
-   * Ganancias por rango de fechas
-   */
+  // ─── GET /api/reportes/ganancias ───────────────────────────────────────────
   async ganancias({ request, response }: HttpContext) {
     try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-
-      if (!user || user.role !== 'admin') {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const user = await this.verifyToken(request.header('authorization') || '')
+      if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { fechaInicio, fechaFin } = request.qs()
-
-      if (!fechaInicio || !fechaFin) {
+      if (!fechaInicio || !fechaFin)
         return response.badRequest({ message: 'fechaInicio y fechaFin son requeridos' })
-      }
 
       const pagos = await Pago.query()
         .whereBetween('fecha_pago', [fechaInicio, fechaFin])
         .preload('prestamo', (q) => q.preload('cliente'))
         .orderBy('fecha_pago', 'asc')
 
-      // Calcular ganancias (intereses cobrados)
-      const totalCobrado = pagos.reduce((sum, p) => sum + Number(p.montoPagado), 0)
-
       const detalle = pagos.map((p) => {
         const cuotaSemanal = Number(p.prestamo.monto) * (1 + Number(p.prestamo.interes) / 100) / Number(p.prestamo.cuotas)
         const capitalPorCuota = Number(p.prestamo.monto) / Number(p.prestamo.cuotas)
-        const ganancia = cuotaSemanal - capitalPorCuota
-
         return {
-          fecha: p.fechaPago,
+          fecha: fechaCorta(p.fechaPago),
           cliente: `${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`,
           numeroCuota: p.numeroCuota,
           montoPagado: Number(p.montoPagado),
           capital: Number(capitalPorCuota.toFixed(2)),
-          ganancia: Number(ganancia.toFixed(2)),
+          ganancia: Number((cuotaSemanal - capitalPorCuota).toFixed(2)),
         }
       })
-
-      const totalGanancia = detalle.reduce((sum, d) => sum + d.ganancia, 0)
-      const totalCapital = detalle.reduce((sum, d) => sum + d.capital, 0)
 
       return response.ok({
         fechaInicio,
         fechaFin,
-        totalCobrado: Number(totalCobrado.toFixed(2)),
-        totalCapital: Number(totalCapital.toFixed(2)),
-        totalGanancia: Number(totalGanancia.toFixed(2)),
+        totalCobrado:  Number(detalle.reduce((s, d) => s + d.montoPagado, 0).toFixed(2)),
+        totalCapital:  Number(detalle.reduce((s, d) => s + d.capital,     0).toFixed(2)),
+        totalGanancia: Number(detalle.reduce((s, d) => s + d.ganancia,    0).toFixed(2)),
         detalle,
       })
     } catch (error) {
@@ -134,30 +178,23 @@ export default class ReportesController {
     }
   }
 
-  /**
-   * Exportar a Excel
-   */
+  // ─── GET /api/reportes/exportar/excel ──────────────────────────────────────
   async exportarExcel({ request, response }: HttpContext) {
     try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-
-      if (!user || user.role !== 'admin') {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const user = await this.verifyToken(request.header('authorization') || '')
+      if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { tipo, fechaInicio, fechaFin, estado } = request.qs()
-      const workbook = new ExcelJS.Workbook()
-      const sheet = workbook.addWorksheet('Reporte')
 
+      const workbook = new ExcelJS.Workbook()
+      workbook.creator  = 'Sistema de Préstamos'
+      workbook.created  = new Date()
+      workbook.modified = new Date()
+
+      // ── PAGOS ──────────────────────────────────────────────────────────────
       if (tipo === 'pagos') {
-        sheet.columns = [
-          { header: 'Fecha', key: 'fecha', width: 15 },
-          { header: 'Cliente', key: 'cliente', width: 30 },
-          { header: 'Cuota #', key: 'cuota', width: 10 },
-          { header: 'Monto Pagado', key: 'monto', width: 15 },
-          { header: 'Registrado por', key: 'usuario', width: 20 },
-        ]
+        const sheet = workbook.addWorksheet('Reporte de Pagos')
+        sheet.properties.defaultRowHeight = 20
 
         const pagos = await Pago.query()
           .whereBetween('fecha_pago', [fechaInicio, fechaFin])
@@ -165,83 +202,191 @@ export default class ReportesController {
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
 
-        pagos.forEach((p) => {
-          sheet.addRow({
-            fecha: p.fechaPago,
-            cliente: `${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`,
-            cuota: p.numeroCuota,
-            monto: Number(p.montoPagado),
-            usuario: p.usuario?.username || 'N/A',
-          })
+        // Info / filtros al inicio
+        agregarInfoReporte(sheet, 'Reporte de Pagos', [
+          { label: 'Período', valor: `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` },
+          { label: 'Total de registros', valor: String(pagos.length) },
+          { label: 'Generado', valor: fechaCorta(new Date().toISOString()) },
+        ])
+
+        // Columnas
+        sheet.columns = [
+          { key: 'fecha',    width: 14 },
+          { key: 'cliente',  width: 34 },
+          { key: 'cuota',    width: 12 },
+          { key: 'monto',    width: 18 },
+          { key: 'usuario',  width: 22 },
+        ]
+
+        // Encabezado
+        const headerRow = sheet.addRow(['Fecha', 'Cliente', 'Cuota #', 'Monto Pagado (Q)', 'Registrado por'])
+        estilizarEncabezado(headerRow)
+
+        // Datos
+        let totalCobrado = 0
+        pagos.forEach((p, i) => {
+          const monto = Number(p.montoPagado)
+          totalCobrado += monto
+          const row = sheet.addRow([
+            fechaCorta(p.fechaPago),
+            `${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`,
+            `#${p.numeroCuota}`,
+            monto,
+            p.usuario?.username || 'N/A',
+          ])
+          estilizarFila(row, i % 2 === 0)
+          // Formato moneda en columna monto
+          row.getCell(4).numFmt = '"Q"#,##0.00'
+          row.getCell(4).font = { bold: true, color: { argb: COLOR_PRIMARY } }
         })
 
+        // Fila totales
+        agregarFilaTotales(sheet, ['', '', 'TOTAL', totalCobrado, ''])
+        const totalRow = sheet.lastRow!
+        totalRow.getCell(4).numFmt = '"Q"#,##0.00'
+        totalRow.getCell(4).font = { bold: true, size: 12, color: { argb: COLOR_GREEN } }
+
+        // Autofilter en encabezado (fila 5 = después de 3 info + 1 vacía + 1 header)
+        const headerRowNum = sheet.rowCount - pagos.length - 1
+        sheet.autoFilter = {
+          from: { row: headerRowNum, column: 1 },
+          to:   { row: headerRowNum, column: 5 },
+        }
+
+      // ── PRÉSTAMOS ──────────────────────────────────────────────────────────
       } else if (tipo === 'prestamos') {
-        sheet.columns = [
-          { header: 'Cliente', key: 'cliente', width: 30 },
-          { header: 'Monto', key: 'monto', width: 15 },
-          { header: 'Interés %', key: 'interes', width: 12 },
-          { header: 'Cuotas', key: 'cuotas', width: 10 },
-          { header: 'Fecha Inicio', key: 'fechaInicio', width: 15 },
-          { header: 'Fecha Fin', key: 'fechaFin', width: 15 },
-          { header: 'Estado', key: 'estado', width: 12 },
-        ]
+        const sheet = workbook.addWorksheet('Reporte de Préstamos')
+        sheet.properties.defaultRowHeight = 20
 
         const query = Prestamo.query().preload('cliente')
         if (estado) query.where('estado', estado)
         const prestamos = await query.orderBy('created_at', 'desc')
 
-        prestamos.forEach((p) => {
-          sheet.addRow({
-            cliente: `${p.cliente.nombres} ${p.cliente.apellidos}`,
-            monto: Number(p.monto),
-            interes: Number(p.interes),
-            cuotas: p.cuotas,
-            fechaInicio: p.fechaInicio,
-            fechaFin: p.fechaFin,
-            estado: p.estado,
-          })
+        agregarInfoReporte(sheet, 'Reporte de Préstamos', [
+          { label: 'Estado filtrado', valor: estado || 'Todos' },
+          { label: 'Total de registros', valor: String(prestamos.length) },
+          { label: 'Generado', valor: fechaCorta(new Date().toISOString()) },
+        ])
+
+        sheet.columns = [
+          { key: 'cliente',     width: 34 },
+          { key: 'monto',       width: 18 },
+          { key: 'interes',     width: 13 },
+          { key: 'cuotas',      width: 12 },
+          { key: 'fechaInicio', width: 14 },
+          { key: 'fechaFin',    width: 14 },
+          { key: 'estado',      width: 13 },
+        ]
+
+        const headerRow = sheet.addRow(['Cliente', 'Monto (Q)', 'Interés %', 'Cuotas', 'Fecha Inicio', 'Fecha Fin', 'Estado'])
+        estilizarEncabezado(headerRow)
+
+        let totalPrestado = 0
+        prestamos.forEach((p, i) => {
+          const monto = Number(p.monto)
+          totalPrestado += monto
+          const row = sheet.addRow([
+            `${p.cliente.nombres} ${p.cliente.apellidos}`,
+            monto,
+            `${p.interes}%`,
+            `${p.cuotas} sem`,
+            fechaCorta(p.fechaInicio),
+            fechaCorta(p.fechaFin),
+            p.estado,
+          ])
+          estilizarFila(row, i % 2 === 0)
+          row.getCell(2).numFmt = '"Q"#,##0.00'
+          row.getCell(2).font = { bold: true, color: { argb: COLOR_PRIMARY } }
+
+          // Color badge en estado
+          const estadoCell = row.getCell(7)
+          if (p.estado === 'activo')  { estadoCell.font = { color: { argb: 'FF16A34A' }, bold: true } }
+          if (p.estado === 'vencido') { estadoCell.font = { color: { argb: 'FFDC2626' }, bold: true } }
+          if (p.estado === 'pagado')  { estadoCell.font = { color: { argb: 'FF2563EB' }, bold: true } }
         })
 
+        agregarFilaTotales(sheet, ['TOTAL', totalPrestado, '', '', '', '', ''])
+        const totalRow = sheet.lastRow!
+        totalRow.getCell(2).numFmt = '"Q"#,##0.00'
+        totalRow.getCell(2).font = { bold: true, size: 12, color: { argb: COLOR_GREEN } }
+
+        const headerRowNum = sheet.rowCount - prestamos.length - 1
+        sheet.autoFilter = {
+          from: { row: headerRowNum, column: 1 },
+          to:   { row: headerRowNum, column: 7 },
+        }
+
+      // ── GANANCIAS ──────────────────────────────────────────────────────────
       } else if (tipo === 'ganancias') {
-        sheet.columns = [
-          { header: 'Fecha', key: 'fecha', width: 15 },
-          { header: 'Cliente', key: 'cliente', width: 30 },
-          { header: 'Cuota #', key: 'cuota', width: 10 },
-          { header: 'Monto Cobrado', key: 'monto', width: 15 },
-          { header: 'Capital', key: 'capital', width: 15 },
-          { header: 'Ganancia', key: 'ganancia', width: 15 },
-        ]
+        const sheet = workbook.addWorksheet('Reporte de Ganancias')
+        sheet.properties.defaultRowHeight = 20
 
         const pagos = await Pago.query()
           .whereBetween('fecha_pago', [fechaInicio, fechaFin])
           .preload('prestamo', (q) => q.preload('cliente'))
           .orderBy('fecha_pago', 'asc')
 
-        pagos.forEach((p) => {
-          const cuotaSemanal = Number(p.prestamo.monto) * (1 + Number(p.prestamo.interes) / 100) / Number(p.prestamo.cuotas)
+        let totalCobrado = 0, totalCapital = 0, totalGanancia = 0
+        const filas = pagos.map((p) => {
+          const cuotaSemanal    = Number(p.prestamo.monto) * (1 + Number(p.prestamo.interes) / 100) / Number(p.prestamo.cuotas)
           const capitalPorCuota = Number(p.prestamo.monto) / Number(p.prestamo.cuotas)
-          sheet.addRow({
-            fecha: p.fechaPago,
+          const ganancia        = cuotaSemanal - capitalPorCuota
+          totalCobrado  += Number(p.montoPagado)
+          totalCapital  += capitalPorCuota
+          totalGanancia += ganancia
+          return {
+            fecha:   fechaCorta(p.fechaPago),
             cliente: `${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`,
-            cuota: p.numeroCuota,
-            monto: Number(p.montoPagado),
+            cuota:   `#${p.numeroCuota}`,
+            monto:   Number(p.montoPagado),
             capital: Number(capitalPorCuota.toFixed(2)),
-            ganancia: Number((cuotaSemanal - capitalPorCuota).toFixed(2)),
-          })
+            ganancia: Number(ganancia.toFixed(2)),
+          }
         })
-      }
 
-      // Estilo encabezados
-      sheet.getRow(1).font = { bold: true }
-      sheet.getRow(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF2563EB' },
+        agregarInfoReporte(sheet, 'Reporte de Ganancias', [
+          { label: 'Período',         valor: `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` },
+          { label: 'Total cobrado',   valor: `Q${totalCobrado.toFixed(2)}` },
+          { label: 'Total capital',   valor: `Q${totalCapital.toFixed(2)}` },
+          { label: 'Ganancia neta',   valor: `Q${totalGanancia.toFixed(2)}` },
+          { label: 'Generado',        valor: fechaCorta(new Date().toISOString()) },
+        ])
+
+        sheet.columns = [
+          { key: 'fecha',    width: 14 },
+          { key: 'cliente',  width: 34 },
+          { key: 'cuota',    width: 12 },
+          { key: 'monto',    width: 18 },
+          { key: 'capital',  width: 18 },
+          { key: 'ganancia', width: 18 },
+        ]
+
+        const headerRow = sheet.addRow(['Fecha', 'Cliente', 'Cuota #', 'Monto Cobrado (Q)', 'Capital (Q)', 'Ganancia (Q)'])
+        estilizarEncabezado(headerRow)
+
+        filas.forEach((f, i) => {
+          const row = sheet.addRow([f.fecha, f.cliente, f.cuota, f.monto, f.capital, f.ganancia])
+          estilizarFila(row, i % 2 === 0)
+          ;[4, 5, 6].forEach((col) => { row.getCell(col).numFmt = '"Q"#,##0.00' })
+          row.getCell(4).font = { color: { argb: COLOR_PRIMARY } }
+          row.getCell(6).font = { bold: true, color: { argb: COLOR_GREEN } }
+        })
+
+        agregarFilaTotales(sheet, ['', 'TOTALES', '', totalCobrado, totalCapital, totalGanancia])
+        const totalRow = sheet.lastRow!
+        ;[4, 5, 6].forEach((col) => {
+          totalRow.getCell(col).numFmt = '"Q"#,##0.00'
+          totalRow.getCell(col).font   = { bold: true, size: 11, color: { argb: COLOR_GREEN } }
+        })
+
+        const headerRowNum = sheet.rowCount - filas.length - 1
+        sheet.autoFilter = {
+          from: { row: headerRowNum, column: 1 },
+          to:   { row: headerRowNum, column: 6 },
+        }
       }
-      sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
 
       const buffer = await workbook.xlsx.writeBuffer()
-
       response.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       response.header('Content-Disposition', `attachment; filename="reporte_${tipo}.xlsx"`)
       return response.send(buffer)
@@ -252,31 +397,26 @@ export default class ReportesController {
     }
   }
 
-  /**
-   * Exportar a PDF
-   */
+  // ─── GET /api/reportes/exportar/pdf ────────────────────────────────────────
   async exportarPDF({ request, response }: HttpContext) {
     try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-
-      if (!user || user.role !== 'admin') {
-        return response.forbidden({ message: 'No autorizado' })
-      }
+      const user = await this.verifyToken(request.header('authorization') || '')
+      if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { tipo, fechaInicio, fechaFin, estado } = request.qs()
       const doc = new PDFDocument({ margin: 40 })
       const chunks: Buffer[] = []
-
       doc.on('data', (chunk) => chunks.push(chunk))
 
       // Encabezado
       doc.fontSize(18).font('Helvetica-Bold').text('Sistema de Préstamos', { align: 'center' })
       doc.fontSize(12).font('Helvetica').text(`Reporte: ${tipo}`, { align: 'center' })
       if (fechaInicio && fechaFin) {
-        doc.text(`Período: ${fechaInicio} al ${fechaFin}`, { align: 'center' })
+        doc.text(`Período: ${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`, { align: 'center' })
       }
-      doc.moveDown()
+      doc.fontSize(9).fillColor('#6B7280')
+        .text(`Generado el ${fechaCorta(new Date().toISOString())}`, { align: 'center' })
+      doc.fillColor('#000000').moveDown()
 
       if (tipo === 'pagos') {
         const pagos = await Pago.query()
@@ -286,10 +426,13 @@ export default class ReportesController {
           .orderBy('fecha_pago', 'asc')
 
         pagos.forEach((p) => {
-          doc.font('Helvetica-Bold').text(`Cuota #${p.numeroCuota}`, { continued: true })
-          doc.font('Helvetica').text(` — ${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`)
-          doc.text(`  Monto: Q${Number(p.montoPagado).toFixed(2)}   Fecha: ${p.fechaPago}   Cobrado por: ${p.usuario?.username || 'N/A'}`)
-          doc.moveDown(0.5)
+          doc.font('Helvetica-Bold').fontSize(11)
+            .text(`Cuota #${p.numeroCuota}`, { continued: true })
+          doc.font('Helvetica')
+            .text(` — ${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`)
+          doc.fontSize(10).fillColor('#4B5563')
+            .text(`  Monto: Q${Number(p.montoPagado).toFixed(2)}   Fecha: ${fechaCorta(p.fechaPago)}   Cobrado por: ${p.usuario?.username || 'N/A'}`)
+          doc.fillColor('#000000').moveDown(0.5)
         })
 
       } else if (tipo === 'prestamos') {
@@ -298,10 +441,12 @@ export default class ReportesController {
         const prestamos = await query.orderBy('created_at', 'desc')
 
         prestamos.forEach((p) => {
-          doc.font('Helvetica-Bold').text(`${p.cliente.nombres} ${p.cliente.apellidos}`)
-          doc.font('Helvetica').text(`  Monto: Q${Number(p.monto).toFixed(2)}   Interés: ${p.interes}%   Cuotas: ${p.cuotas}   Estado: ${p.estado}`)
-          doc.text(`  Inicio: ${p.fechaInicio}   Fin: ${p.fechaFin}`)
-          doc.moveDown(0.5)
+          doc.font('Helvetica-Bold').fontSize(11)
+            .text(`${p.cliente.nombres} ${p.cliente.apellidos}`)
+          doc.font('Helvetica').fontSize(10).fillColor('#4B5563')
+            .text(`  Monto: Q${Number(p.monto).toFixed(2)}   Interés: ${p.interes}%   Cuotas: ${p.cuotas}   Estado: ${p.estado}`)
+            .text(`  Inicio: ${fechaCorta(p.fechaInicio)}   Fin: ${fechaCorta(p.fechaFin)}`)
+          doc.fillColor('#000000').moveDown(0.5)
         })
 
       } else if (tipo === 'ganancias') {
@@ -311,25 +456,26 @@ export default class ReportesController {
           .orderBy('fecha_pago', 'asc')
 
         let totalGanancia = 0
-
         pagos.forEach((p) => {
-          const cuotaSemanal = Number(p.prestamo.monto) * (1 + Number(p.prestamo.interes) / 100) / Number(p.prestamo.cuotas)
+          const cuotaSemanal    = Number(p.prestamo.monto) * (1 + Number(p.prestamo.interes) / 100) / Number(p.prestamo.cuotas)
           const capitalPorCuota = Number(p.prestamo.monto) / Number(p.prestamo.cuotas)
-          const ganancia = cuotaSemanal - capitalPorCuota
+          const ganancia        = cuotaSemanal - capitalPorCuota
           totalGanancia += ganancia
 
-          doc.font('Helvetica-Bold').text(`${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`, { continued: true })
+          doc.font('Helvetica-Bold').fontSize(11)
+            .text(`${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`, { continued: true })
           doc.font('Helvetica').text(` — Cuota #${p.numeroCuota}`)
-          doc.text(`  Cobrado: Q${Number(p.montoPagado).toFixed(2)}   Capital: Q${capitalPorCuota.toFixed(2)}   Ganancia: Q${ganancia.toFixed(2)}`)
-          doc.moveDown(0.5)
+          doc.fontSize(10).fillColor('#4B5563')
+            .text(`  Cobrado: Q${Number(p.montoPagado).toFixed(2)}   Capital: Q${capitalPorCuota.toFixed(2)}   Ganancia: Q${ganancia.toFixed(2)}   Fecha: ${fechaCorta(p.fechaPago)}`)
+          doc.fillColor('#000000').moveDown(0.5)
         })
 
         doc.moveDown()
-        doc.font('Helvetica-Bold').fontSize(13).text(`Total ganancia: Q${totalGanancia.toFixed(2)}`, { align: 'right' })
+        doc.font('Helvetica-Bold').fontSize(13)
+          .text(`Total ganancia: Q${totalGanancia.toFixed(2)}`, { align: 'right' })
       }
 
       doc.end()
-
       await new Promise((resolve) => doc.on('end', resolve))
       const pdfBuffer = Buffer.concat(chunks)
 

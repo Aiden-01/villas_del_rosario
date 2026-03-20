@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
+import {
+  MapPin, RefreshCw, ListOrdered, Check, X,
+  Phone, Clock, CheckCircle2, HandCoins,
+  ChevronUp, ChevronDown, PartyPopper, AlertCircle
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -66,7 +71,7 @@ export default function RutaDelDia() {
         cargarRuta();
         return;
       }
-      showToast(`✅ Cuota #${item.proximaCuota} de ${item.cliente.nombres} registrada`, "success");
+      showToast(`Cuota #${item.proximaCuota} de ${item.cliente.nombres} registrada`, "success");
     } catch {
       showToast("Error al registrar pago", "error");
       cargarRuta();
@@ -75,7 +80,6 @@ export default function RutaDelDia() {
     }
   };
 
-  // Iniciar edición de orden
   const iniciarEdicionOrden = () => {
     const p = {};
     datos?.pendientes?.forEach((item, i) => {
@@ -85,7 +89,6 @@ export default function RutaDelDia() {
     setEditandoOrden(true);
   };
 
-  // Guardar nuevo orden
   const guardarOrden = async () => {
     setGuardandoOrden(true);
     try {
@@ -100,7 +103,6 @@ export default function RutaDelDia() {
         body: JSON.stringify({ ordenes }),
       });
 
-      // Reordenar en el estado local
       const pendientesOrdenados = [...datos.pendientes].sort((a, b) =>
         (prioridades[a.prestamoId] || 0) - (prioridades[b.prestamoId] || 0)
       );
@@ -114,7 +116,6 @@ export default function RutaDelDia() {
     }
   };
 
-  // Mover cliente arriba/abajo
   const moverCliente = async (index, direccion) => {
     const pendientes = [...datos.pendientes];
     const nuevoIndex = direccion === "up" ? index - 1 : index + 1;
@@ -143,7 +144,7 @@ export default function RutaDelDia() {
 
   const agruparPorRuta = (items) => {
     return items.reduce((grupos, item) => {
-      const key = item.rutaNombre || "📌 Sin zona asignada";
+      const key = item.rutaNombre || "Sin zona asignada";
       if (!grupos[key]) grupos[key] = [];
       grupos[key].push(item);
       return grupos;
@@ -155,7 +156,10 @@ export default function RutaDelDia() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">📍 Ruta de Hoy</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <MapPin size={24} style={{ color: "var(--primary)" }} />
+            Ruta de Hoy
+          </h1>
           <p className="text-sm opacity-60 mt-1">
             {hoyNombre} — {new Date().toLocaleDateString("es-GT")}
           </p>
@@ -165,17 +169,19 @@ export default function RutaDelDia() {
             <>
               <button
                 onClick={iniciarEdicionOrden}
-                className="text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition text-sm font-semibold"
+                className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition text-sm font-semibold"
                 style={{ backgroundColor: "var(--secondary)" }}
               >
-                🔢 Ordenar
+                <ListOrdered size={16} />
+                Ordenar
               </button>
               <button
                 onClick={() => { setLoading(true); setError(""); cargarRuta(); }}
-                className="text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
+                className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
                 style={{ backgroundColor: "var(--primary)" }}
               >
-                🔄 Actualizar
+                <RefreshCw size={16} />
+                Actualizar
               </button>
             </>
           ) : (
@@ -183,15 +189,17 @@ export default function RutaDelDia() {
               <button
                 onClick={guardarOrden}
                 disabled={guardandoOrden}
-                className="px-4 py-2 rounded-lg shadow text-white font-semibold hover:opacity-90 transition disabled:opacity-50 bg-green-500"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg shadow text-white font-semibold hover:opacity-90 transition disabled:opacity-50 bg-green-500"
               >
-                ✓ Aplicar
+                <Check size={16} />
+                Aplicar
               </button>
               <button
                 onClick={() => setEditandoOrden(false)}
-                className="px-4 py-2 rounded-lg shadow text-white font-semibold hover:opacity-90 transition bg-red-400"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg shadow text-white font-semibold hover:opacity-90 transition bg-red-400"
               >
-                ✕ Cancelar
+                <X size={16} />
+                Cancelar
               </button>
             </>
           )}
@@ -210,19 +218,25 @@ export default function RutaDelDia() {
               <p className="text-3xl font-bold" style={{ color: "var(--primary)" }}>
                 {datos.totalPendientes}
               </p>
-              <p className="text-sm opacity-60 mt-1">Pendientes</p>
+              <p className="flex items-center justify-center gap-1 text-sm opacity-60 mt-1">
+                <Clock size={13} /> Pendientes
+              </p>
             </div>
             <div className="p-4 rounded-xl shadow text-center"
               style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
               <p className="text-3xl font-bold text-green-500">{datos.totalCobrados}</p>
-              <p className="text-sm opacity-60 mt-1">Cobrados</p>
+              <p className="flex items-center justify-center gap-1 text-sm opacity-60 mt-1">
+                <CheckCircle2 size={13} /> Cobrados
+              </p>
             </div>
             <div className="p-4 rounded-xl shadow text-center"
               style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
               <p className="text-xl font-bold text-green-500">
                 Q{Number(datos.totalRecaudado).toFixed(2)}
               </p>
-              <p className="text-sm opacity-60 mt-1">Recaudado</p>
+              <p className="flex items-center justify-center gap-1 text-sm opacity-60 mt-1">
+                <HandCoins size={13} /> Recaudado
+              </p>
             </div>
           </div>
 
@@ -230,9 +244,12 @@ export default function RutaDelDia() {
           {datos.pendientes?.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">⏳ Pendientes</h2>
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <Clock size={18} className="opacity-60" />
+                  Pendientes
+                </h2>
                 {editandoOrden && (
-                  <p className="text-sm opacity-60">Asigna números o usa ↑↓ para ordenar</p>
+                  <p className="text-sm opacity-60">Usa ↑↓ para ordenar</p>
                 )}
               </div>
 
@@ -240,9 +257,10 @@ export default function RutaDelDia() {
                 <div key={zona} className="mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
-                    <span className="text-sm font-bold px-4 py-1 rounded-full text-white whitespace-nowrap"
+                    <span className="flex items-center gap-1 text-sm font-bold px-4 py-1 rounded-full text-white whitespace-nowrap"
                       style={{ backgroundColor: "var(--secondary)" }}>
-                      📍 {zona} — {items.length} cobro{items.length !== 1 ? "s" : ""}
+                      <MapPin size={13} />
+                      {zona} — {items.length} cobro{items.length !== 1 ? "s" : ""}
                     </span>
                     <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
                   </div>
@@ -264,10 +282,10 @@ export default function RutaDelDia() {
                                   <button
                                     onClick={() => moverCliente(globalIndex, "up")}
                                     disabled={globalIndex === 0}
-                                    className="w-8 h-8 rounded-lg font-bold text-white flex items-center justify-center hover:opacity-90 disabled:opacity-30 transition"
+                                    className="w-8 h-8 rounded-lg text-white flex items-center justify-center hover:opacity-90 disabled:opacity-30 transition"
                                     style={{ backgroundColor: "var(--secondary)" }}
                                   >
-                                    ↑
+                                    <ChevronUp size={16} />
                                   </button>
                                   <input
                                     type="number"
@@ -284,10 +302,10 @@ export default function RutaDelDia() {
                                   <button
                                     onClick={() => moverCliente(globalIndex, "down")}
                                     disabled={globalIndex === datos.pendientes.length - 1}
-                                    className="w-8 h-8 rounded-lg font-bold text-white flex items-center justify-center hover:opacity-90 disabled:opacity-30 transition"
+                                    className="w-8 h-8 rounded-lg text-white flex items-center justify-center hover:opacity-90 disabled:opacity-30 transition"
                                     style={{ backgroundColor: "var(--secondary)" }}
                                   >
-                                    ↓
+                                    <ChevronDown size={16} />
                                   </button>
                                 </>
                               ) : (
@@ -307,8 +325,14 @@ export default function RutaDelDia() {
                                   <h3 className="font-bold text-base">
                                     {item.cliente.nombres} {item.cliente.apellidos}
                                   </h3>
-                                  <p className="text-sm opacity-60">📍 {item.cliente.zona || item.cliente.direccion}</p>
-                                  <p className="text-sm opacity-60">📞 {item.cliente.telefono}</p>
+                                  <p className="flex items-center gap-1 text-sm opacity-60">
+                                    <MapPin size={12} />
+                                    {item.cliente.zona || item.cliente.direccion}
+                                  </p>
+                                  <p className="flex items-center gap-1 text-sm opacity-60">
+                                    <Phone size={12} />
+                                    {item.cliente.telefono}
+                                  </p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-xl font-bold" style={{ color: "var(--primary)" }}>
@@ -333,10 +357,14 @@ export default function RutaDelDia() {
                                 <button
                                   onClick={() => registrarPago(item)}
                                   disabled={registrando === item.prestamoId}
-                                  className="w-full py-2 rounded-xl font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+                                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
                                   style={{ backgroundColor: "#16a34a" }}
                                 >
-                                  {registrando === item.prestamoId ? "Registrando..." : `💰 Registrar Cuota #${item.proximaCuota}`}
+                                  <HandCoins size={16} />
+                                  {registrando === item.prestamoId
+                                    ? "Registrando..."
+                                    : `Registrar Cuota #${item.proximaCuota}`
+                                  }
                                 </button>
                               )}
                             </div>
@@ -353,14 +381,18 @@ export default function RutaDelDia() {
           {/* COBRADOS */}
           {datos.cobrados?.length > 0 && (
             <div>
-              <h2 className="text-lg font-bold mb-4">✅ Cobrados hoy</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold mb-4">
+                <CheckCircle2 size={18} className="text-green-500" />
+                Cobrados hoy
+              </h2>
               {Object.entries(agruparPorRuta(datos.cobrados)).map(([zona, items]) => (
                 <div key={zona} className="mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
-                    <span className="text-sm font-bold px-4 py-1 rounded-full text-white whitespace-nowrap"
+                    <span className="flex items-center gap-1 text-sm font-bold px-4 py-1 rounded-full text-white whitespace-nowrap"
                       style={{ backgroundColor: "#16a34a" }}>
-                      ✅ {zona} — {items.length} cobro{items.length !== 1 ? "s" : ""}
+                      <CheckCircle2 size={13} />
+                      {zona} — {items.length} cobro{items.length !== 1 ? "s" : ""}
                     </span>
                     <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
                   </div>
@@ -371,8 +403,14 @@ export default function RutaDelDia() {
                         style={{ backgroundColor: "var(--card)", border: "2px solid #16a34a" }}>
                         <div className="flex justify-between items-center">
                           <div>
-                            <h3 className="font-bold">✅ {item.cliente.nombres} {item.cliente.apellidos}</h3>
-                            <p className="text-sm opacity-60">📍 {item.cliente.zona || item.cliente.direccion}</p>
+                            <h3 className="flex items-center gap-1 font-bold">
+                              <CheckCircle2 size={14} className="text-green-500" />
+                              {item.cliente.nombres} {item.cliente.apellidos}
+                            </h3>
+                            <p className="flex items-center gap-1 text-sm opacity-60">
+                              <MapPin size={12} />
+                              {item.cliente.zona || item.cliente.direccion}
+                            </p>
                           </div>
                           <p className="font-bold text-green-500">Q{Number(item.montoCuota).toFixed(2)}</p>
                         </div>
@@ -388,7 +426,9 @@ export default function RutaDelDia() {
           {datos.totalPendientes === 0 && datos.totalCobrados === 0 && (
             <div className="rounded-2xl p-10 text-center shadow"
               style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
-              <p className="text-5xl mb-4">🎉</p>
+              <div className="flex justify-center mb-4">
+                <PartyPopper size={48} className="opacity-40" />
+              </div>
               <p className="text-xl font-bold">¡No hay cobros para hoy!</p>
               <p className="text-sm opacity-60 mt-1">
                 No hay préstamos con visita programada para {hoyNombre}.

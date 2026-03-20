@@ -1,22 +1,36 @@
 import { useState } from "react";
+import {
+  FileBarChart2, CreditCard, ClipboardList, TrendingUp,
+  Search, FileSpreadsheet, FileText
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const API = `${API_URL}/api/reportes`;
-
 const ESTADOS = ["activo", "pagado", "vencido"];
 
+// Convierte cualquier formato de fecha a DD-MM-YYYY
+const formatearFecha = (fecha) => {
+  if (!fecha) return "";
+  const str = typeof fecha === "string" ? fecha : String(fecha);
+  const limpia = str.split("T")[0]; // "2026-03-19"
+  const [year, month, day] = limpia.split("-");
+  return `${day}-${month}-${year}`;
+};
+
+const TABS = [
+  { key: "pagos",     label: "Pagos",     icon: CreditCard   },
+  { key: "prestamos", label: "Préstamos", icon: ClipboardList },
+  { key: "ganancias", label: "Ganancias", icon: TrendingUp    },
+];
+
 export default function Reportes() {
-  const [tab, setTab] = useState("pagos");
-
-  // Filtros
+  const [tab, setTab]             = useState("pagos");
   const [fechaInicio, setFechaInicio] = useState("");
-  const [fechaFin, setFechaFin] = useState("");
-  const [estado, setEstado] = useState("");
-
-  // Data
-  const [datos, setDatos] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [fechaFin, setFechaFin]   = useState("");
+  const [estado, setEstado]       = useState("");
+  const [datos, setDatos]         = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
 
   const token = localStorage.getItem("token");
 
@@ -24,38 +38,20 @@ export default function Reportes() {
     setError("");
     setDatos(null);
     setLoading(true);
-
     try {
       let url = "";
-
       if (tab === "pagos") {
-        if (!fechaInicio || !fechaFin) {
-          setError("Selecciona un rango de fechas");
-          setLoading(false);
-          return;
-        }
+        if (!fechaInicio || !fechaFin) { setError("Selecciona un rango de fechas"); setLoading(false); return; }
         url = `${API}/pagos?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
       } else if (tab === "prestamos") {
         url = `${API}/prestamos${estado ? `?estado=${estado}` : ""}`;
       } else if (tab === "ganancias") {
-        if (!fechaInicio || !fechaFin) {
-          setError("Selecciona un rango de fechas");
-          setLoading(false);
-          return;
-        }
+        if (!fechaInicio || !fechaFin) { setError("Selecciona un rango de fechas"); setLoading(false); return; }
         url = `${API}/ganancias?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
       }
-
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || "Error al obtener reporte");
-        return;
-      }
-
+      if (!res.ok) { setError(data.message || "Error al obtener reporte"); return; }
       setDatos(data);
     } catch (err) {
       console.error(err);
@@ -69,18 +65,10 @@ export default function Reportes() {
     try {
       let url = `${API}/exportar/${formato}?tipo=${tab}`;
       if (fechaInicio) url += `&fechaInicio=${fechaInicio}`;
-      if (fechaFin) url += `&fechaFin=${fechaFin}`;
-      if (estado) url += `&estado=${estado}`;
-
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        alert("Error al exportar");
-        return;
-      }
-
+      if (fechaFin)    url += `&fechaFin=${fechaFin}`;
+      if (estado)      url += `&estado=${estado}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { alert("Error al exportar"); return; }
       const blob = await res.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -92,30 +80,28 @@ export default function Reportes() {
     }
   };
 
-  const formatearFecha = (fecha) => {
-    if (!fecha) return "";
-    const [year, month, day] = fecha.split("T")[0].split("-");
-    return `${day}-${month}-${year}`;
-  };
-
   return (
     <div className="pt-16 text-[var(--text)]">
-      <h1 className="text-2xl font-bold mb-6">Reportes</h1>
+      <h1 className="flex items-center gap-2 text-2xl font-bold mb-6">
+        <FileBarChart2 size={24} style={{ color: "var(--primary)" }} />
+        Reportes
+      </h1>
 
       {/* TABS */}
       <div className="flex gap-2 mb-6">
-        {["pagos", "prestamos", "ganancias"].map((t) => (
+        {TABS.map(({ key, label, icon: Icon }) => (
           <button
-            key={t}
-            onClick={() => { setTab(t); setDatos(null); setError(""); }}
-            className="px-4 py-2 rounded-lg font-semibold capitalize transition hover:opacity-90"
+            key={key}
+            onClick={() => { setTab(key); setDatos(null); setError(""); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold capitalize transition hover:opacity-90"
             style={{
-              backgroundColor: tab === t ? "var(--primary)" : "var(--card)",
-              color: tab === t ? "white" : "var(--text)",
+              backgroundColor: tab === key ? "var(--primary)" : "var(--card)",
+              color: tab === key ? "white" : "var(--text)",
               border: "1px solid var(--card-border)",
             }}
           >
-            {t === "pagos" ? "💳 Pagos" : t === "prestamos" ? "📋 Préstamos" : "💰 Ganancias"}
+            <Icon size={15} />
+            {label}
           </button>
         ))}
       </div>
@@ -173,14 +159,14 @@ export default function Reportes() {
             <button
               onClick={fetchReporte}
               disabled={loading}
-              className="px-5 py-2 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: "var(--secondary)" }}
             >
-              {loading ? "Cargando..." : "🔍 Generar"}
+              <Search size={15} />
+              {loading ? "Cargando..." : "Generar"}
             </button>
           </div>
         </div>
-
         {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
       </div>
 
@@ -191,30 +177,30 @@ export default function Reportes() {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => exportar("excel")}
-              className="px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 text-sm"
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 text-sm"
               style={{ backgroundColor: "#16a34a" }}
             >
-              📊 Exportar Excel
+              <FileSpreadsheet size={15} />
+              Exportar Excel
             </button>
             <button
               onClick={() => exportar("pdf")}
-              className="px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 text-sm"
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 text-sm"
               style={{ backgroundColor: "#dc2626" }}
             >
-              📄 Exportar PDF
+              <FileText size={15} />
+              Exportar PDF
             </button>
           </div>
 
           {/* TABLA PAGOS */}
           {tab === "pagos" && Array.isArray(datos) && (
-            <div
-              className="rounded-xl overflow-hidden"
-              style={{ border: "1px solid var(--card-border)" }}
-            >
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--card-border)" }}>
               <div className="p-4" style={{ backgroundColor: "var(--card)" }}>
                 <p className="font-semibold">Total de pagos: {datos.length}</p>
                 <p className="text-sm opacity-60">
-                  Total cobrado: Q{datos.reduce((s, p) => s + Number(p.montoPagado), 0).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+                  Total cobrado: Q{datos.reduce((s, p) => s + Number(p.montoPagado), 0)
+                    .toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="overflow-x-auto">
@@ -230,11 +216,7 @@ export default function Reportes() {
                   </thead>
                   <tbody>
                     {datos.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="border-t"
-                        style={{ borderColor: "var(--card-border)" }}
-                      >
+                      <tr key={p.id} className="border-t" style={{ borderColor: "var(--card-border)" }}>
                         <td className="p-3">{formatearFecha(p.fechaPago)}</td>
                         <td className="p-3">{p.prestamo?.cliente?.nombres} {p.prestamo?.cliente?.apellidos}</td>
                         <td className="p-3">#{p.numeroCuota}</td>
@@ -252,14 +234,12 @@ export default function Reportes() {
 
           {/* TABLA PRÉSTAMOS */}
           {tab === "prestamos" && Array.isArray(datos) && (
-            <div
-              className="rounded-xl overflow-hidden"
-              style={{ border: "1px solid var(--card-border)" }}
-            >
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--card-border)" }}>
               <div className="p-4" style={{ backgroundColor: "var(--card)" }}>
                 <p className="font-semibold">Total de préstamos: {datos.length}</p>
                 <p className="text-sm opacity-60">
-                  Total prestado: Q{datos.reduce((s, p) => s + Number(p.monto), 0).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+                  Total prestado: Q{datos.reduce((s, p) => s + Number(p.monto), 0)
+                    .toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="overflow-x-auto">
@@ -277,11 +257,7 @@ export default function Reportes() {
                   </thead>
                   <tbody>
                     {datos.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="border-t"
-                        style={{ borderColor: "var(--card-border)" }}
-                      >
+                      <tr key={p.id} className="border-t" style={{ borderColor: "var(--card-border)" }}>
                         <td className="p-3">{p.cliente?.nombres} {p.cliente?.apellidos}</td>
                         <td className="p-3 font-semibold" style={{ color: "var(--primary)" }}>
                           Q{Number(p.monto).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
@@ -292,9 +268,9 @@ export default function Reportes() {
                         <td className="p-3">{formatearFecha(p.fechaFin)}</td>
                         <td className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            p.estado === "activo" ? "bg-green-100 text-green-700" :
-                            p.estado === "pagado" ? "bg-blue-100 text-blue-700" :
-                            "bg-red-100 text-red-700"
+                            p.estado === "activo"  ? "bg-green-100 text-green-700" :
+                            p.estado === "pagado"  ? "bg-blue-100 text-blue-700"  :
+                                                     "bg-red-100 text-red-700"
                           }`}>
                             {p.estado}
                           </span>
@@ -310,30 +286,23 @@ export default function Reportes() {
           {/* RESUMEN GANANCIAS */}
           {tab === "ganancias" && datos.detalle && (
             <>
-              {/* TARJETAS RESUMEN */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div
-                  className="rounded-xl p-5 text-center"
-                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-                >
+                <div className="rounded-xl p-5 text-center"
+                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
                   <p className="text-sm opacity-60 mb-1">Total Cobrado</p>
                   <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
                     Q{datos.totalCobrado.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <div
-                  className="rounded-xl p-5 text-center"
-                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-                >
+                <div className="rounded-xl p-5 text-center"
+                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
                   <p className="text-sm opacity-60 mb-1">Capital Recuperado</p>
                   <p className="text-2xl font-bold" style={{ color: "var(--secondary)" }}>
                     Q{datos.totalCapital.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <div
-                  className="rounded-xl p-5 text-center"
-                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-                >
+                <div className="rounded-xl p-5 text-center"
+                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
                   <p className="text-sm opacity-60 mb-1">Ganancia Neta</p>
                   <p className="text-2xl font-bold text-green-500">
                     Q{datos.totalGanancia.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
@@ -341,11 +310,7 @@ export default function Reportes() {
                 </div>
               </div>
 
-              {/* TABLA DETALLE */}
-              <div
-                className="rounded-xl overflow-hidden"
-                style={{ border: "1px solid var(--card-border)" }}
-              >
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--card-border)" }}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm" style={{ backgroundColor: "var(--card)" }}>
                     <thead>
@@ -360,11 +325,7 @@ export default function Reportes() {
                     </thead>
                     <tbody>
                       {datos.detalle.map((d, i) => (
-                        <tr
-                          key={i}
-                          className="border-t"
-                          style={{ borderColor: "var(--card-border)" }}
-                        >
+                        <tr key={i} className="border-t" style={{ borderColor: "var(--card-border)" }}>
                           <td className="p-3">{formatearFecha(d.fecha)}</td>
                           <td className="p-3">{d.cliente}</td>
                           <td className="p-3">#{d.numeroCuota}</td>
