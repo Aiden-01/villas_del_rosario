@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Pago from '#models/pago'
+import Prestamo from '#models/prestamo'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 
@@ -74,6 +75,21 @@ export default class PagosController {
       const pago = await Pago.create({ ...data, usuarioId: user.id })
       await pago.load('prestamo', (q) => q.preload('cliente'))
       await pago.load('usuario')
+
+      // ✅ AUTO-CANCELAR si es la última cuota
+      const prestamo = await Prestamo.findOrFail(data.prestamoId)
+      if (data.numeroCuota >= prestamo.cuotas) {
+        prestamo.estado = 'cancelado'
+        await prestamo.save()
+
+        await registrarActividad({
+          usuarioId: user.id,
+          tipo: 'actualizar',
+          entidad: 'prestamo',
+          entidadId: prestamo.id,
+          descripcion: `Préstamo de ${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos} marcado como cancelado — todas las cuotas pagadas`,
+        })
+      }
 
       await registrarActividad({
         usuarioId: user.id,

@@ -15,6 +15,7 @@ const ESTADO_COLORS = {
   activo: "bg-green-100 text-green-700",
   pagado: "bg-blue-100 text-blue-700",
   vencido: "bg-red-100 text-red-700",
+  cancelado: "bg-gray-100 text-gray-500",
 };
 
 const esMora = (prestamo) => {
@@ -45,6 +46,8 @@ export default function Prestamos() {
   const [pagos, setPagos] = useState([]);
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [registrandoPago, setRegistrandoPago] = useState(false);
+  // ✅ NUEVA: pestaña activa
+  const [pestana, setPestana] = useState("activos");
   const { toast, showToast, closeToast } = useToast();
 
   const navigate = useNavigate();
@@ -191,7 +194,15 @@ export default function Prestamos() {
 
       await fetchPagos(selectedPrestamo.id);
       await fetchPrestamos();
-      showToast(`✅ Cuota #${siguienteCuota} registrada correctamente`, "success");
+
+      // ✅ Si era la última cuota, cerrar modal y cambiar a pestaña finalizados
+      if (siguienteCuota >= selectedPrestamo.cuotas) {
+        cerrarModal();
+        setPestana("finalizados");
+        showToast(`🎉 ¡Préstamo cancelado! Todas las cuotas pagadas`, "success");
+      } else {
+        showToast(`✅ Cuota #${siguienteCuota} registrada correctamente`, "success");
+      }
     } catch (err) {
       console.error(err);
       showToast("Error al registrar pago", "error");
@@ -206,6 +217,11 @@ export default function Prestamos() {
   const todasPagadas = selectedPrestamo
     ? siguienteCuota > selectedPrestamo.cuotas
     : false;
+
+  // ✅ Filtrar por pestaña
+  const prestamosActivos = prestamos.filter((p) => p.estado !== "cancelado");
+  const prestamosFinalizados = prestamos.filter((p) => p.estado === "cancelado");
+  const prestamosVisibles = pestana === "activos" ? prestamosActivos : prestamosFinalizados;
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -236,15 +252,70 @@ export default function Prestamos() {
         </button>
       </div>
 
+      {/* ✅ PESTAÑAS */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setPestana("activos")}
+          className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
+            pestana === "activos"
+              ? "text-white shadow"
+              : "opacity-50 hover:opacity-80"
+          }`}
+          style={{
+            backgroundColor: pestana === "activos" ? "var(--primary)" : "var(--card)",
+            border: "1px solid var(--card-border)",
+          }}
+        >
+          💰 Activos
+          {prestamosActivos.length > 0 && (
+            <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+              {prestamosActivos.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setPestana("finalizados")}
+          className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
+            pestana === "finalizados"
+              ? "text-white shadow"
+              : "opacity-50 hover:opacity-80"
+          }`}
+          style={{
+            backgroundColor: pestana === "finalizados" ? "#6b7280" : "var(--card)",
+            border: "1px solid var(--card-border)",
+          }}
+        >
+          ✅ Finalizados
+          {prestamosFinalizados.length > 0 && (
+            <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+              {prestamosFinalizados.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {loading && <p>Cargando préstamos...</p>}
       {error && <p className="text-red-500">{error}</p>}
-      {!loading && prestamos.length === 0 && <p>No se encontraron préstamos.</p>}
+      {!loading && prestamosVisibles.length === 0 && (
+        <div
+          className="rounded-2xl p-10 text-center shadow"
+          style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
+        >
+          <p className="text-4xl mb-3">{pestana === "activos" ? "📭" : "🎉"}</p>
+          <p className="font-semibold opacity-70">
+            {pestana === "activos"
+              ? "No hay préstamos activos."
+              : "Aún no hay préstamos finalizados."}
+          </p>
+        </div>
+      )}
 
       {/* GRID */}
-      {!loading && prestamos.length > 0 && (
+      {!loading && prestamosVisibles.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {prestamos.map((prestamo) => {
+          {prestamosVisibles.map((prestamo) => {
             const mora = esMora(prestamo);
+            const cancelado = prestamo.estado === "cancelado";
             const cuotaSemanal = calcularCuotaSemanal(
               prestamo.monto,
               prestamo.interes,
@@ -258,7 +329,12 @@ export default function Prestamos() {
                 className="rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
                 style={{
                   backgroundColor: "var(--card)",
-                  border: mora ? "2px solid #ef4444" : "2px solid transparent",
+                  border: cancelado
+                    ? "2px solid #6b7280"
+                    : mora
+                    ? "2px solid #ef4444"
+                    : "2px solid transparent",
+                  opacity: cancelado ? 0.85 : 1,
                 }}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -267,12 +343,14 @@ export default function Prestamos() {
                   </h2>
                   <span
                     className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                      mora
+                      cancelado
+                        ? "bg-gray-100 text-gray-500"
+                        : mora
                         ? "bg-red-100 text-red-700"
                         : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {mora ? "⚠ mora" : prestamo.estado}
+                    {cancelado ? "✅ cancelado" : mora ? "⚠ mora" : prestamo.estado}
                   </span>
                 </div>
 
@@ -282,7 +360,7 @@ export default function Prestamos() {
                       <span className="font-medium text-[var(--text)]">Monto:</span>{" "}
                       Q{Number(prestamo.monto).toLocaleString()}
                     </p>
-                    <p className="font-bold" style={{ color: "var(--primary)" }}>
+                    <p className="font-bold" style={{ color: cancelado ? "#6b7280" : "var(--primary)" }}>
                       Q{cuotaSemanal.toLocaleString("es-GT", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -295,6 +373,7 @@ export default function Prestamos() {
                   <p><span className="font-medium text-[var(--text)]">Fin:</span> {formatearFecha(prestamo.fechaFin)}</p>
                 </div>
 
+                {/* Barra de progreso solo en activos */}
                 {prestamo.estado === "activo" && (
                   <div className="mt-3">
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -311,13 +390,18 @@ export default function Prestamos() {
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1 text-right">
-                      {mora
-                        ? "⚠ Plazo vencido"
-                        : `${Math.round(
-                            ((new Date() - new Date(prestamo.fechaInicio)) /
-                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
-                          )}% del plazo`}
+                      {mora ? "⚠ Plazo vencido" : `${Math.round(
+                        ((new Date() - new Date(prestamo.fechaInicio)) /
+                          (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
+                      )}% del plazo`}
                     </p>
+                  </div>
+                )}
+
+                {/* Indicador visual en cancelados */}
+                {cancelado && (
+                  <div className="mt-3 text-center">
+                    <span className="text-xs text-gray-400">✅ Todas las cuotas pagadas</span>
                   </div>
                 )}
               </div>
@@ -338,18 +422,28 @@ export default function Prestamos() {
             style={{
               backgroundColor: "var(--card)",
               animation: "zoomIn 0.2s ease-out",
-              border: esMora(selectedPrestamo) ? "2px solid #ef4444" : "none",
+              border: selectedPrestamo.estado === "cancelado"
+                ? "2px solid #6b7280"
+                : esMora(selectedPrestamo)
+                ? "2px solid #ef4444"
+                : "none",
             }}
           >
             <div className="flex justify-center mb-4">
               <span
                 className={`text-sm px-4 py-1 rounded-full font-semibold ${
-                  esMora(selectedPrestamo)
+                  selectedPrestamo.estado === "cancelado"
+                    ? "bg-gray-100 text-gray-500"
+                    : esMora(selectedPrestamo)
                     ? "bg-red-100 text-red-700"
                     : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"
                 }`}
               >
-                {esMora(selectedPrestamo) ? "⚠ En mora" : selectedPrestamo.estado}
+                {selectedPrestamo.estado === "cancelado"
+                  ? "✅ Cancelado"
+                  : esMora(selectedPrestamo)
+                  ? "⚠ En mora"
+                  : selectedPrestamo.estado}
               </span>
             </div>
 
@@ -385,6 +479,16 @@ export default function Prestamos() {
                 })}
               </p>
             </div>
+
+            {/* ✅ Banner de cancelado */}
+            {selectedPrestamo.estado === "cancelado" && (
+              <div className="rounded-xl p-4 mb-4 text-center bg-gray-100"
+                style={{ border: "1px solid #d1d5db" }}>
+                <p className="text-2xl mb-1">🎉</p>
+                <p className="text-gray-600 font-semibold">¡Préstamo finalizado!</p>
+                <p className="text-xs text-gray-400 mt-1">Todas las {selectedPrestamo.cuotas} cuotas fueron pagadas</p>
+              </div>
+            )}
 
             {selectedPrestamo.estado === "activo" && (
               <div
@@ -443,6 +547,7 @@ export default function Prestamos() {
             </div>
 
             <div className="flex flex-col gap-2">
+              {/* Botón de pago solo si está activo y hay cuotas pendientes */}
               {selectedPrestamo.estado === "activo" && !todasPagadas && (
                 <button
                   onClick={handleRegistrarPago}
@@ -488,7 +593,6 @@ export default function Prestamos() {
         </div>
       )}
 
-      {/* TOAST */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </div>
   );
