@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
@@ -8,16 +8,58 @@ export default function Layout() {
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
-  return (
-    <div className="min-h-screen bg-[var(--bg)] relative">
+  // Bloquear scroll cuando el menú está abierto (importante en móvil)
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
 
-      {/* BOTÓN HAMBURGUESA */}
+  return (
+    <div className="min-h-screen relative" style={{ backgroundColor: "var(--bg)" }}>
+
+      {/* BOTÓN HAMBURGUESA ANIMADO */}
       <button
         onClick={() => setMenuOpen(!menuOpen)}
-        className="fixed top-4 left-4 z-[200] bg-[var(--primary)] text-white px-3 py-2 rounded-lg shadow-lg hover:scale-105 transition"
+        aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+        className="fixed top-4 left-4 z-[200] w-11 h-11 flex flex-col items-center justify-center gap-[5px] rounded-xl shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
+        style={{ backgroundColor: "var(--primary)" }}
       >
-        {menuOpen ? "✕" : "☰"}
+        {/* Las 3 líneas que se animan */}
+        <span
+          className="block h-[2px] bg-white rounded-full transition-all duration-300 origin-center"
+          style={{
+            width: menuOpen ? "20px" : "20px",
+            transform: menuOpen ? "translateY(7px) rotate(45deg)" : "none",
+          }}
+        />
+        <span
+          className="block h-[2px] bg-white rounded-full transition-all duration-300"
+          style={{
+            width: "14px",
+            opacity: menuOpen ? 0 : 1,
+            transform: menuOpen ? "scaleX(0)" : "scaleX(1)",
+          }}
+        />
+        <span
+          className="block h-[2px] bg-white rounded-full transition-all duration-300 origin-center"
+          style={{
+            width: menuOpen ? "20px" : "20px",
+            transform: menuOpen ? "translateY(-7px) rotate(-45deg)" : "none",
+          }}
+        />
       </button>
+
+      {/* BACKDROP — fade al abrir, cierra al tocar fuera */}
+      <div
+        onClick={() => setMenuOpen(false)}
+        className="fixed inset-0 z-[90] transition-all duration-300"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.45)",
+          backdropFilter: menuOpen ? "blur(2px)" : "blur(0px)",
+          opacity: menuOpen ? 1 : 0,
+          pointerEvents: menuOpen ? "auto" : "none",
+        }}
+      />
 
       {/* SIDEBAR */}
       <Sidebar
