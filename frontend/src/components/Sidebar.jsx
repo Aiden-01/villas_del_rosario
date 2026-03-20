@@ -163,7 +163,7 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
         {/* Header del drawer */}
         <div className="pt-6 px-6 pb-4 border-b border-white/10">
           {/* Logo / nombre app */}
-          <div className="mt-8 flex items-center gap-3">
+          <div className="mt-10 flex items-center gap-3">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
               style={{ backgroundColor: "var(--primary)" }}
