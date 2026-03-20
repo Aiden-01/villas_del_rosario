@@ -63,7 +63,7 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4 transition-colors"
+      className="min-h-screen flex flex-col items-center justify-center px-4 transition-colors"
       style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
     >
       {/* TOGGLE DARK MODE */}
@@ -99,16 +99,14 @@ export default function Login() {
           >
             <HandCoins size={26} />
           </div>
-          <h1 className="text-xl font-bold">Inversiones CRUMAN</h1>
+          <h1 className="text-xl font-bold">Sistema de Préstamos</h1>
           <p className="text-sm opacity-60 mt-1">Ingresa tus credenciales</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           {/* USUARIO */}
           <div>
-            <label className="text-sm font-medium opacity-80 block mb-1">
-              Usuario
-            </label>
+            <label className="text-sm font-medium opacity-80 block mb-1">Usuario</label>
             <input
               type="text"
               required
@@ -126,9 +124,7 @@ export default function Login() {
 
           {/* CONTRASEÑA */}
           <div>
-            <label className="text-sm font-medium opacity-80 block mb-1">
-              Contraseña
-            </label>
+            <label className="text-sm font-medium opacity-80 block mb-1">Contraseña</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -175,11 +171,16 @@ export default function Login() {
           </button>
         </form>
 
-        {/* LEYENDA */}
+        {/* LEYENDA CONTRASEÑA */}
         <p className="text-xs text-center opacity-50 mt-6">
           ¿Olvidaste tu contraseña? Contacta al administrador del sistema.
         </p>
       </div>
+
+      {/* FOOTER */}
+      <p className="text-xs opacity-30 mt-6 text-center">
+        © 2025 <span className="font-semibold">hercor.nexus</span> — Todos los derechos reservados
+      </p>
     </div>
   );
 }
