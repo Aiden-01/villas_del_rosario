@@ -27,9 +27,12 @@ export default function PrestamoForm({ mode, prestamoId }) {
   });
 
   const [clientes, setClientes] = useState([]);
+  const [clientesFiltrados, setClientesFiltrados] = useState([]);
+  const [busquedaCliente, setBusquedaCliente] = useState("");
   const [clientePreseleccionado, setClientePreseleccionado] = useState(null);
   const isEdit = mode === "edit";
 
+  // Calcular fecha fin automáticamente
   useEffect(() => {
     if (formData.fechaInicio && formData.cuotas) {
       const inicio = new Date(formData.fechaInicio);
@@ -41,10 +44,26 @@ export default function PrestamoForm({ mode, prestamoId }) {
 
   useEffect(() => {
     obtenerClientes();
-    if (isEdit && prestamoId) {
-      obtenerPrestamo();
-    }
+    if (isEdit && prestamoId) obtenerPrestamo();
   }, [prestamoId]);
+
+  // Filtrar clientes con debounce cuando cambia la búsqueda
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!busquedaCliente.trim()) {
+        setClientesFiltrados(clientes);
+        return;
+      }
+      const term = busquedaCliente.toLowerCase();
+      setClientesFiltrados(
+        clientes.filter((c) => {
+          const fullName = `${c.nombres} ${c.apellidos}`.toLowerCase();
+          return fullName.includes(term) || c.dpi.includes(term);
+        })
+      );
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [busquedaCliente, clientes]);
 
   const obtenerClientes = async () => {
     try {
@@ -53,6 +72,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       setClientes(res.data);
+      setClientesFiltrados(res.data);
       if (clienteIdFromUrl) {
         const encontrado = res.data.find(
           (c) => c.id === parseInt(clienteIdFromUrl)
@@ -67,10 +87,9 @@ export default function PrestamoForm({ mode, prestamoId }) {
   const obtenerPrestamo = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_URL}/api/prestamos/${prestamoId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await axios.get(`${API_URL}/api/prestamos/${prestamoId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const prestamo = res.data;
       setFormData({
         clienteId: prestamo.clienteId || "",
@@ -93,11 +112,9 @@ export default function PrestamoForm({ mode, prestamoId }) {
     try {
       const token = localStorage.getItem("token");
       if (isEdit) {
-        await axios.put(
-          `${API_URL}/api/prestamos/${prestamoId}`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axios.put(`${API_URL}/api/prestamos/${prestamoId}`, formData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         showToast("Préstamo actualizado correctamente", "success");
       } else {
         await axios.post(`${API_URL}/api/prestamos`, formData, {
@@ -124,30 +141,75 @@ export default function PrestamoForm({ mode, prestamoId }) {
         onSubmit={handleSubmit}
         className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
-        {/* CLIENTE */}
+        {/* ── SECCIÓN CLIENTE ── */}
         {clientePreseleccionado && !isEdit ? (
-          <div
-            className="w-full p-2 rounded font-semibold"
-            style={inputStyle}
-          >
+          // Cliente llegó desde la URL (ej: desde página de clientes) — solo mostrarlo
+          <div className="w-full p-2 rounded font-semibold" style={inputStyle}>
             👤 {clientePreseleccionado.nombres} {clientePreseleccionado.apellidos}
           </div>
         ) : (
-          <select
-            value={formData.clienteId}
-            onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
-          >
-            <option value="">Seleccionar cliente</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombres} {c.apellidos} — {c.dpi}
-              </option>
-            ))}
-          </select>
+          // Sin preselección — mostrar buscador + select
+          <div className="space-y-2">
+            <label
+              className="text-sm font-semibold block"
+              style={{ color: "var(--text)" }}
+            >
+              Cliente
+            </label>
+
+            {/* Input buscador */}
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Buscar por nombre o DPI..."
+                value={busquedaCliente}
+                onChange={(e) => setBusquedaCliente(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                style={{
+                  ...inputStyle,
+                  focusRingColor: "var(--primary)",
+                }}
+              />
+              {/* Contador de resultados */}
+              {busquedaCliente && (
+                <span
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-50"
+                  style={{ color: "var(--text)" }}
+                >
+                  {clientesFiltrados.length} resultado{clientesFiltrados.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Select filtrado */}
+            <select
+              value={formData.clienteId}
+              onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
+              className="w-full p-2 rounded-lg text-sm"
+              style={inputStyle}
+              size={clientesFiltrados.length > 0 && busquedaCliente ? Math.min(clientesFiltrados.length + 1, 6) : 1}
+            >
+              <option value="">— Seleccionar cliente —</option>
+              {clientesFiltrados.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombres} {c.apellidos} — {c.dpi}
+                </option>
+              ))}
+            </select>
+
+            {/* Mensaje si no hay resultados */}
+            {busquedaCliente && clientesFiltrados.length === 0 && (
+              <p className="text-xs text-center opacity-50 py-1" style={{ color: "var(--text)" }}>
+                No se encontraron clientes con ese criterio.
+              </p>
+            )}
+          </div>
         )}
 
+        {/* ── MONTO ── */}
         <input
           type="number"
           placeholder="Monto"
@@ -157,6 +219,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           style={inputStyle}
         />
 
+        {/* ── INTERÉS ── */}
         <input
           type="number"
           placeholder="Interés (%)"
@@ -166,6 +229,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           style={inputStyle}
         />
 
+        {/* ── CUOTAS ── */}
         <input
           type="number"
           placeholder="Número de cuotas (semanas)"
@@ -175,6 +239,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           style={inputStyle}
         />
 
+        {/* ── FECHA INICIO ── */}
         <input
           type="date"
           value={formData.fechaInicio}
@@ -183,6 +248,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           style={inputStyle}
         />
 
+        {/* ── FECHA FIN (auto) ── */}
         <div>
           <input
             type="date"
@@ -198,7 +264,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           )}
         </div>
 
-        {/* FRECUENCIA DE PAGO */}
+        {/* ── FRECUENCIA DE PAGO ── */}
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
             Frecuencia de pago
@@ -217,7 +283,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           </select>
         </div>
 
-        {/* DÍA DE VISITA */}
+        {/* ── DÍA DE VISITA ── */}
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
             Día de visita
@@ -236,6 +302,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           </select>
         </div>
 
+        {/* ── ESTADO (solo en edición) ── */}
         {isEdit && (
           <select
             value={formData.estado}
@@ -249,6 +316,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
           </select>
         )}
 
+        {/* ── SUBMIT ── */}
         <button
           type="submit"
           className="w-full p-2 rounded text-white font-semibold hover:opacity-90 transition"
