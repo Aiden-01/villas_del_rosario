@@ -21,10 +21,7 @@ export default class RutasController {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
-
-      const rutas = await Ruta.query()
-        .preload('trabajador')
-        .orderBy('orden', 'asc')
+      const rutas = await Ruta.query().preload('trabajador').orderBy('orden', 'asc')
       return response.ok(rutas)
     } catch (error) {
       return response.internalServerError({ message: 'Error al obtener rutas' })
@@ -36,7 +33,6 @@ export default class RutasController {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
-
       const data = request.only(['nombre', 'descripcion', 'diaCobro', 'trabajadorId', 'orden'])
       const ruta = await Ruta.create(data)
       return response.created({ message: 'Ruta creada exitosamente', ruta })
@@ -50,7 +46,6 @@ export default class RutasController {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
-
       const ruta = await Ruta.findOrFail(params.id)
       const data = request.only(['nombre', 'descripcion', 'diaCobro', 'trabajadorId', 'orden'])
       ruta.merge(data)
@@ -66,7 +61,6 @@ export default class RutasController {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
-
       const ruta = await Ruta.findOrFail(params.id)
       await ruta.delete()
       return response.ok({ message: 'Ruta eliminada' })
@@ -82,13 +76,8 @@ export default class RutasController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const diasSemana: Record<number, string> = {
-        1: 'lunes',
-        2: 'martes',
-        3: 'miercoles',
-        4: 'jueves',
-        5: 'viernes',
-        6: 'sabado',
-        7: 'domingo',
+        1: 'lunes', 2: 'martes', 3: 'miercoles',
+        4: 'jueves', 5: 'viernes', 6: 'sabado', 7: 'domingo',
       }
 
       const ahora    = DateTime.now().setZone('America/Guatemala')
@@ -106,33 +95,46 @@ export default class RutasController {
         .orderByRaw('rutas.orden asc nulls last, clientes.orden_visita asc nulls last')
         .select('prestamos.*')
 
-      // ── 2. Seguimientos pendientes para HOY ───────────────────────────────
-      const seguimientosHoy = await Seguimiento.query()
+      // ── 2. Seguimientos pendientes para HOY (próxima visita = hoy) ────────
+      const seguimientosFuturos = await Seguimiento.query()
         .where('fecha_seguimiento', fechaHoy)
         .where('resuelta', false)
         .preload('prestamo', (q) =>
           q.preload('cliente', (cq) => cq.preload('ruta')).preload('pagos')
         )
 
-      // IDs ya incluidos por ruta para no duplicar
-      const idsEnRuta = new Set(prestamosPorRuta.map(p => p.id))
+      // ── 3. Seguimientos registrados HOY (no_pago / pago_parcial de hoy) ───
+      // Estos son los que ya se marcaron hoy — van a "Sin cobrar hoy"
+      const seguimientosDeHoy = await Seguimiento.query()
+        .whereRaw(`DATE(created_at) = ?`, [fechaHoy])
+        .where('resuelta', false)
+        .preload('prestamo', (q) =>
+          q.preload('cliente', (cq) => cq.preload('ruta'))
+        )
 
-      // Préstamos extra por seguimiento que no estén ya en la lista
-      const prestamosPorSeguimiento = seguimientosHoy
-        .filter(s => !idsEnRuta.has(s.prestamoId) && s.prestamo.estado === 'activo')
+      const idsSinCobrar = new Set(seguimientosDeHoy.map(s => s.prestamoId))
+      const idsEnRuta    = new Set(prestamosPorRuta.map(p => p.id))
+
+      // ── 4. Préstamos extra por seguimiento futuro (no duplicar) ──────────
+      const prestamosPorSeguimiento = seguimientosFuturos
+        .filter(s =>
+          !idsEnRuta.has(s.prestamoId) &&
+          !idsSinCobrar.has(s.prestamoId) &&
+          s.prestamo.estado === 'activo'
+        )
         .map(s => s.prestamo)
 
-      // ── 3. Combinar ───────────────────────────────────────────────────────
+      // ── 5. Combinar listas del día ────────────────────────────────────────
       const todosLosPrestamos = [...prestamosPorRuta, ...prestamosPorSeguimiento]
 
-      // ── 4. Mapear cobros ──────────────────────────────────────────────────
+      // ── 6. Mapear cobros ──────────────────────────────────────────────────
       const cobros = todosLosPrestamos.map((prestamo) => {
         const montoTotal    = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
         const montoCuota    = Number((montoTotal / prestamo.cuotas).toFixed(2))
         const cuotasPagadas = prestamo.pagos.length
         const proximaCuota  = cuotasPagadas + 1
 
-        // ── BUG FIX: fechaPago viene como DateTime de Luxon, no como Date de JS
+        // BUG FIX: fechaPago es DateTime de Luxon
         const yaPagoHoy = prestamo.pagos.some((p) => {
           try {
             if (p.fechaPago && typeof (p.fechaPago as any).toISODate === 'function') {
@@ -141,13 +143,10 @@ export default class RutasController {
             return DateTime.fromJSDate(new Date(p.fechaPago as any))
               .setZone('America/Guatemala')
               .toISODate() === fechaHoy
-          } catch {
-            return false
-          }
+          } catch { return false }
         })
 
-        // Seguimiento pendiente de este préstamo para hoy
-        const seguimientoPendiente = seguimientosHoy.find(
+        const seguimientoPendiente = seguimientosFuturos.find(
           s => s.prestamoId === prestamo.id && !s.resuelta
         )
 
@@ -171,8 +170,33 @@ export default class RutasController {
           montoCuota,
           proximaCuota,
           cuotasPagadas,
-          totalCuotas:     prestamo.cuotas,
+          totalCuotas: prestamo.cuotas,
           yaPagoHoy,
+        }
+      })
+
+      // ── 7. Mapear "sin cobrar hoy" ────────────────────────────────────────
+      const sinCobrar = seguimientosDeHoy.map((seg) => {
+        const prestamo   = seg.prestamo
+        const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
+        const montoCuota = Number((montoTotal / prestamo.cuotas).toFixed(2))
+        return {
+          prestamoId:      prestamo.id,
+          seguimientoId:   seg.id,
+          tipo:            seg.tipo,            // 'no_pago' | 'pago_parcial'
+          montoPagado:     Number(seg.montoPagado),
+          nota:            seg.nota,
+          fechaSeguimiento: seg.fechaSeguimiento,
+          rutaNombre:      prestamo.cliente.ruta?.nombre || null,
+          cliente: {
+            id:        prestamo.cliente.id,
+            nombres:   prestamo.cliente.nombres,
+            apellidos: prestamo.cliente.apellidos,
+            telefono:  prestamo.cliente.telefono,
+            zona:      prestamo.cliente.zona,
+            direccion: prestamo.cliente.direccion,
+          },
+          montoCuota,
         }
       })
 
@@ -184,9 +208,11 @@ export default class RutasController {
         fecha:           fechaHoy,
         totalPendientes: pendientes.length,
         totalCobrados:   cobrados.length,
+        totalSinCobrar:  sinCobrar.length,
         totalRecaudado:  cobrados.reduce((sum, c) => sum + c.montoCuota, 0),
         pendientes,
         cobrados,
+        sinCobrar,       // ← nueva sección
       })
     } catch (error) {
       console.error(error)
