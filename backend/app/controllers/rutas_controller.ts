@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Ruta from '#models/ruta'
 import ApiToken from '#models/api_token'
 import Prestamo from '#models/prestamo'
+import Seguimiento from '#models/seguimiento'
 import { DateTime } from 'luxon'
 
 export default class RutasController {
@@ -90,67 +91,100 @@ export default class RutasController {
         7: 'domingo',
       }
 
-      const ahora = DateTime.now().setZone('America/Guatemala')
-      const hoy = diasSemana[ahora.weekday]
-      const fechaHoy = ahora.toISODate()
+      const ahora    = DateTime.now().setZone('America/Guatemala')
+      const hoy      = diasSemana[ahora.weekday]
+      const fechaHoy = ahora.toISODate()!
 
-      // ── CAMBIO CLAVE ──────────────────────────────────────────────────────────
-      // Antes: filtraba por prestamos.dia_visita = hoy
-      // Ahora: filtra por rutas.dia_cobro = hoy (via cliente → ruta)
-      // Así la ruta del día la controla Gestión de Rutas, no el préstamo
-      // ─────────────────────────────────────────────────────────────────────────
-      const prestamos = await Prestamo.query()
+      // ── 1. Préstamos del día por ruta del cliente ─────────────────────────
+      const prestamosPorRuta = await Prestamo.query()
         .where('prestamos.estado', 'activo')
         .preload('cliente', (q) => q.preload('ruta'))
         .preload('pagos')
         .join('clientes', 'prestamos.cliente_id', 'clientes.id')
-        .join('rutas', 'clientes.ruta_id', 'rutas.id')        // INNER JOIN — solo clientes con ruta
-        .where('rutas.dia_cobro', hoy)                         // filtrar por día de la RUTA
+        .join('rutas', 'clientes.ruta_id', 'rutas.id')
+        .where('rutas.dia_cobro', hoy)
         .orderByRaw('rutas.orden asc nulls last, clientes.orden_visita asc nulls last')
         .select('prestamos.*')
 
-      const cobros = prestamos.map((prestamo) => {
-        const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
-        const montoCuota = Number((montoTotal / prestamo.cuotas).toFixed(2))
+      // ── 2. Seguimientos pendientes para HOY ───────────────────────────────
+      const seguimientosHoy = await Seguimiento.query()
+        .where('fecha_seguimiento', fechaHoy)
+        .where('resuelta', false)
+        .preload('prestamo', (q) =>
+          q.preload('cliente', (cq) => cq.preload('ruta')).preload('pagos')
+        )
+
+      // IDs ya incluidos por ruta para no duplicar
+      const idsEnRuta = new Set(prestamosPorRuta.map(p => p.id))
+
+      // Préstamos extra por seguimiento que no estén ya en la lista
+      const prestamosPorSeguimiento = seguimientosHoy
+        .filter(s => !idsEnRuta.has(s.prestamoId) && s.prestamo.estado === 'activo')
+        .map(s => s.prestamo)
+
+      // ── 3. Combinar ───────────────────────────────────────────────────────
+      const todosLosPrestamos = [...prestamosPorRuta, ...prestamosPorSeguimiento]
+
+      // ── 4. Mapear cobros ──────────────────────────────────────────────────
+      const cobros = todosLosPrestamos.map((prestamo) => {
+        const montoTotal    = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
+        const montoCuota    = Number((montoTotal / prestamo.cuotas).toFixed(2))
         const cuotasPagadas = prestamo.pagos.length
-        const proximaCuota = cuotasPagadas + 1
+        const proximaCuota  = cuotasPagadas + 1
+
+        // ── BUG FIX: fechaPago viene como DateTime de Luxon, no como Date de JS
         const yaPagoHoy = prestamo.pagos.some((p) => {
-          const fechaPago = DateTime.fromJSDate(p.fechaPago as any)
-            .setZone('America/Guatemala')
-            .toISODate()
-          return fechaPago === fechaHoy
+          try {
+            if (p.fechaPago && typeof (p.fechaPago as any).toISODate === 'function') {
+              return (p.fechaPago as DateTime).toISODate() === fechaHoy
+            }
+            return DateTime.fromJSDate(new Date(p.fechaPago as any))
+              .setZone('America/Guatemala')
+              .toISODate() === fechaHoy
+          } catch {
+            return false
+          }
         })
 
+        // Seguimiento pendiente de este préstamo para hoy
+        const seguimientoPendiente = seguimientosHoy.find(
+          s => s.prestamoId === prestamo.id && !s.resuelta
+        )
+
         return {
-          prestamoId: prestamo.id,
-          rutaNombre: prestamo.cliente.ruta?.nombre || null,
-          rutaOrden: prestamo.cliente.ruta?.orden || null,
+          prestamoId:      prestamo.id,
+          rutaNombre:      prestamo.cliente.ruta?.nombre || null,
+          rutaOrden:       prestamo.cliente.ruta?.orden  || null,
+          esSeguimiento:   !idsEnRuta.has(prestamo.id),
+          seguimientoId:   seguimientoPendiente?.id   || null,
+          seguimientoTipo: seguimientoPendiente?.tipo  || null,
+          seguimientoNota: seguimientoPendiente?.nota  || null,
           cliente: {
-            id: prestamo.cliente.id,
-            nombres: prestamo.cliente.nombres,
-            apellidos: prestamo.cliente.apellidos,
-            telefono: prestamo.cliente.telefono,
-            direccion: prestamo.cliente.direccion,
-            zona: prestamo.cliente.zona,
+            id:          prestamo.cliente.id,
+            nombres:     prestamo.cliente.nombres,
+            apellidos:   prestamo.cliente.apellidos,
+            telefono:    prestamo.cliente.telefono,
+            direccion:   prestamo.cliente.direccion,
+            zona:        prestamo.cliente.zona,
             ordenVisita: prestamo.cliente.ordenVisita,
           },
           montoCuota,
           proximaCuota,
           cuotasPagadas,
-          totalCuotas: prestamo.cuotas,
+          totalCuotas:     prestamo.cuotas,
           yaPagoHoy,
         }
       })
 
-      const pendientes = cobros.filter((c) => !c.yaPagoHoy)
-      const cobrados  = cobros.filter((c) => c.yaPagoHoy)
+      const pendientes = cobros.filter(c => !c.yaPagoHoy)
+      const cobrados   = cobros.filter(c => c.yaPagoHoy)
 
       return response.ok({
-        dia: hoy,
-        fecha: fechaHoy,
+        dia:             hoy,
+        fecha:           fechaHoy,
         totalPendientes: pendientes.length,
-        totalCobrados: cobrados.length,
-        totalRecaudado: cobrados.reduce((sum, c) => sum + c.montoCuota, 0),
+        totalCobrados:   cobrados.length,
+        totalRecaudado:  cobrados.reduce((sum, c) => sum + c.montoCuota, 0),
         pendientes,
         cobrados,
       })
