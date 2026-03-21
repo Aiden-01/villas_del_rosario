@@ -89,18 +89,23 @@ export default class RutasController {
         6: 'sabado',
         7: 'domingo',
       }
+
       const ahora = DateTime.now().setZone('America/Guatemala')
       const hoy = diasSemana[ahora.weekday]
       const fechaHoy = ahora.toISODate()
 
-      // Ordenar por ruta.orden y luego por cliente.orden_visita
+      // ── CAMBIO CLAVE ──────────────────────────────────────────────────────────
+      // Antes: filtraba por prestamos.dia_visita = hoy
+      // Ahora: filtra por rutas.dia_cobro = hoy (via cliente → ruta)
+      // Así la ruta del día la controla Gestión de Rutas, no el préstamo
+      // ─────────────────────────────────────────────────────────────────────────
       const prestamos = await Prestamo.query()
         .where('prestamos.estado', 'activo')
-        .where('prestamos.dia_visita', hoy)
         .preload('cliente', (q) => q.preload('ruta'))
         .preload('pagos')
         .join('clientes', 'prestamos.cliente_id', 'clientes.id')
-        .leftJoin('rutas', 'clientes.ruta_id', 'rutas.id')
+        .join('rutas', 'clientes.ruta_id', 'rutas.id')        // INNER JOIN — solo clientes con ruta
+        .where('rutas.dia_cobro', hoy)                         // filtrar por día de la RUTA
         .orderByRaw('rutas.orden asc nulls last, clientes.orden_visita asc nulls last')
         .select('prestamos.*')
 
@@ -134,12 +139,11 @@ export default class RutasController {
           cuotasPagadas,
           totalCuotas: prestamo.cuotas,
           yaPagoHoy,
-          frecuenciaPago: prestamo.frecuenciaPago,
         }
       })
 
       const pendientes = cobros.filter((c) => !c.yaPagoHoy)
-      const cobrados = cobros.filter((c) => c.yaPagoHoy)
+      const cobrados  = cobros.filter((c) => c.yaPagoHoy)
 
       return response.ok({
         dia: hoy,

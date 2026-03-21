@@ -3,9 +3,9 @@ import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
+import { User, Search, CalendarDays } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
-const DIAS = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
 const FRECUENCIAS = ["diario","semanal","quincenal"];
 
 export default function PrestamoForm({ mode, prestamoId }) {
@@ -23,7 +23,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
     fechaFin: "",
     estado: "activo",
     frecuenciaPago: "semanal",
-    diaVisita: "lunes",
+    // diaVisita eliminado — ahora se controla desde Gestión de Rutas
   });
 
   const [clientes, setClientes] = useState([]);
@@ -32,7 +32,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
   const [clientePreseleccionado, setClientePreseleccionado] = useState(null);
   const isEdit = mode === "edit";
 
-  // Calcular fecha fin automáticamente
   useEffect(() => {
     if (formData.fechaInicio && formData.cuotas) {
       const inicio = new Date(formData.fechaInicio);
@@ -47,7 +46,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
     if (isEdit && prestamoId) obtenerPrestamo();
   }, [prestamoId]);
 
-  // Filtrar clientes con debounce cuando cambia la búsqueda
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!busquedaCliente.trim()) {
@@ -100,7 +98,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
         fechaFin: prestamo.fechaFin?.split("T")[0] || "",
         estado: prestamo.estado || "activo",
         frecuenciaPago: prestamo.frecuenciaPago || "semanal",
-        diaVisita: prestamo.diaVisita || "lunes",
       });
     } catch (error) {
       console.error("Error cargando préstamo:", error);
@@ -125,7 +122,8 @@ export default function PrestamoForm({ mode, prestamoId }) {
       setTimeout(() => navigate("/prestamos"), 1500);
     } catch (error) {
       console.error(error);
-      showToast("Error al guardar el préstamo", "error");
+      const mensaje = error?.response?.data?.message || "Error al guardar el préstamo";
+      showToast(mensaje, "error");
     }
   };
 
@@ -143,37 +141,25 @@ export default function PrestamoForm({ mode, prestamoId }) {
       >
         {/* ── SECCIÓN CLIENTE ── */}
         {clientePreseleccionado && !isEdit ? (
-          // Cliente llegó desde la URL (ej: desde página de clientes) — solo mostrarlo
-          <div className="w-full p-2 rounded font-semibold" style={inputStyle}>
-            👤 {clientePreseleccionado.nombres} {clientePreseleccionado.apellidos}
+          <div className="flex items-center gap-2 w-full p-2 rounded font-semibold" style={inputStyle}>
+            <User size={15} className="opacity-60 shrink-0" />
+            {clientePreseleccionado.nombres} {clientePreseleccionado.apellidos}
           </div>
         ) : (
-          // Sin preselección — mostrar buscador + select
           <div className="space-y-2">
-            <label
-              className="text-sm font-semibold block"
-              style={{ color: "var(--text)" }}
-            >
+            <label className="text-sm font-semibold block" style={{ color: "var(--text)" }}>
               Cliente
             </label>
-
-            {/* Input buscador */}
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                🔍
-              </span>
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Buscar por nombre o DPI..."
                 value={busquedaCliente}
                 onChange={(e) => setBusquedaCliente(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
-                style={{
-                  ...inputStyle,
-                  focusRingColor: "var(--primary)",
-                }}
+                className="w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none"
+                style={inputStyle}
               />
-              {/* Contador de resultados */}
               {busquedaCliente && (
                 <span
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-50"
@@ -183,8 +169,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
                 </span>
               )}
             </div>
-
-            {/* Select filtrado */}
             <select
               value={formData.clienteId}
               onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
@@ -199,8 +183,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
                 </option>
               ))}
             </select>
-
-            {/* Mensaje si no hay resultados */}
             {busquedaCliente && clientesFiltrados.length === 0 && (
               <p className="text-xs text-center opacity-50 py-1" style={{ color: "var(--text)" }}>
                 No se encontraron clientes con ese criterio.
@@ -258,8 +240,9 @@ export default function PrestamoForm({ mode, prestamoId }) {
             style={inputStyle}
           />
           {formData.fechaFin && (
-            <p className="text-xs mt-1 opacity-60">
-              📅 Fecha fin calculada automáticamente ({formData.cuotas} semanas desde el inicio)
+            <p className="flex items-center gap-1 text-xs mt-1 opacity-60">
+              <CalendarDays size={11} />
+              Fecha fin calculada automáticamente ({formData.cuotas} semanas desde el inicio)
             </p>
           )}
         </div>
@@ -278,25 +261,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
             {FRECUENCIAS.map((f) => (
               <option key={f} value={f}>
                 {f.charAt(0).toUpperCase() + f.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* ── DÍA DE VISITA ── */}
-        <div>
-          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-            Día de visita
-          </label>
-          <select
-            value={formData.diaVisita}
-            onChange={(e) => setFormData({ ...formData, diaVisita: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
-          >
-            {DIAS.map((d) => (
-              <option key={d} value={d}>
-                {d.charAt(0).toUpperCase() + d.slice(1)}
               </option>
             ))}
           </select>
