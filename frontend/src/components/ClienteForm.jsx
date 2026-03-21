@@ -92,8 +92,10 @@ export default function ClienteForm({ mode, clienteId }) {
       }
       setTimeout(() => navigate("/clientes"), 1500);
     } catch (error) {
-      console.error(error);
-      showToast("Error al guardar el cliente", "error");
+      // Leer el mensaje real que manda el backend
+      const mensaje =
+        error?.response?.data?.message || "Error al guardar el cliente";
+      showToast(mensaje, "error");
     }
   };
 

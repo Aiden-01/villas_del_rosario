@@ -82,6 +82,18 @@ export default class ClientsController {
         'zona', 'rutaId', 'ordenVisita'
       ])
 
+      // Verificar que el DPI no pertenezca a OTRO cliente distinto al actual
+      if (data.dpi) {
+        const existingClient = await Client.query()
+          .where('dpi', data.dpi)
+          .whereNot('id', params.id)
+          .first()
+
+        if (existingClient) {
+          return response.conflict({ message: 'El DPI ya está registrado por otro cliente' })
+        }
+      }
+
       client.merge(data)
       await client.save()
 
