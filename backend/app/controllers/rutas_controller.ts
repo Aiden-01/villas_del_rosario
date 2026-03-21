@@ -84,7 +84,19 @@ export default class RutasController {
       const hoy      = diasSemana[ahora.weekday]
       const fechaHoy = ahora.toISODate()!
 
-      // ── 1. Préstamos del día por ruta del cliente ─────────────────────────
+      // ── 1. Seguimientos registrados HOY — estos van a "Sin cobrar" ─────────
+      // Se obtienen PRIMERO para poder excluirlos de pendientes
+      const seguimientosDeHoy = await Seguimiento.query()
+        .whereRaw(`DATE(created_at AT TIME ZONE 'America/Guatemala') = ?`, [fechaHoy])
+        .where('resuelta', false)
+        .preload('prestamo', (q) =>
+          q.preload('cliente', (cq) => cq.preload('ruta'))
+        )
+
+      // IDs que ya tienen seguimiento hoy → NO deben aparecer en pendientes
+      const idsSinCobrar = new Set(seguimientosDeHoy.map(s => s.prestamoId))
+
+      // ── 2. Préstamos del día por ruta del cliente ─────────────────────────
       const prestamosPorRuta = await Prestamo.query()
         .where('prestamos.estado', 'activo')
         .preload('cliente', (q) => q.preload('ruta'))
@@ -95,7 +107,7 @@ export default class RutasController {
         .orderByRaw('rutas.orden asc nulls last, clientes.orden_visita asc nulls last')
         .select('prestamos.*')
 
-      // ── 2. Seguimientos pendientes para HOY (próxima visita = hoy) ────────
+      // ── 3. Seguimientos pendientes para HOY (próxima visita = hoy) ────────
       const seguimientosFuturos = await Seguimiento.query()
         .where('fecha_seguimiento', fechaHoy)
         .where('resuelta', false)
@@ -103,19 +115,9 @@ export default class RutasController {
           q.preload('cliente', (cq) => cq.preload('ruta')).preload('pagos')
         )
 
-      // ── 3. Seguimientos registrados HOY (no_pago / pago_parcial de hoy) ───
-      // Estos son los que ya se marcaron hoy — van a "Sin cobrar hoy"
-      const seguimientosDeHoy = await Seguimiento.query()
-        .whereRaw(`DATE(created_at) = ?`, [fechaHoy])
-        .where('resuelta', false)
-        .preload('prestamo', (q) =>
-          q.preload('cliente', (cq) => cq.preload('ruta'))
-        )
+      const idsEnRuta = new Set(prestamosPorRuta.map(p => p.id))
 
-      const idsSinCobrar = new Set(seguimientosDeHoy.map(s => s.prestamoId))
-      const idsEnRuta    = new Set(prestamosPorRuta.map(p => p.id))
-
-      // ── 4. Préstamos extra por seguimiento futuro (no duplicar) ──────────
+      // ── 4. Préstamos extra por seguimiento futuro (sin duplicar) ──────────
       const prestamosPorSeguimiento = seguimientosFuturos
         .filter(s =>
           !idsEnRuta.has(s.prestamoId) &&
@@ -124,70 +126,88 @@ export default class RutasController {
         )
         .map(s => s.prestamo)
 
-      // ── 5. Combinar listas del día ────────────────────────────────────────
       const todosLosPrestamos = [...prestamosPorRuta, ...prestamosPorSeguimiento]
 
-      // ── 6. Mapear cobros ──────────────────────────────────────────────────
-      const cobros = todosLosPrestamos.map((prestamo) => {
-        const montoTotal    = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
-        const montoCuota    = Number((montoTotal / prestamo.cuotas).toFixed(2))
-        const cuotasPagadas = prestamo.pagos.length
-        const proximaCuota  = cuotasPagadas + 1
+      // ── 5. Mapear cobros — excluir los que ya tienen seguimiento hoy ───────
+      const cobros = todosLosPrestamos
+        .filter(prestamo => !idsSinCobrar.has(prestamo.id)) // ← FIX CLAVE
+        .map((prestamo) => {
+          const montoTotal    = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
+          const montoCuota    = Number((montoTotal / prestamo.cuotas).toFixed(2))
+          const cuotasPagadas = prestamo.pagos.length
+          const proximaCuota  = cuotasPagadas + 1
 
-        // BUG FIX: fechaPago es DateTime de Luxon
-        const yaPagoHoy = prestamo.pagos.some((p) => {
-          try {
-            if (p.fechaPago && typeof (p.fechaPago as any).toISODate === 'function') {
-              return (p.fechaPago as DateTime).toISODate() === fechaHoy
-            }
-            return DateTime.fromJSDate(new Date(p.fechaPago as any))
-              .setZone('America/Guatemala')
-              .toISODate() === fechaHoy
-          } catch { return false }
+          // BUG FIX: fechaPago es DateTime de Luxon
+          const yaPagoHoy = prestamo.pagos.some((p) => {
+            try {
+              if (p.fechaPago && typeof (p.fechaPago as any).toISODate === 'function') {
+                return (p.fechaPago as DateTime).toISODate() === fechaHoy
+              }
+              return DateTime.fromJSDate(new Date(p.fechaPago as any))
+                .setZone('America/Guatemala')
+                .toISODate() === fechaHoy
+            } catch { return false }
+          })
+
+          const seguimientoPendiente = seguimientosFuturos.find(
+            s => s.prestamoId === prestamo.id && !s.resuelta
+          )
+
+          return {
+            prestamoId:      prestamo.id,
+            rutaNombre:      prestamo.cliente.ruta?.nombre || null,
+            rutaOrden:       prestamo.cliente.ruta?.orden  || null,
+            esSeguimiento:   !idsEnRuta.has(prestamo.id),
+            seguimientoId:   seguimientoPendiente?.id   || null,
+            seguimientoTipo: seguimientoPendiente?.tipo  || null,
+            seguimientoNota: seguimientoPendiente?.nota  || null,
+            cliente: {
+              id:          prestamo.cliente.id,
+              nombres:     prestamo.cliente.nombres,
+              apellidos:   prestamo.cliente.apellidos,
+              telefono:    prestamo.cliente.telefono,
+              direccion:   prestamo.cliente.direccion,
+              zona:        prestamo.cliente.zona,
+              ordenVisita: prestamo.cliente.ordenVisita,
+            },
+            montoCuota,
+            proximaCuota,
+            cuotasPagadas,
+            totalCuotas: prestamo.cuotas,
+            yaPagoHoy,
+          }
         })
 
-        const seguimientoPendiente = seguimientosFuturos.find(
-          s => s.prestamoId === prestamo.id && !s.resuelta
-        )
-
-        return {
-          prestamoId:      prestamo.id,
-          rutaNombre:      prestamo.cliente.ruta?.nombre || null,
-          rutaOrden:       prestamo.cliente.ruta?.orden  || null,
-          esSeguimiento:   !idsEnRuta.has(prestamo.id),
-          seguimientoId:   seguimientoPendiente?.id   || null,
-          seguimientoTipo: seguimientoPendiente?.tipo  || null,
-          seguimientoNota: seguimientoPendiente?.nota  || null,
-          cliente: {
-            id:          prestamo.cliente.id,
-            nombres:     prestamo.cliente.nombres,
-            apellidos:   prestamo.cliente.apellidos,
-            telefono:    prestamo.cliente.telefono,
-            direccion:   prestamo.cliente.direccion,
-            zona:        prestamo.cliente.zona,
-            ordenVisita: prestamo.cliente.ordenVisita,
-          },
-          montoCuota,
-          proximaCuota,
-          cuotasPagadas,
-          totalCuotas: prestamo.cuotas,
-          yaPagoHoy,
-        }
-      })
-
-      // ── 7. Mapear "sin cobrar hoy" ────────────────────────────────────────
+      // ── 6. Mapear "sin cobrar hoy" ─────────────────────────────────────────
       const sinCobrar = seguimientosDeHoy.map((seg) => {
         const prestamo   = seg.prestamo
         const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
         const montoCuota = Number((montoTotal / prestamo.cuotas).toFixed(2))
+
+        // Serializar fechaSeguimiento como string corto DD-MM-YYYY
+        let fechaSeguimientoStr = ''
+        try {
+          if (seg.fechaSeguimiento && typeof (seg.fechaSeguimiento as any).toISODate === 'function') {
+            const iso = (seg.fechaSeguimiento as DateTime).toISODate()! // "2026-03-22"
+            const [y, m, d] = iso.split('-')
+            fechaSeguimientoStr = `${d}/${m}/${y}`
+          } else {
+            const str = String(seg.fechaSeguimiento).split('T')[0]
+            const [y, m, d] = str.split('-')
+            fechaSeguimientoStr = `${d}/${m}/${y}`
+          }
+        } catch {
+          fechaSeguimientoStr = String(seg.fechaSeguimiento)
+        }
+
         return {
-          prestamoId:      prestamo.id,
-          seguimientoId:   seg.id,
-          tipo:            seg.tipo,            // 'no_pago' | 'pago_parcial'
-          montoPagado:     Number(seg.montoPagado),
-          nota:            seg.nota,
-          fechaSeguimiento: seg.fechaSeguimiento,
-          rutaNombre:      prestamo.cliente.ruta?.nombre || null,
+          prestamoId:       prestamo.id,
+          seguimientoId:    seg.id,
+          tipo:             seg.tipo,
+          montoPagado:      Number(seg.montoPagado),
+          nota:             seg.nota,
+          fechaSeguimiento: fechaSeguimientoStr, // ← fecha corta DD/MM/YYYY
+          rutaNombre:       prestamo.cliente.ruta?.nombre || null,
           cliente: {
             id:        prestamo.cliente.id,
             nombres:   prestamo.cliente.nombres,
@@ -212,7 +232,7 @@ export default class RutasController {
         totalRecaudado:  cobrados.reduce((sum, c) => sum + c.montoCuota, 0),
         pendientes,
         cobrados,
-        sinCobrar,       // ← nueva sección
+        sinCobrar,
       })
     } catch (error) {
       console.error(error)
