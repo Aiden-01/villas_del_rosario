@@ -43,7 +43,7 @@ export default function CrearUsuario() {
         return;
       }
       showToast("Usuario creado correctamente", "success");
-      setTimeout(() => navigate("/GestionUsuarios"), 1500);
+      setTimeout(() => navigate("/usuarios"), 1500);
     } catch {
       showToast("Error al crear el usuario", "error");
     }
