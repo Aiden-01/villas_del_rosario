@@ -8,6 +8,7 @@ const PagosController = () => import('#controllers/pagos_controller')
 const ReportesController = () => import('#controllers/reportes_controller')
 const RutasController = () => import('#controllers/rutas_controller')
 const ActividadesController = () => import('#controllers/actividades_controller')
+const SeguimientosController = () => import('#controllers/seguimientos_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando 🚀' }
@@ -84,3 +85,13 @@ router
     router.get('/', [ActividadesController, 'index'])
   })
   .prefix('api/historial')
+
+
+
+router
+  .group(() => {
+    router.post('/', [SeguimientosController, 'store'])
+    router.put('/:id/resolver', [SeguimientosController, 'resolver'])
+    router.get('/prestamo/:prestamoId', [SeguimientosController, 'byPrestamo'])
+  })
+  .prefix('api/seguimientos')
