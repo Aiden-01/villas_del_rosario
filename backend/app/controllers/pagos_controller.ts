@@ -76,10 +76,10 @@ export default class PagosController {
       await pago.load('prestamo', (q) => q.preload('cliente'))
       await pago.load('usuario')
 
-      // ✅ AUTO-CANCELAR si es la última cuota
+      // ✅ AUTO-PAGAR si es la última cuota
       const prestamo = await Prestamo.findOrFail(data.prestamoId)
       if (data.numeroCuota >= prestamo.cuotas) {
-        prestamo.estado = 'cancelado'
+        prestamo.estado = 'pagado'
         await prestamo.save()
 
         await registrarActividad({
@@ -87,7 +87,7 @@ export default class PagosController {
           tipo: 'actualizar',
           entidad: 'prestamo',
           entidadId: prestamo.id,
-          descripcion: `Préstamo de ${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos} marcado como cancelado — todas las cuotas pagadas`,
+          descripcion: `Préstamo de ${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos} marcado como pagado — todas las cuotas pagadas`,
         })
       }
 

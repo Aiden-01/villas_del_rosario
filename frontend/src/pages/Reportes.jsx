@@ -8,11 +8,10 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const API = `${API_URL}/api/reportes`;
 const ESTADOS = ["activo", "pagado", "vencido"];
 
-// Convierte cualquier formato de fecha a DD-MM-YYYY
 const formatearFecha = (fecha) => {
   if (!fecha) return "";
   const str = typeof fecha === "string" ? fecha : String(fecha);
-  const limpia = str.split("T")[0]; // "2026-03-19"
+  const limpia = str.split("T")[0];
   const [year, month, day] = limpia.split("-");
   return `${day}-${month}-${year}`;
 };
@@ -24,13 +23,13 @@ const TABS = [
 ];
 
 export default function Reportes() {
-  const [tab, setTab]             = useState("pagos");
+  const [tab, setTab]                 = useState("pagos");
   const [fechaInicio, setFechaInicio] = useState("");
-  const [fechaFin, setFechaFin]   = useState("");
-  const [estado, setEstado]       = useState("");
-  const [datos, setDatos]         = useState(null);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [fechaFin, setFechaFin]       = useState("");
+  const [estado, setEstado]           = useState("");
+  const [datos, setDatos]             = useState(null);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState("");
 
   const token = localStorage.getItem("token");
 
@@ -44,7 +43,12 @@ export default function Reportes() {
         if (!fechaInicio || !fechaFin) { setError("Selecciona un rango de fechas"); setLoading(false); return; }
         url = `${API}/pagos?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
       } else if (tab === "prestamos") {
-        url = `${API}/prestamos${estado ? `?estado=${estado}` : ""}`;
+        // ✅ Ahora también acepta fechas opcionales
+        const params = new URLSearchParams();
+        if (estado)      params.append("estado", estado);
+        if (fechaInicio) params.append("fechaInicio", fechaInicio);
+        if (fechaFin)    params.append("fechaFin", fechaFin);
+        url = `${API}/prestamos${params.toString() ? `?${params}` : ""}`;
       } else if (tab === "ganancias") {
         if (!fechaInicio || !fechaFin) { setError("Selecciona un rango de fechas"); setLoading(false); return; }
         url = `${API}/ganancias?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
@@ -92,7 +96,7 @@ export default function Reportes() {
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => { setTab(key); setDatos(null); setError(""); }}
+            onClick={() => { setTab(key); setDatos(null); setError(""); setFechaInicio(""); setFechaFin(""); setEstado(""); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold capitalize transition hover:opacity-90"
             style={{
               backgroundColor: tab === key ? "var(--primary)" : "var(--card)",
@@ -113,10 +117,14 @@ export default function Reportes() {
       >
         <p className="text-sm font-semibold mb-3 opacity-60">Filtros</p>
         <div className="flex flex-wrap gap-3">
-          {(tab === "pagos" || tab === "ganancias") && (
+
+          {/* Fechas — pagos y ganancias (obligatorio) + préstamos (opcional) */}
+          {(tab === "pagos" || tab === "ganancias" || tab === "prestamos") && (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-xs opacity-60">Fecha inicio</label>
+                <label className="text-xs opacity-60">
+                  Fecha inicio {tab === "prestamos" && <span className="opacity-50">(opcional)</span>}
+                </label>
                 <input
                   type="date"
                   value={fechaInicio}
@@ -126,7 +134,9 @@ export default function Reportes() {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs opacity-60">Fecha fin</label>
+                <label className="text-xs opacity-60">
+                  Fecha fin {tab === "prestamos" && <span className="opacity-50">(opcional)</span>}
+                </label>
                 <input
                   type="date"
                   value={fechaFin}
@@ -138,6 +148,7 @@ export default function Reportes() {
             </>
           )}
 
+          {/* Estado — solo préstamos */}
           {tab === "prestamos" && (
             <div className="flex flex-col gap-1">
               <label className="text-xs opacity-60">Estado</label>
@@ -173,7 +184,6 @@ export default function Reportes() {
       {/* RESULTADOS */}
       {datos && (
         <>
-          {/* BOTONES EXPORTAR */}
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => exportar("excel")}
@@ -241,6 +251,14 @@ export default function Reportes() {
                   Total prestado: Q{datos.reduce((s, p) => s + Number(p.monto), 0)
                     .toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                 </p>
+                {/* ✅ Indicador de filtro activo */}
+                {(fechaInicio || fechaFin) && (
+                  <p className="text-xs opacity-50 mt-1">
+                    Filtrando por fecha de inicio:{" "}
+                    {fechaInicio ? formatearFecha(fechaInicio) : "—"} →{" "}
+                    {fechaFin ? formatearFecha(fechaFin) : "—"}
+                  </p>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm" style={{ backgroundColor: "var(--card)" }}>

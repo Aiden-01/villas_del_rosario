@@ -20,7 +20,6 @@ const ESTADO_COLORS = {
   activo: "bg-green-100 text-green-700",
   pagado: "bg-blue-100 text-blue-700",
   vencido: "bg-red-100 text-red-700",
-  cancelado: "bg-gray-100 text-gray-500",
 };
 
 const esMora = (prestamo) => {
@@ -41,7 +40,6 @@ const formatearFecha = (fecha) => {
   return `${day}-${month}-${year}`;
 };
 
-// ✅ Hace cuántos meses finalizó un préstamo
 const mesesDesdeFinalizacion = (prestamo) => {
   const fin = new Date(prestamo.fechaFin);
   const hoy = new Date();
@@ -59,7 +57,6 @@ export default function Prestamos() {
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [registrandoPago, setRegistrandoPago] = useState(false);
   const [pestana, setPestana] = useState("activos");
-  // ✅ NUEVO: mostrar antiguos o no, y filtro de búsqueda por nombre
   const [mostrarAntiguos, setMostrarAntiguos] = useState(false);
   const [busquedaFinalizado, setBusquedaFinalizado] = useState("");
   const { toast, showToast, closeToast } = useToast();
@@ -212,7 +209,7 @@ export default function Prestamos() {
       if (siguienteCuota >= selectedPrestamo.cuotas) {
         cerrarModal();
         setPestana("finalizados");
-        showToast("¡Préstamo cancelado! Todas las cuotas pagadas", "success");
+        showToast("¡Préstamo pagado! Todas las cuotas registradas", "success");
       } else {
         showToast(`Cuota #${siguienteCuota} registrada correctamente`, "success");
       }
@@ -231,10 +228,9 @@ export default function Prestamos() {
     ? siguienteCuota > selectedPrestamo.cuotas
     : false;
 
-  const prestamosActivos = prestamos.filter((p) => p.estado !== "cancelado");
-
-  // ✅ Finalizados: filtro de 6 meses + búsqueda por nombre
-  const todosFinalizados = prestamos.filter((p) => p.estado === "cancelado");
+  // ✅ pagado en lugar de cancelado
+  const prestamosActivos = prestamos.filter((p) => p.estado !== "pagado");
+  const todosFinalizados = prestamos.filter((p) => p.estado === "pagado");
   const finalizadosRecientes = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) <= 6);
   const finalizadosAntiguos = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) > 6);
   const finalizadosBase = mostrarAntiguos ? todosFinalizados : finalizadosRecientes;
@@ -318,10 +314,9 @@ export default function Prestamos() {
         </button>
       </div>
 
-      {/* ✅ FILTROS DE FINALIZADOS */}
+      {/* FILTROS FINALIZADOS */}
       {pestana === "finalizados" && (
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
-          {/* Buscador por nombre */}
           <div className="flex-1 relative">
             <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" />
             <input
@@ -337,8 +332,6 @@ export default function Prestamos() {
               }}
             />
           </div>
-
-          {/* Toggle antiguos */}
           {!busquedaFinalizado && finalizadosAntiguos.length > 0 && (
             <button
               onClick={() => setMostrarAntiguos(!mostrarAntiguos)}
@@ -383,7 +376,7 @@ export default function Prestamos() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {prestamosVisibles.map((prestamo) => {
             const mora = esMora(prestamo);
-            const cancelado = prestamo.estado === "cancelado";
+            const pagado = prestamo.estado === "pagado"; // ✅
             const cuotaSemanal = calcularCuotaSemanal(
               prestamo.monto,
               prestamo.interes,
@@ -397,12 +390,12 @@ export default function Prestamos() {
                 className="rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
                 style={{
                   backgroundColor: "var(--card)",
-                  border: cancelado
+                  border: pagado
                     ? "2px solid #6b7280"
                     : mora
                     ? "2px solid #ef4444"
                     : "2px solid transparent",
-                  opacity: cancelado ? 0.85 : 1,
+                  opacity: pagado ? 0.85 : 1,
                 }}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -411,15 +404,15 @@ export default function Prestamos() {
                   </h2>
                   <span
                     className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${
-                      cancelado
-                        ? "bg-gray-100 text-gray-500"
+                      pagado
+                        ? "bg-blue-100 text-blue-700"
                         : mora
                         ? "bg-red-100 text-red-700"
                         : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {cancelado
-                      ? <><CheckCircle2 size={11} /> cancelado</>
+                    {pagado
+                      ? <><CheckCircle2 size={11} /> pagado</>
                       : mora
                       ? <><AlertTriangle size={11} /> mora</>
                       : prestamo.estado
@@ -433,7 +426,7 @@ export default function Prestamos() {
                       <span className="font-medium text-[var(--text)]">Monto:</span>{" "}
                       Q{Number(prestamo.monto).toLocaleString()}
                     </p>
-                    <p className="font-bold" style={{ color: cancelado ? "#6b7280" : "var(--primary)" }}>
+                    <p className="font-bold" style={{ color: pagado ? "#6b7280" : "var(--primary)" }}>
                       Q{cuotaSemanal.toLocaleString("es-GT", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -473,9 +466,9 @@ export default function Prestamos() {
                   </div>
                 )}
 
-                {cancelado && (
+                {pagado && (
                   <div className="mt-3 text-center">
-                    <span className="flex items-center justify-center gap-1 text-xs text-gray-400">
+                    <span className="flex items-center justify-center gap-1 text-xs text-blue-400">
                       <CheckCircle2 size={12} /> Todas las cuotas pagadas
                     </span>
                   </div>
@@ -486,7 +479,7 @@ export default function Prestamos() {
         </div>
       )}
 
-      {/* MODAL — igual que antes, sin cambios */}
+      {/* MODAL */}
       {selectedPrestamo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -498,8 +491,8 @@ export default function Prestamos() {
             style={{
               backgroundColor: "var(--card)",
               animation: "zoomIn 0.2s ease-out",
-              border: selectedPrestamo.estado === "cancelado"
-                ? "2px solid #6b7280"
+              border: selectedPrestamo.estado === "pagado"
+                ? "2px solid #3b82f6"
                 : esMora(selectedPrestamo)
                 ? "2px solid #ef4444"
                 : "none",
@@ -508,15 +501,15 @@ export default function Prestamos() {
             <div className="flex justify-center mb-4">
               <span
                 className={`flex items-center gap-1 text-sm px-4 py-1 rounded-full font-semibold ${
-                  selectedPrestamo.estado === "cancelado"
-                    ? "bg-gray-100 text-gray-500"
+                  selectedPrestamo.estado === "pagado"
+                    ? "bg-blue-100 text-blue-700"
                     : esMora(selectedPrestamo)
                     ? "bg-red-100 text-red-700"
                     : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"
                 }`}
               >
-                {selectedPrestamo.estado === "cancelado"
-                  ? <><CheckCircle2 size={13} /> Cancelado</>
+                {selectedPrestamo.estado === "pagado"
+                  ? <><CheckCircle2 size={13} /> Pagado</>
                   : esMora(selectedPrestamo)
                   ? <><AlertTriangle size={13} /> En mora</>
                   : selectedPrestamo.estado
@@ -557,13 +550,14 @@ export default function Prestamos() {
               </p>
             </div>
 
-            {selectedPrestamo.estado === "cancelado" && (
-              <div className="rounded-xl p-4 mb-4 text-center bg-gray-100" style={{ border: "1px solid #d1d5db" }}>
+            {/* ✅ Banner pagado */}
+            {selectedPrestamo.estado === "pagado" && (
+              <div className="rounded-xl p-4 mb-4 text-center bg-blue-50" style={{ border: "1px solid #bfdbfe" }}>
                 <div className="flex justify-center mb-1">
-                  <PartyPopper size={28} className="text-gray-500" />
+                  <PartyPopper size={28} className="text-blue-400" />
                 </div>
-                <p className="text-gray-600 font-semibold">¡Préstamo finalizado!</p>
-                <p className="text-xs text-gray-400 mt-1">Todas las {selectedPrestamo.cuotas} cuotas fueron pagadas</p>
+                <p className="text-blue-700 font-semibold">¡Préstamo finalizado!</p>
+                <p className="text-xs text-blue-400 mt-1">Todas las {selectedPrestamo.cuotas} cuotas fueron pagadas</p>
               </div>
             )}
 
