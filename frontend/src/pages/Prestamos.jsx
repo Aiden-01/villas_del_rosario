@@ -5,7 +5,7 @@ import useToast from "../hooks/useToast";
 import {
   HandCoins, CheckCircle2, Plus, Pencil, Trash2,
   X, AlertTriangle, PartyPopper, Inbox, ClipboardList,
-  MapPin
+  Filter
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
@@ -41,6 +41,13 @@ const formatearFecha = (fecha) => {
   return `${day}-${month}-${year}`;
 };
 
+// ✅ Hace cuántos meses finalizó un préstamo
+const mesesDesdeFinalizacion = (prestamo) => {
+  const fin = new Date(prestamo.fechaFin);
+  const hoy = new Date();
+  return (hoy.getFullYear() - fin.getFullYear()) * 12 + (hoy.getMonth() - fin.getMonth());
+};
+
 export default function Prestamos() {
   const user = JSON.parse(localStorage.getItem("user"));
   const [prestamos, setPrestamos] = useState([]);
@@ -52,6 +59,9 @@ export default function Prestamos() {
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [registrandoPago, setRegistrandoPago] = useState(false);
   const [pestana, setPestana] = useState("activos");
+  // ✅ NUEVO: mostrar antiguos o no, y filtro de búsqueda por nombre
+  const [mostrarAntiguos, setMostrarAntiguos] = useState(false);
+  const [busquedaFinalizado, setBusquedaFinalizado] = useState("");
   const { toast, showToast, closeToast } = useToast();
 
   const navigate = useNavigate();
@@ -222,7 +232,20 @@ export default function Prestamos() {
     : false;
 
   const prestamosActivos = prestamos.filter((p) => p.estado !== "cancelado");
-  const prestamosFinalizados = prestamos.filter((p) => p.estado === "cancelado");
+
+  // ✅ Finalizados: filtro de 6 meses + búsqueda por nombre
+  const todosFinalizados = prestamos.filter((p) => p.estado === "cancelado");
+  const finalizadosRecientes = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) <= 6);
+  const finalizadosAntiguos = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) > 6);
+  const finalizadosBase = mostrarAntiguos ? todosFinalizados : finalizadosRecientes;
+  const prestamosFinalizados = busquedaFinalizado.trim()
+    ? todosFinalizados.filter((p) =>
+        `${p.cliente?.nombres} ${p.cliente?.apellidos}`
+          .toLowerCase()
+          .includes(busquedaFinalizado.toLowerCase())
+      )
+    : finalizadosBase;
+
   const prestamosVisibles = pestana === "activos" ? prestamosActivos : prestamosFinalizados;
 
   return (
@@ -287,13 +310,50 @@ export default function Prestamos() {
         >
           <CheckCircle2 size={15} />
           Finalizados
-          {prestamosFinalizados.length > 0 && (
+          {todosFinalizados.length > 0 && (
             <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-              {prestamosFinalizados.length}
+              {todosFinalizados.length}
             </span>
           )}
         </button>
       </div>
+
+      {/* ✅ FILTROS DE FINALIZADOS */}
+      {pestana === "finalizados" && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-5">
+          {/* Buscador por nombre */}
+          <div className="flex-1 relative">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre del cliente..."
+              value={busquedaFinalizado}
+              onChange={(e) => setBusquedaFinalizado(e.target.value)}
+              className="w-full pl-8 pr-4 py-2 rounded-xl text-sm"
+              style={{
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--card-border)",
+                color: "var(--text)",
+              }}
+            />
+          </div>
+
+          {/* Toggle antiguos */}
+          {!busquedaFinalizado && finalizadosAntiguos.length > 0 && (
+            <button
+              onClick={() => setMostrarAntiguos(!mostrarAntiguos)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: mostrarAntiguos ? "#6b7280" : "var(--card)",
+                color: mostrarAntiguos ? "white" : "var(--text)",
+                border: "1px solid var(--card-border)",
+              }}
+            >
+              {mostrarAntiguos ? "Ocultar antiguos" : `Ver todos (+${finalizadosAntiguos.length} hace +6 meses)`}
+            </button>
+          )}
+        </div>
+      )}
 
       {loading && <p>Cargando préstamos...</p>}
       {error && <p className="text-red-500">{error}</p>}
@@ -311,6 +371,8 @@ export default function Prestamos() {
           <p className="font-semibold opacity-70">
             {pestana === "activos"
               ? "No hay préstamos activos."
+              : busquedaFinalizado
+              ? `No se encontró ningún cliente con "${busquedaFinalizado}".`
               : "Aún no hay préstamos finalizados."}
           </p>
         </div>
@@ -424,7 +486,7 @@ export default function Prestamos() {
         </div>
       )}
 
-      {/* MODAL */}
+      {/* MODAL — igual que antes, sin cambios */}
       {selectedPrestamo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -495,7 +557,6 @@ export default function Prestamos() {
               </p>
             </div>
 
-            {/* Banner cancelado */}
             {selectedPrestamo.estado === "cancelado" && (
               <div className="rounded-xl p-4 mb-4 text-center bg-gray-100" style={{ border: "1px solid #d1d5db" }}>
                 <div className="flex justify-center mb-1">
@@ -536,7 +597,6 @@ export default function Prestamos() {
               </div>
             )}
 
-            {/* Historial de pagos */}
             <div className="mb-4">
               <p className="flex items-center gap-2 text-sm font-semibold mb-2">
                 <ClipboardList size={15} /> Historial de pagos
@@ -567,7 +627,6 @@ export default function Prestamos() {
               )}
             </div>
 
-            {/* Botones */}
             <div className="flex flex-col gap-2">
               {selectedPrestamo.estado === "activo" && !todasPagadas && (
                 <button
