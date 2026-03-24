@@ -1,28 +1,10 @@
 import { useRef, useState } from "react";
 
-/**
- * useDragSort — drag & drop con soporte real para iOS
- *
- * Funciona con:
- *  - Mouse (desktop)
- *  - Touch Android
- *  - Touch iOS (Safari) — usa touchmove con coordenadas reales
- *
- * Uso:
- *   const { dragHandlers, dragOverIndex, isDragging } = useDragSort({
- *     items,
- *     onReorder: (newItems) => setItems(newItems),
- *   });
- *
- *   En cada item del listado:
- *   <div {...dragHandlers(index)} ...>
- */
 export function useDragSort({ items, onReorder }) {
-  const dragIndex    = useRef(null);   // índice que se está arrastrando
-  const [dragOver, setDragOver] = useState(null); // índice sobre el que se pasa
+  const dragIndex = useRef(null);
+  const [dragOver, setDragOver] = useState(null);
   const [dragging, setDragging] = useState(false);
 
-  // ── Utilidad: reordenar array ────────────────────────────────────────────────
   const reorder = (from, to) => {
     if (from === to || from === null || to === null) return;
     const next = [...items];
@@ -31,103 +13,90 @@ export function useDragSort({ items, onReorder }) {
     onReorder(next);
   };
 
-  // ── Encontrar índice a partir de coordenadas de pantalla (para iOS) ─────────
-  const getIndexFromPoint = (x, y, containerSelector) => {
-    // Busca todos los elementos con data-drag-index dentro del contenedor
+  const getIndexFromPoint = (x, y) => {
     const els = document.querySelectorAll(`[data-drag-index]`);
     for (const el of els) {
       const rect = el.getBoundingClientRect();
-      if (
-        x >= rect.left && x <= rect.right &&
-        y >= rect.top  && y <= rect.bottom
-      ) {
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
         return Number(el.getAttribute("data-drag-index"));
       }
     }
     return null;
   };
 
-  // ── Handlers de mouse (desktop) ─────────────────────────────────────────────
-  const onMouseDragStart = (index) => (e) => {
-    dragIndex.current = index;
-    setDragging(true);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const onMouseDragOver = (index) => (e) => {
-    e.preventDefault();
-    setDragOver(index);
-  };
-
-  const onMouseDrop = (index) => (e) => {
-    e.preventDefault();
-    reorder(dragIndex.current, index);
-    dragIndex.current = null;
-    setDragOver(null);
-    setDragging(false);
-  };
-
-  const onMouseDragEnd = () => {
-    dragIndex.current = null;
-    setDragOver(null);
-    setDragging(false);
-  };
-
-  // ── Handlers de touch (iOS + Android) ───────────────────────────────────────
-  const onTouchStart = (index) => (e) => {
-    dragIndex.current = index;
-    setDragging(true);
-    // No preventDefault aquí para no bloquear el scroll inicial
-  };
-
-  const onTouchMove = (e) => {
-    // preventDefault aquí sí — evita que la página haga scroll mientras arrastra
-    e.preventDefault();
-    const touch = e.touches[0];
-    const over  = getIndexFromPoint(touch.clientX, touch.clientY);
-    if (over !== null) setDragOver(over);
-  };
-
-  const onTouchEnd = (e) => {
-    const touch = e.changedTouches[0];
-    const dropIndex = getIndexFromPoint(touch.clientX, touch.clientY);
-    reorder(dragIndex.current, dropIndex ?? dragIndex.current);
-    dragIndex.current = null;
-    setDragOver(null);
-    setDragging(false);
-  };
-
-  // ── Función que retorna todos los props para un item ─────────────────────────
-  const dragHandlers = (index) => ({
-    "data-drag-index": index,          // selector que usa getIndexFromPoint
-    draggable: true,
-
-    // Mouse
-    onDragStart: onMouseDragStart(index),
-    onDragOver:  onMouseDragOver(index),
-    onDrop:      onMouseDrop(index),
-    onDragEnd:   onMouseDragEnd,
-
-    // Touch (iOS + Android)
-    onTouchStart: onTouchStart(index),
-    onTouchMove:  onTouchMove,         // mismo handler para todos
-    onTouchEnd:   onTouchEnd,
-
-    // Estilo visual mientras se arrastra
-    style: {
-      opacity:   dragIndex.current === index ? 0.4 : 1,
-      transform: dragOver === index && dragIndex.current !== index
-        ? "scale(1.02)"
-        : "scale(1)",
-      transition: "opacity 0.15s, transform 0.15s",
-      cursor: "grab",
-      touchAction: "none",             // clave en iOS: desactiva scroll nativo en el elemento
+  // ── Handlers para el CONTENEDOR (card completo) ──────────────────────────────
+  // Solo recibe dragOver y drop — NO bloquea scroll
+  const containerHandlers = (index) => ({
+    "data-drag-index": index,
+    onDragOver: (e) => { e.preventDefault(); setDragOver(index); },
+    onDrop: (e) => {
+      e.preventDefault();
+      reorder(dragIndex.current, index);
+      dragIndex.current = null;
+      setDragOver(null);
+      setDragging(false);
     },
+    style: {
+      opacity: dragIndex.current === index ? 0.4 : 1,
+      transform: dragOver === index && dragIndex.current !== index ? "scale(1.02)" : "scale(1)",
+      transition: "opacity 0.15s, transform 0.15s",
+      // ✅ SIN touchAction: "none" aquí — permite scroll normal
+    },
+  });
+
+  // ── Handlers para el HANDLE (solo el ícono GripVertical) ─────────────────────
+  // Aquí sí va draggable, touch events y touchAction: none
+  const handleHandlers = (index) => ({
+    draggable: true,
+    onDragStart: (e) => {
+      dragIndex.current = index;
+      setDragging(true);
+      e.dataTransfer.effectAllowed = "move";
+      // Necesario para que el drag funcione desde el handle hacia el container
+      e.stopPropagation();
+    },
+    onDragEnd: () => {
+      dragIndex.current = null;
+      setDragOver(null);
+      setDragging(false);
+    },
+    onTouchStart: (e) => {
+      dragIndex.current = index;
+      setDragging(true);
+      // ✅ No stopPropagation aquí — dejar que el card lo maneje si hace falta
+    },
+    onTouchMove: (e) => {
+      e.preventDefault(); // ✅ Solo bloquea scroll cuando toca el handle
+      const touch = e.touches[0];
+      const over = getIndexFromPoint(touch.clientX, touch.clientY);
+      if (over !== null) setDragOver(over);
+    },
+    onTouchEnd: (e) => {
+      const touch = e.changedTouches[0];
+      const dropIndex = getIndexFromPoint(touch.clientX, touch.clientY);
+      reorder(dragIndex.current, dropIndex ?? dragIndex.current);
+      dragIndex.current = null;
+      setDragOver(null);
+      setDragging(false);
+    },
+    style: {
+      touchAction: "none", // ✅ Solo aquí — solo el handle bloquea scroll
+      cursor: "grab",
+    },
+  });
+
+  // ── Mantener dragHandlers por compatibilidad con código existente ─────────────
+  const dragHandlers = (index) => ({
+    ...containerHandlers(index),
+    ...handleHandlers(index),
+    draggable: true,
   });
 
   return {
     dragHandlers,
+    containerHandlers,
+    handleHandlers,
     dragOverIndex: dragOver,
-    isDragging:    dragging,
+    isDragging: dragging,
   };
 }

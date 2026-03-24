@@ -26,8 +26,6 @@ export default function GestionRutas() {
   const [rutaSeleccionada, setRutaSeleccionada] = useState(null);
   const [editandoPrioridad, setEditandoPrioridad] = useState(false);
   const [prioridades, setPrioridades] = useState({});
-
-  // Panel edición día de cobro
   const [rutaEditando, setRutaEditando] = useState(null);
   const [diaCobroEdit, setDiaCobroEdit] = useState("lunes");
   const [guardandoDia, setGuardandoDia] = useState(false);
@@ -37,8 +35,11 @@ export default function GestionRutas() {
   const token = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
-  // ── Drag & drop rutas ────────────────────────────────────────────────────────
-  const { dragHandlers: dragHandlersRuta } = useDragSort({
+  // ✅ Ahora destructuramos containerHandlers y handleHandlers también
+  const {
+    containerHandlers: containerHandlersRuta,
+    handleHandlers: handleHandlersRuta,
+  } = useDragSort({
     items: rutas,
     onReorder: async (nuevasRutas) => {
       const rutasConOrden = nuevasRutas.map((r, i) => ({ ...r, orden: i + 1 }));
@@ -55,18 +56,19 @@ export default function GestionRutas() {
     },
   });
 
-  // ── Drag & drop clientes de la ruta seleccionada ─────────────────────────────
   const clientesDeRuta = rutaSeleccionada
     ? clientes
         .filter(c => c.rutaId === rutaSeleccionada.id)
         .sort((a, b) => (a.ordenVisita || 0) - (b.ordenVisita || 0))
     : [];
 
-  const { dragHandlers: dragHandlersCliente } = useDragSort({
+  const {
+    containerHandlers: containerHandlersCliente,
+    handleHandlers: handleHandlersCliente,
+  } = useDragSort({
     items: clientesDeRuta,
     onReorder: async (nuevosClientes) => {
       const conOrden = nuevosClientes.map((c, i) => ({ ...c, ordenVisita: i + 1 }));
-      // Actualizar estado local
       setClientes(prev => {
         const sinRuta = prev.filter(c => c.rutaId !== rutaSeleccionada.id);
         return [...sinRuta, ...conOrden];
@@ -283,7 +285,7 @@ export default function GestionRutas() {
             <p className="text-sm opacity-60 mb-4">
               {editandoPrioridad
                 ? "Asigna un número a cada zona y presiona Aplicar"
-                : "Arrastra para reordenar · toca el lápiz para editar el día"}
+                : "Toca ⠿ para arrastrar · toca el lápiz para editar el día"}
             </p>
 
             {rutas.length === 0 && (
@@ -297,22 +299,22 @@ export default function GestionRutas() {
             <div className="space-y-2">
               {rutas.map((ruta, index) => {
                 const clientesEnRuta = clientes.filter(c => c.rutaId === ruta.id);
-                // Solo aplicar drag handlers si NO está en modo edición de prioridad
-                const handlers = editandoPrioridad ? {} : dragHandlersRuta(index);
+                const cHandlers = editandoPrioridad ? {} : containerHandlersRuta(index);
+                const hHandlers = editandoPrioridad ? {} : handleHandlersRuta(index);
                 return (
                   <div key={ruta.id}
-                    {...handlers}
+                    // ✅ Card: solo containerHandlers (sin touchAction:none)
+                    {...cHandlers}
                     onClick={() => !editandoPrioridad && setRutaSeleccionada(
                       rutaSeleccionada?.id === ruta.id ? null : ruta
                     )}
                     className="rounded-2xl p-4 cursor-pointer hover:scale-[1.01] shadow-md select-none"
                     style={{
-                      ...handlers.style,
+                      ...cHandlers.style,
                       backgroundColor: "var(--card)",
                       border: rutaSeleccionada?.id === ruta.id
                         ? "2px solid var(--primary)"
                         : "2px solid transparent",
-                      transition: "border 0.15s, " + (handlers.style?.transition || ""),
                     }}>
                     <div className="flex items-center gap-3">
                       {editandoPrioridad ? (
@@ -323,7 +325,15 @@ export default function GestionRutas() {
                           className="w-12 text-center p-1 rounded font-bold text-sm"
                           style={{ backgroundColor: "var(--bg)", color: "var(--text)", border: "2px solid var(--primary)" }} />
                       ) : (
-                        <GripVertical size={18} className="opacity-30 shrink-0" />
+                        // ✅ GripVertical: solo handleHandlers (con touchAction:none y cursor grab)
+                        <div
+                          {...hHandlers}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 rounded opacity-40 hover:opacity-80 active:opacity-100 shrink-0"
+                          style={{ ...hHandlers.style, touchAction: "none" }}
+                        >
+                          <GripVertical size={18} />
+                        </div>
                       )}
 
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
@@ -377,7 +387,7 @@ export default function GestionRutas() {
             </h2>
             <p className="text-sm opacity-60 mb-4">
               {rutaSeleccionada
-                ? "Arrastra para cambiar el orden de visita"
+                ? "Toca ⠿ para cambiar el orden de visita"
                 : "Haz clic en una ruta para ver sus clientes"}
             </p>
 
@@ -402,19 +412,28 @@ export default function GestionRutas() {
             {rutaSeleccionada && clientesDeRuta.length > 0 && (
               <div className="space-y-2">
                 {clientesDeRuta.map((cliente, index) => {
-                  const handlers = dragHandlersCliente(index);
+                  const cHandlers = containerHandlersCliente(index);
+                  const hHandlers = handleHandlersCliente(index);
                   return (
                     <div key={cliente.id}
-                      {...handlers}
+                      // ✅ Card: solo containerHandlers
+                      {...cHandlers}
                       className="rounded-2xl p-4 shadow-md select-none hover:scale-[1.01]"
                       style={{
-                        ...handlers.style,
+                        ...cHandlers.style,
                         backgroundColor: "var(--card)",
                         border: "1px solid var(--card-border)",
-                        transition: "border 0.15s, " + (handlers.style?.transition || ""),
                       }}>
                       <div className="flex items-center gap-3">
-                        <GripVertical size={18} className="opacity-30 shrink-0" />
+                        {/* ✅ GripVertical: solo handleHandlers */}
+                        <div
+                          {...hHandlers}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 rounded opacity-40 hover:opacity-80 active:opacity-100 shrink-0"
+                          style={{ ...hHandlers.style, touchAction: "none" }}
+                        >
+                          <GripVertical size={18} />
+                        </div>
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
                           style={{ backgroundColor: "var(--primary)" }}>
                           {index + 1}
@@ -438,7 +457,7 @@ export default function GestionRutas() {
         </div>
       )}
 
-      {/* ── BACKDROP ── */}
+      {/* BACKDROP */}
       <div onClick={cerrarPanel}
         className="fixed inset-0 z-[130] transition-all duration-300"
         style={{
@@ -449,7 +468,7 @@ export default function GestionRutas() {
         }}
       />
 
-      {/* ── PANEL LATERAL ── */}
+      {/* PANEL LATERAL */}
       <div className="fixed top-0 right-0 h-full w-80 z-[140] shadow-2xl flex flex-col"
         style={{
           backgroundColor: "var(--card)",
