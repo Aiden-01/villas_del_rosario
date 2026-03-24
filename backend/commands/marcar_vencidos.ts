@@ -1,17 +1,14 @@
-/**
- * app/commands/marcar_vencidos.ts
- *
- * Comando que se registra en AdonisJS para correr el job de vencidos.
- * Crear con: node ace make:command MarcarVencidos
- * Luego reemplazar el contenido con este.
- */
-
 import { BaseCommand } from '@adonisjs/core/ace'
+import { CommandOptions } from '@adonisjs/core/types/ace'
 import { marcarVencidos } from '../app/jobs/marcar_vencidos_job.js'
 
 export default class MarcarVencidosCommand extends BaseCommand {
   static commandName = 'prestamos:marcar-vencidos'
-  static description  = 'Marca como vencidos los préstamos activos cuya fecha fin ya pasó'
+  static description = 'Marca como vencidos los préstamos activos cuya fecha fin ya pasó'
+
+  static options: CommandOptions = {
+    startApp: true,  // ✅ Esto inicializa Lucid y la DB antes de correr
+  }
 
   async run() {
     this.logger.info('Iniciando proceso de préstamos vencidos...')
