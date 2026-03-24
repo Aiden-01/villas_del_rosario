@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Prestamo from '#models/prestamo'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
+import { DateTime } from 'luxon'
 
 export default class PrestamosController {
 
@@ -20,7 +21,34 @@ export default class PrestamosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const prestamos = await Prestamo.query().preload('cliente')
+      const { clienteId, mostrarAntiguos } = request.qs()
+
+      const query = Prestamo.query().preload('cliente')
+
+      if (clienteId) {
+        query.where('cliente_id', clienteId)
+      }
+
+      // ── Ocultar cancelados con más de 6 meses (a menos que pidan verlos) ──
+      // Los activos/vencidos siempre se muestran
+      // Los cancelados solo se muestran si tienen menos de 6 meses
+      // o si el usuario pide ver los antiguos con ?mostrarAntiguos=true
+      if (!mostrarAntiguos) {
+        const hace6Meses = DateTime.now()
+          .setZone('America/Guatemala')
+          .minus({ months: 6 })
+          .toISODate()
+
+        query.where((q) => {
+          q.where('estado', '!=', 'cancelado')
+            .orWhere((q2) => {
+              q2.where('estado', 'cancelado')
+                .where('fecha_fin', '>=', hace6Meses!)
+            })
+        })
+      }
+
+      const prestamos = await query
       return response.ok(prestamos)
     } catch (error) {
       console.error(error)
@@ -53,6 +81,7 @@ export default class PrestamosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
+      // Para ver préstamos de un cliente específico se muestran todos sin filtro de tiempo
       const prestamos = await Prestamo.query()
         .where('cliente_id', params.clienteId)
         .preload('cliente')
@@ -71,14 +100,15 @@ export default class PrestamosController {
 
       const data = request.only([
         'clienteId', 'monto', 'interes', 'cuotas',
-        'fechaInicio', 'fechaFin', 'estado', 'frecuenciaPago', 'diaVisita',
+        'fechaInicio', 'fechaFin', 'frecuenciaPago',
       ])
 
       if (!data.clienteId || !data.monto || !data.interes || !data.cuotas || !data.fechaInicio || !data.fechaFin) {
         return response.badRequest({ message: 'Todos los campos son obligatorios' })
       }
 
-      const prestamo = await Prestamo.create(data)
+      // Estado siempre activo al crear — el sistema lo cambia automáticamente
+      const prestamo = await Prestamo.create({ ...data, estado: 'activo' })
       await prestamo.load('cliente')
 
       await registrarActividad({
@@ -104,10 +134,12 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const prestamo = await Prestamo.findOrFail(params.id)
-      const data = request.only([
-        'monto', 'interes', 'cuotas', 'fechaInicio',
-        'fechaFin', 'estado', 'frecuenciaPago', 'diaVisita',
-      ])
+
+      // Solo admin puede cambiar el estado manualmente
+      const camposPermitidos = ['monto', 'interes', 'cuotas', 'fechaInicio', 'fechaFin', 'frecuenciaPago']
+      if (user.role === 'admin') camposPermitidos.push('estado')
+
+      const data = request.only(camposPermitidos)
 
       prestamo.merge(data)
       await prestamo.save()

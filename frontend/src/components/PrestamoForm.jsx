@@ -21,9 +21,8 @@ export default function PrestamoForm({ mode, prestamoId }) {
     cuotas: "",
     fechaInicio: "",
     fechaFin: "",
-    estado: "activo",
     frecuenciaPago: "semanal",
-    // diaVisita eliminado — ahora se controla desde Gestión de Rutas
+    // estado eliminado — lo controla el sistema automáticamente
   });
 
   const [clientes, setClientes] = useState([]);
@@ -48,10 +47,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (!busquedaCliente.trim()) {
-        setClientesFiltrados(clientes);
-        return;
-      }
+      if (!busquedaCliente.trim()) { setClientesFiltrados(clientes); return; }
       const term = busquedaCliente.toLowerCase();
       setClientesFiltrados(
         clientes.filter((c) => {
@@ -72,9 +68,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
       setClientes(res.data);
       setClientesFiltrados(res.data);
       if (clienteIdFromUrl) {
-        const encontrado = res.data.find(
-          (c) => c.id === parseInt(clienteIdFromUrl)
-        );
+        const encontrado = res.data.find((c) => c.id === parseInt(clienteIdFromUrl));
         if (encontrado) setClientePreseleccionado(encontrado);
       }
     } catch (error) {
@@ -90,13 +84,12 @@ export default function PrestamoForm({ mode, prestamoId }) {
       });
       const prestamo = res.data;
       setFormData({
-        clienteId: prestamo.clienteId || "",
-        monto: prestamo.monto || "",
-        interes: prestamo.interes || "",
-        cuotas: prestamo.cuotas || "",
-        fechaInicio: prestamo.fechaInicio?.split("T")[0] || "",
-        fechaFin: prestamo.fechaFin?.split("T")[0] || "",
-        estado: prestamo.estado || "activo",
+        clienteId:      prestamo.clienteId      || "",
+        monto:          prestamo.monto          || "",
+        interes:        prestamo.interes        || "",
+        cuotas:         prestamo.cuotas         || "",
+        fechaInicio:    prestamo.fechaInicio?.split("T")[0] || "",
+        fechaFin:       prestamo.fechaFin?.split("T")[0]   || "",
         frecuenciaPago: prestamo.frecuenciaPago || "semanal",
       });
     } catch (error) {
@@ -139,7 +132,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
         onSubmit={handleSubmit}
         className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
-        {/* ── SECCIÓN CLIENTE ── */}
+        {/* ── CLIENTE ── */}
         {clientePreseleccionado && !isEdit ? (
           <div className="flex items-center gap-2 w-full p-2 rounded font-semibold" style={inputStyle}>
             <User size={15} className="opacity-60 shrink-0" />
@@ -161,10 +154,8 @@ export default function PrestamoForm({ mode, prestamoId }) {
                 style={inputStyle}
               />
               {busquedaCliente && (
-                <span
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-50"
-                  style={{ color: "var(--text)" }}
-                >
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-50"
+                  style={{ color: "var(--text)" }}>
                   {clientesFiltrados.length} resultado{clientesFiltrados.length !== 1 ? "s" : ""}
                 </span>
               )}
@@ -193,51 +184,40 @@ export default function PrestamoForm({ mode, prestamoId }) {
 
         {/* ── MONTO ── */}
         <input
-          type="number"
-          placeholder="Monto"
+          type="number" placeholder="Monto"
           value={formData.monto}
           onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
+          className="w-full p-2 rounded" style={inputStyle}
         />
 
         {/* ── INTERÉS ── */}
         <input
-          type="number"
-          placeholder="Interés (%)"
+          type="number" placeholder="Interés (%)"
           value={formData.interes}
           onChange={(e) => setFormData({ ...formData, interes: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
+          className="w-full p-2 rounded" style={inputStyle}
         />
 
         {/* ── CUOTAS ── */}
         <input
-          type="number"
-          placeholder="Número de cuotas (semanas)"
+          type="number" placeholder="Número de cuotas (semanas)"
           value={formData.cuotas}
           onChange={(e) => setFormData({ ...formData, cuotas: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
+          className="w-full p-2 rounded" style={inputStyle}
         />
 
         {/* ── FECHA INICIO ── */}
         <input
-          type="date"
-          value={formData.fechaInicio}
+          type="date" value={formData.fechaInicio}
           onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
+          className="w-full p-2 rounded" style={inputStyle}
         />
 
         {/* ── FECHA FIN (auto) ── */}
         <div>
           <input
-            type="date"
-            value={formData.fechaFin}
-            readOnly
-            className="w-full p-2 rounded cursor-not-allowed opacity-70"
-            style={inputStyle}
+            type="date" value={formData.fechaFin} readOnly
+            className="w-full p-2 rounded cursor-not-allowed opacity-70" style={inputStyle}
           />
           {formData.fechaFin && (
             <p className="flex items-center gap-1 text-xs mt-1 opacity-60">
@@ -255,29 +235,25 @@ export default function PrestamoForm({ mode, prestamoId }) {
           <select
             value={formData.frecuenciaPago}
             onChange={(e) => setFormData({ ...formData, frecuenciaPago: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
+            className="w-full p-2 rounded" style={inputStyle}
           >
             {FRECUENCIAS.map((f) => (
-              <option key={f} value={f}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </option>
+              <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
             ))}
           </select>
         </div>
 
-        {/* ── ESTADO (solo en edición) ── */}
+        {/* ── ESTADO — solo admin en edición ── */}
         {isEdit && (
-          <select
-            value={formData.estado}
-            onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
+          <div
+            className="rounded-xl px-4 py-3 text-sm"
+            style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}
           >
-            <option value="activo">Activo</option>
-            <option value="pagado">Pagado</option>
-            <option value="vencido">Vencido</option>
-          </select>
+            <p className="opacity-50 text-xs">
+              El estado del préstamo es controlado automáticamente por el sistema.
+              Solo un administrador puede modificarlo si es necesario.
+            </p>
+          </div>
         )}
 
         {/* ── SUBMIT ── */}
