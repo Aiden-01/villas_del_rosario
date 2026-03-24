@@ -5,36 +5,30 @@ import Prestamo from '#models/prestamo'
 import ExcelJS from 'exceljs'
 import PDFDocument from 'pdfkit'
 
-// ─── Utilidad: convierte cualquier fecha a "DD-MM-YYYY" ───────────────────────
 const fechaCorta = (fecha: any): string => {
   if (!fecha) return ''
-  const str = String(fecha).split('T')[0] // "2026-03-19"
+  const str = String(fecha).split('T')[0]
   const [year, month, day] = str.split('-')
   return `${day}-${month}-${year}`
 }
 
-// ─── Colores corporativos para Excel ─────────────────────────────────────────
-const COLOR_PRIMARY   = 'FF2563EB' // azul
-const COLOR_SECONDARY = 'FF1E40AF' // azul oscuro
+const COLOR_PRIMARY   = 'FF2563EB'
+const COLOR_SECONDARY = 'FF1E40AF'
 const COLOR_WHITE     = 'FFFFFFFF'
-const COLOR_HEADER_BG = 'FFE8F0FE' // azul muy claro para filas pares
+const COLOR_HEADER_BG = 'FFE8F0FE'
 const COLOR_GREEN     = 'FF16A34A'
-const COLOR_TOTAL_BG  = 'FFDBEAFE' // celeste para fila de totales
+const COLOR_TOTAL_BG  = 'FFDBEAFE'
 
-// Aplica estilo completo a la fila de encabezado
 const estilizarEncabezado = (row: ExcelJS.Row) => {
   row.height = 28
   row.eachCell((cell) => {
     cell.font = { bold: true, color: { argb: COLOR_WHITE }, size: 11 }
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_PRIMARY } }
     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-    cell.border = {
-      bottom: { style: 'medium', color: { argb: COLOR_SECONDARY } },
-    }
+    cell.border = { bottom: { style: 'medium', color: { argb: COLOR_SECONDARY } } }
   })
 }
 
-// Aplica estilo a fila de datos
 const estilizarFila = (row: ExcelJS.Row, esImpar: boolean) => {
   row.height = 22
   row.eachCell((cell) => {
@@ -42,13 +36,10 @@ const estilizarFila = (row: ExcelJS.Row, esImpar: boolean) => {
     if (!esImpar) {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } }
     }
-    cell.border = {
-      bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-    }
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } } }
   })
 }
 
-// Fila de totales al final
 const agregarFilaTotales = (sheet: ExcelJS.Worksheet, valores: (string | number)[]) => {
   const row = sheet.addRow(valores)
   row.height = 26
@@ -56,31 +47,23 @@ const agregarFilaTotales = (sheet: ExcelJS.Worksheet, valores: (string | number)
     cell.font = { bold: true, size: 11, color: { argb: COLOR_SECONDARY } }
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } }
     cell.alignment = { vertical: 'middle', horizontal: 'left' }
-    cell.border = {
-      top: { style: 'medium', color: { argb: COLOR_PRIMARY } },
-    }
+    cell.border = { top: { style: 'medium', color: { argb: COLOR_PRIMARY } } }
   })
 }
 
-// Bloque de información superior (filtros aplicados)
 const agregarInfoReporte = (
   sheet: ExcelJS.Worksheet,
   titulo: string,
   filtros: { label: string; valor: string }[]
 ) => {
-  // Fila título
   const filaT = sheet.addRow([titulo])
   filaT.getCell(1).font = { bold: true, size: 14, color: { argb: COLOR_PRIMARY } }
   filaT.height = 30
-
-  // Filas de filtros
   filtros.forEach(({ label, valor }) => {
     const fila = sheet.addRow([`${label}: ${valor}`])
     fila.getCell(1).font = { italic: true, size: 10, color: { argb: 'FF6B7280' } }
     fila.height = 16
   })
-
-  // Línea separadora vacía
   sheet.addRow([])
 }
 
@@ -105,8 +88,14 @@ export default class ReportesController {
       if (!fechaInicio || !fechaFin)
         return response.badRequest({ message: 'fechaInicio y fechaFin son requeridos' })
 
+      // ✅ Incluir el día completo de fechaFin usando < día siguiente
+      const fechaFinMas1 = new Date(fechaFin)
+      fechaFinMas1.setDate(fechaFinMas1.getDate() + 1)
+      const fechaFinStr = fechaFinMas1.toISOString().split('T')[0]
+
       const pagos = await Pago.query()
-        .whereBetween('fecha_pago', [fechaInicio, fechaFin])
+        .where('fecha_pago', '>=', fechaInicio)
+        .where('fecha_pago', '<', fechaFinStr)
         .preload('prestamo', (q) => q.preload('cliente'))
         .preload('usuario')
         .orderBy('fecha_pago', 'asc')
@@ -124,9 +113,19 @@ export default class ReportesController {
       const user = await this.verifyToken(request.header('authorization') || '')
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
-      const { estado } = request.qs()
+      const { estado, fechaInicio, fechaFin } = request.qs()
       const query = Prestamo.query().preload('cliente')
+
       if (estado) query.where('estado', estado)
+
+      // ✅ Filtro por fecha de inicio del préstamo (opcional)
+      if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
+      if (fechaFin) {
+        const fechaFinMas1 = new Date(fechaFin)
+        fechaFinMas1.setDate(fechaFinMas1.getDate() + 1)
+        const fechaFinStr = fechaFinMas1.toISOString().split('T')[0]
+        query.where('fecha_inicio', '<', fechaFinStr)
+      }
 
       const prestamos = await query.orderBy('created_at', 'desc')
       return response.ok(prestamos)
@@ -146,8 +145,14 @@ export default class ReportesController {
       if (!fechaInicio || !fechaFin)
         return response.badRequest({ message: 'fechaInicio y fechaFin son requeridos' })
 
+      // ✅ Incluir día completo de fechaFin
+      const fechaFinMas1 = new Date(fechaFin)
+      fechaFinMas1.setDate(fechaFinMas1.getDate() + 1)
+      const fechaFinStr = fechaFinMas1.toISOString().split('T')[0]
+
       const pagos = await Pago.query()
-        .whereBetween('fecha_pago', [fechaInicio, fechaFin])
+        .where('fecha_pago', '>=', fechaInicio)
+        .where('fecha_pago', '<', fechaFinStr)
         .preload('prestamo', (q) => q.preload('cliente'))
         .orderBy('fecha_pago', 'asc')
 
@@ -186,43 +191,47 @@ export default class ReportesController {
 
       const { tipo, fechaInicio, fechaFin, estado } = request.qs()
 
+      // ✅ fechaFin + 1 día para todos los exports
+      let fechaFinStr = fechaFin
+      if (fechaFin) {
+        const d = new Date(fechaFin)
+        d.setDate(d.getDate() + 1)
+        fechaFinStr = d.toISOString().split('T')[0]
+      }
+
       const workbook = new ExcelJS.Workbook()
       workbook.creator  = 'Sistema de Préstamos'
       workbook.created  = new Date()
       workbook.modified = new Date()
 
-      // ── PAGOS ──────────────────────────────────────────────────────────────
       if (tipo === 'pagos') {
         const sheet = workbook.addWorksheet('Reporte de Pagos')
         sheet.properties.defaultRowHeight = 20
 
         const pagos = await Pago.query()
-          .whereBetween('fecha_pago', [fechaInicio, fechaFin])
+          .where('fecha_pago', '>=', fechaInicio)
+          .where('fecha_pago', '<', fechaFinStr)
           .preload('prestamo', (q) => q.preload('cliente'))
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
 
-        // Info / filtros al inicio
         agregarInfoReporte(sheet, 'Reporte de Pagos', [
           { label: 'Período', valor: `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` },
           { label: 'Total de registros', valor: String(pagos.length) },
           { label: 'Generado', valor: fechaCorta(new Date().toISOString()) },
         ])
 
-        // Columnas
         sheet.columns = [
-          { key: 'fecha',    width: 14 },
-          { key: 'cliente',  width: 34 },
-          { key: 'cuota',    width: 12 },
-          { key: 'monto',    width: 18 },
-          { key: 'usuario',  width: 22 },
+          { key: 'fecha',   width: 14 },
+          { key: 'cliente', width: 34 },
+          { key: 'cuota',   width: 12 },
+          { key: 'monto',   width: 18 },
+          { key: 'usuario', width: 22 },
         ]
 
-        // Encabezado
         const headerRow = sheet.addRow(['Fecha', 'Cliente', 'Cuota #', 'Monto Pagado (Q)', 'Registrado por'])
         estilizarEncabezado(headerRow)
 
-        // Datos
         let totalCobrado = 0
         pagos.forEach((p, i) => {
           const monto = Number(p.montoPagado)
@@ -235,37 +244,36 @@ export default class ReportesController {
             p.usuario?.username || 'N/A',
           ])
           estilizarFila(row, i % 2 === 0)
-          // Formato moneda en columna monto
           row.getCell(4).numFmt = '"Q"#,##0.00'
           row.getCell(4).font = { bold: true, color: { argb: COLOR_PRIMARY } }
         })
 
-        // Fila totales
         agregarFilaTotales(sheet, ['', '', 'TOTAL', totalCobrado, ''])
         const totalRow = sheet.lastRow!
         totalRow.getCell(4).numFmt = '"Q"#,##0.00'
         totalRow.getCell(4).font = { bold: true, size: 12, color: { argb: COLOR_GREEN } }
 
-        // Autofilter en encabezado (fila 5 = después de 3 info + 1 vacía + 1 header)
         const headerRowNum = sheet.rowCount - pagos.length - 1
         sheet.autoFilter = {
           from: { row: headerRowNum, column: 1 },
           to:   { row: headerRowNum, column: 5 },
         }
 
-      // ── PRÉSTAMOS ──────────────────────────────────────────────────────────
       } else if (tipo === 'prestamos') {
         const sheet = workbook.addWorksheet('Reporte de Préstamos')
         sheet.properties.defaultRowHeight = 20
 
         const query = Prestamo.query().preload('cliente')
         if (estado) query.where('estado', estado)
+        if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
+        if (fechaFin)    query.where('fecha_inicio', '<', fechaFinStr)
         const prestamos = await query.orderBy('created_at', 'desc')
 
         agregarInfoReporte(sheet, 'Reporte de Préstamos', [
           { label: 'Estado filtrado', valor: estado || 'Todos' },
+          { label: 'Período',         valor: fechaInicio ? `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` : 'Todos' },
           { label: 'Total de registros', valor: String(prestamos.length) },
-          { label: 'Generado', valor: fechaCorta(new Date().toISOString()) },
+          { label: 'Generado',        valor: fechaCorta(new Date().toISOString()) },
         ])
 
         sheet.columns = [
@@ -297,8 +305,6 @@ export default class ReportesController {
           estilizarFila(row, i % 2 === 0)
           row.getCell(2).numFmt = '"Q"#,##0.00'
           row.getCell(2).font = { bold: true, color: { argb: COLOR_PRIMARY } }
-
-          // Color badge en estado
           const estadoCell = row.getCell(7)
           if (p.estado === 'activo')  { estadoCell.font = { color: { argb: 'FF16A34A' }, bold: true } }
           if (p.estado === 'vencido') { estadoCell.font = { color: { argb: 'FFDC2626' }, bold: true } }
@@ -316,13 +322,13 @@ export default class ReportesController {
           to:   { row: headerRowNum, column: 7 },
         }
 
-      // ── GANANCIAS ──────────────────────────────────────────────────────────
       } else if (tipo === 'ganancias') {
         const sheet = workbook.addWorksheet('Reporte de Ganancias')
         sheet.properties.defaultRowHeight = 20
 
         const pagos = await Pago.query()
-          .whereBetween('fecha_pago', [fechaInicio, fechaFin])
+          .where('fecha_pago', '>=', fechaInicio)
+          .where('fecha_pago', '<', fechaFinStr)
           .preload('prestamo', (q) => q.preload('cliente'))
           .orderBy('fecha_pago', 'asc')
 
@@ -335,21 +341,21 @@ export default class ReportesController {
           totalCapital  += capitalPorCuota
           totalGanancia += ganancia
           return {
-            fecha:   fechaCorta(p.fechaPago),
-            cliente: `${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`,
-            cuota:   `#${p.numeroCuota}`,
-            monto:   Number(p.montoPagado),
-            capital: Number(capitalPorCuota.toFixed(2)),
+            fecha:    fechaCorta(p.fechaPago),
+            cliente:  `${p.prestamo.cliente.nombres} ${p.prestamo.cliente.apellidos}`,
+            cuota:    `#${p.numeroCuota}`,
+            monto:    Number(p.montoPagado),
+            capital:  Number(capitalPorCuota.toFixed(2)),
             ganancia: Number(ganancia.toFixed(2)),
           }
         })
 
         agregarInfoReporte(sheet, 'Reporte de Ganancias', [
-          { label: 'Período',         valor: `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` },
-          { label: 'Total cobrado',   valor: `Q${totalCobrado.toFixed(2)}` },
-          { label: 'Total capital',   valor: `Q${totalCapital.toFixed(2)}` },
-          { label: 'Ganancia neta',   valor: `Q${totalGanancia.toFixed(2)}` },
-          { label: 'Generado',        valor: fechaCorta(new Date().toISOString()) },
+          { label: 'Período',       valor: `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` },
+          { label: 'Total cobrado', valor: `Q${totalCobrado.toFixed(2)}` },
+          { label: 'Total capital', valor: `Q${totalCapital.toFixed(2)}` },
+          { label: 'Ganancia neta', valor: `Q${totalGanancia.toFixed(2)}` },
+          { label: 'Generado',      valor: fechaCorta(new Date().toISOString()) },
         ])
 
         sheet.columns = [
@@ -404,11 +410,19 @@ export default class ReportesController {
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { tipo, fechaInicio, fechaFin, estado } = request.qs()
+
+      // ✅ fechaFin + 1 día
+      let fechaFinStr = fechaFin
+      if (fechaFin) {
+        const d = new Date(fechaFin)
+        d.setDate(d.getDate() + 1)
+        fechaFinStr = d.toISOString().split('T')[0]
+      }
+
       const doc = new PDFDocument({ margin: 40 })
       const chunks: Buffer[] = []
       doc.on('data', (chunk) => chunks.push(chunk))
 
-      // Encabezado
       doc.fontSize(18).font('Helvetica-Bold').text('Sistema de Préstamos', { align: 'center' })
       doc.fontSize(12).font('Helvetica').text(`Reporte: ${tipo}`, { align: 'center' })
       if (fechaInicio && fechaFin) {
@@ -420,7 +434,8 @@ export default class ReportesController {
 
       if (tipo === 'pagos') {
         const pagos = await Pago.query()
-          .whereBetween('fecha_pago', [fechaInicio, fechaFin])
+          .where('fecha_pago', '>=', fechaInicio)
+          .where('fecha_pago', '<', fechaFinStr)
           .preload('prestamo', (q) => q.preload('cliente'))
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
@@ -437,7 +452,9 @@ export default class ReportesController {
 
       } else if (tipo === 'prestamos') {
         const query = Prestamo.query().preload('cliente')
-        if (estado) query.where('estado', estado)
+        if (estado)      query.where('estado', estado)
+        if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
+        if (fechaFin)    query.where('fecha_inicio', '<', fechaFinStr)
         const prestamos = await query.orderBy('created_at', 'desc')
 
         prestamos.forEach((p) => {
@@ -451,7 +468,8 @@ export default class ReportesController {
 
       } else if (tipo === 'ganancias') {
         const pagos = await Pago.query()
-          .whereBetween('fecha_pago', [fechaInicio, fechaFin])
+          .where('fecha_pago', '>=', fechaInicio)
+          .where('fecha_pago', '<', fechaFinStr)
           .preload('prestamo', (q) => q.preload('cliente'))
           .orderBy('fecha_pago', 'asc')
 
