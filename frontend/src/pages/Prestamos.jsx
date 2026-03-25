@@ -181,7 +181,7 @@ export default function Prestamos() {
     setRegistrandoPago(true);
     try {
       const token = localStorage.getItem("token");
-      const hoy = new Date().toISOString().split("T")[0];
+      const hoy = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Guatemala" });
 
       const res = await fetch(ROUTES.PAGOS, {
         method: "POST",
@@ -228,7 +228,6 @@ export default function Prestamos() {
     ? siguienteCuota > selectedPrestamo.cuotas
     : false;
 
-  // ✅ pagado en lugar de cancelado
   const prestamosActivos = prestamos.filter((p) => p.estado !== "pagado");
   const todosFinalizados = prestamos.filter((p) => p.estado === "pagado");
   const finalizadosRecientes = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) <= 6);
@@ -243,6 +242,9 @@ export default function Prestamos() {
     : finalizadosBase;
 
   const prestamosVisibles = pestana === "activos" ? prestamosActivos : prestamosFinalizados;
+
+  // ── Helper: ¿el préstamo seleccionado está pagado? ──────────────────────────
+  const esPagado = selectedPrestamo?.estado === "pagado";
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -376,7 +378,7 @@ export default function Prestamos() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {prestamosVisibles.map((prestamo) => {
             const mora = esMora(prestamo);
-            const pagado = prestamo.estado === "pagado"; // ✅
+            const pagado = prestamo.estado === "pagado";
             const cuotaSemanal = calcularCuotaSemanal(
               prestamo.monto,
               prestamo.interes,
@@ -491,7 +493,7 @@ export default function Prestamos() {
             style={{
               backgroundColor: "var(--card)",
               animation: "zoomIn 0.2s ease-out",
-              border: selectedPrestamo.estado === "pagado"
+              border: esPagado
                 ? "2px solid #3b82f6"
                 : esMora(selectedPrestamo)
                 ? "2px solid #ef4444"
@@ -501,14 +503,14 @@ export default function Prestamos() {
             <div className="flex justify-center mb-4">
               <span
                 className={`flex items-center gap-1 text-sm px-4 py-1 rounded-full font-semibold ${
-                  selectedPrestamo.estado === "pagado"
+                  esPagado
                     ? "bg-blue-100 text-blue-700"
                     : esMora(selectedPrestamo)
                     ? "bg-red-100 text-red-700"
                     : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"
                 }`}
               >
-                {selectedPrestamo.estado === "pagado"
+                {esPagado
                   ? <><CheckCircle2 size={13} /> Pagado</>
                   : esMora(selectedPrestamo)
                   ? <><AlertTriangle size={13} /> En mora</>
@@ -550,8 +552,8 @@ export default function Prestamos() {
               </p>
             </div>
 
-            {/* ✅ Banner pagado */}
-            {selectedPrestamo.estado === "pagado" && (
+            {/* Banner préstamo pagado */}
+            {esPagado && (
               <div className="rounded-xl p-4 mb-4 text-center bg-blue-50" style={{ border: "1px solid #bfdbfe" }}>
                 <div className="flex justify-center mb-1">
                   <PartyPopper size={28} className="text-blue-400" />
@@ -591,6 +593,7 @@ export default function Prestamos() {
               </div>
             )}
 
+            {/* Historial de pagos */}
             <div className="mb-4">
               <p className="flex items-center gap-2 text-sm font-semibold mb-2">
                 <ClipboardList size={15} /> Historial de pagos
@@ -621,8 +624,9 @@ export default function Prestamos() {
               )}
             </div>
 
+            {/* ── BOTONES — solo Cerrar si está pagado ── */}
             <div className="flex flex-col gap-2">
-              {selectedPrestamo.estado === "activo" && !todasPagadas && (
+              {!esPagado && selectedPrestamo.estado === "activo" && !todasPagadas && (
                 <button
                   onClick={handleRegistrarPago}
                   disabled={registrandoPago}
@@ -634,15 +638,17 @@ export default function Prestamos() {
                 </button>
               )}
 
-              <button
-                onClick={() => navigate(`/prestamos/editar/${selectedPrestamo.id}`)}
-                className="w-full flex items-center justify-center gap-2 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
-              >
-                <Pencil size={15} />
-                Editar Préstamo
-              </button>
+              {!esPagado && (
+                <button
+                  onClick={() => navigate(`/prestamos/editar/${selectedPrestamo.id}`)}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
+                >
+                  <Pencil size={15} />
+                  Editar Préstamo
+                </button>
+              )}
 
-              {user?.role === "admin" && (
+              {!esPagado && user?.role === "admin" && (
                 <button
                   onClick={() => handleDelete(selectedPrestamo.id)}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
