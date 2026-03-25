@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
-const hoyISO = () => new Date().toISOString().split("T")[0];
+
+// ← FIX: usar zona horaria de Guatemala en lugar de UTC del navegador
+const hoyISO = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Guatemala" });
 
 export default function RutaDelDia() {
   const [datos, setDatos] = useState(null);
@@ -144,7 +146,6 @@ export default function RutaDelDia() {
       const dataSeg = await resSeg.json();
       if (!resSeg.ok) { showToast(dataSeg.message || "Error al guardar seguimiento", "error"); return; }
 
-      // Optimistic update — mover de pendientes a sinCobrar
       const nuevoSinCobrar = {
         prestamoId:      modalItem.prestamoId,
         seguimientoId:   dataSeg.seguimiento?.id || null,
@@ -273,7 +274,7 @@ export default function RutaDelDia() {
 
         {!loading && datos && (
           <>
-            {/* RESUMEN — ahora con 4 tarjetas si hay sinCobrar */}
+            {/* RESUMEN */}
             <div className={`grid gap-3 mb-8 ${datos.totalSinCobrar > 0 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3'}`}>
               <div className="relative overflow-hidden p-4 rounded-2xl shadow flex flex-col items-center justify-center"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
@@ -432,7 +433,7 @@ export default function RutaDelDia() {
               </div>
             )}
 
-            {/* ── SIN COBRAR HOY ── */}
+            {/* SIN COBRAR HOY */}
             {datos.sinCobrar?.length > 0 && (
               <div className="mb-8">
                 <h2 className="flex items-center gap-2 text-lg font-bold mb-5">
@@ -449,7 +450,6 @@ export default function RutaDelDia() {
                           <p className="flex items-center gap-1 text-sm opacity-60"><Phone size={12} />{item.cliente.telefono}</p>
                         </div>
                         <div className="text-right shrink-0 ml-2">
-                          {/* Badge tipo */}
                           <span className={`text-xs px-2 py-1 rounded-full font-semibold text-white ${item.tipo === "no_pago" ? "bg-red-500" : "bg-amber-500"}`}>
                             {item.tipo === "no_pago" ? "No pagó" : "Pago parcial"}
                           </span>
@@ -458,16 +458,12 @@ export default function RutaDelDia() {
                           )}
                         </div>
                       </div>
-
-                      {/* Nota */}
                       {item.nota && (
                         <div className="flex items-start gap-1 text-xs opacity-60 mb-2 italic bg-gray-50 dark:bg-white/5 rounded-lg p-2">
                           <StickyNote size={11} className="mt-0.5 shrink-0" />
                           {item.nota}
                         </div>
                       )}
-
-                      {/* Próxima visita */}
                       <div className="flex items-center gap-1 text-xs font-semibold mt-1" style={{ color: "var(--secondary)" }}>
                         <CalendarDays size={12} />
                         Próxima visita: {item.fechaSeguimiento}

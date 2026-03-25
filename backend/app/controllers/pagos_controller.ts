@@ -76,7 +76,7 @@ export default class PagosController {
       await pago.load('prestamo', (q) => q.preload('cliente'))
       await pago.load('usuario')
 
-      // ✅ AUTO-PAGAR si es la última cuota
+      // ✅ AUTO-MARCAR como pagado si es la última cuota
       const prestamo = await Prestamo.findOrFail(data.prestamoId)
       if (data.numeroCuota >= prestamo.cuotas) {
         prestamo.estado = 'pagado'

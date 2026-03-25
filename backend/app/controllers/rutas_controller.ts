@@ -85,7 +85,6 @@ export default class RutasController {
       const fechaHoy = ahora.toISODate()!
 
       // ── 1. Seguimientos registrados HOY — estos van a "Sin cobrar" ─────────
-      // Se obtienen PRIMERO para poder excluirlos de pendientes
       const seguimientosDeHoy = await Seguimiento.query()
         .whereRaw(`DATE(created_at AT TIME ZONE 'America/Guatemala') = ?`, [fechaHoy])
         .where('resuelta', false)
@@ -128,16 +127,16 @@ export default class RutasController {
 
       const todosLosPrestamos = [...prestamosPorRuta, ...prestamosPorSeguimiento]
 
-      // ── 5. Mapear cobros — excluir los que ya tienen seguimiento hoy ───────
+      // ── 5. Mapear cobros ───────────────────────────────────────────────────
       const cobros = todosLosPrestamos
-        .filter(prestamo => !idsSinCobrar.has(prestamo.id)) // ← FIX CLAVE
+        .filter(prestamo => !idsSinCobrar.has(prestamo.id))
+        .filter(prestamo => prestamo.pagos.length < prestamo.cuotas) // ← FIX: excluir préstamos con todas las cuotas pagadas
         .map((prestamo) => {
           const montoTotal    = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
           const montoCuota    = Number((montoTotal / prestamo.cuotas).toFixed(2))
           const cuotasPagadas = prestamo.pagos.length
           const proximaCuota  = cuotasPagadas + 1
 
-          // BUG FIX: fechaPago es DateTime de Luxon
           const yaPagoHoy = prestamo.pagos.some((p) => {
             try {
               if (p.fechaPago && typeof (p.fechaPago as any).toISODate === 'function') {
@@ -184,11 +183,10 @@ export default class RutasController {
         const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
         const montoCuota = Number((montoTotal / prestamo.cuotas).toFixed(2))
 
-        // Serializar fechaSeguimiento como string corto DD-MM-YYYY
         let fechaSeguimientoStr = ''
         try {
           if (seg.fechaSeguimiento && typeof (seg.fechaSeguimiento as any).toISODate === 'function') {
-            const iso = (seg.fechaSeguimiento as DateTime).toISODate()! // "2026-03-22"
+            const iso = (seg.fechaSeguimiento as DateTime).toISODate()!
             const [y, m, d] = iso.split('-')
             fechaSeguimientoStr = `${d}/${m}/${y}`
           } else {
@@ -206,7 +204,7 @@ export default class RutasController {
           tipo:             seg.tipo,
           montoPagado:      Number(seg.montoPagado),
           nota:             seg.nota,
-          fechaSeguimiento: fechaSeguimientoStr, // ← fecha corta DD/MM/YYYY
+          fechaSeguimiento: fechaSeguimientoStr,
           rutaNombre:       prestamo.cliente.ruta?.nombre || null,
           cliente: {
             id:        prestamo.cliente.id,
