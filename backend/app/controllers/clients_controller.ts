@@ -43,13 +43,15 @@ export default class ClientsController {
         'zona', 'rutaId', 'ordenVisita'
       ])
 
-      if (!data.dpi || !data.nombres || !data.apellidos || !data.telefono || !data.direccion) {
+      if (!data.nombres || !data.apellidos || !data.telefono || !data.direccion) {
         return response.badRequest({ message: 'Todos los campos son obligatorios' })
       }
 
-      const existingClient = await Client.findBy('dpi', data.dpi)
-      if (existingClient) {
-        return response.conflict({ message: 'El DPI ya está registrado' })
+      if (data.dpi) {
+        const existingClient = await Client.findBy('dpi', data.dpi)
+        if (existingClient) {
+          return response.conflict({ message: 'El DPI ya está registrado' })
+        }
       }
 
       const newClient = await Client.create(data)

@@ -107,7 +107,7 @@ export default function ClienteForm({ mode, clienteId }) {
       >
         <input
           type="text"
-          placeholder="DPI"
+          placeholder="DPI (opcional)"
           value={formData.dpi}
           onChange={(e) => setFormData({ ...formData, dpi: e.target.value })}
           className="w-full p-2 rounded"
