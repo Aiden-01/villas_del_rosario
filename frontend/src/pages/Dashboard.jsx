@@ -8,16 +8,14 @@ export default function Dashboard() {
 
   return (
     <div className="pt-16 text-[var(--text)]">
-      {/* BIENVENIDA */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold">
           Bienvenido, {user?.username || "Usuario"}
         </h1>
-        <p className="opacity-70">Panel principal del sistema de préstamos</p>
-        <p className="opacity-70">Inversiones CRUMAN</p>
+        <p className="opacity-70">Panel principal del sistema de cobros</p>
+        <p className="opacity-70">Villas del Rosario</p>
       </div>
 
-      {/* ACCIONES RÁPIDAS */}
       <div
         className="p-6 rounded-xl shadow-sm mb-6"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
@@ -33,7 +31,7 @@ export default function Dashboard() {
             style={{ backgroundColor: "var(--secondary)" }}
           >
             <Plus size={16} />
-            Nuevo Préstamo
+            Nueva Venta
           </button>
 
           <button
@@ -56,7 +54,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* RESUMEN RÁPIDO */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div
           className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
@@ -78,8 +75,8 @@ export default function Dashboard() {
           <div className="flex justify-center mb-2">
             <HandCoins size={32} style={{ color: "var(--secondary)" }} />
           </div>
-          <p className="font-semibold mt-2">Préstamos</p>
-          <p className="text-sm opacity-60">Ver todos los préstamos</p>
+          <p className="font-semibold mt-2">Ventas</p>
+          <p className="text-sm opacity-60">Ver todos los financiamientos</p>
         </div>
 
         <div

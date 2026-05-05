@@ -4,8 +4,7 @@ import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
 import {
   HandCoins, CheckCircle2, Plus, Pencil, Trash2,
-  X, AlertTriangle, PartyPopper, Inbox, ClipboardList,
-  Filter
+  X, AlertTriangle, PartyPopper, Inbox, ClipboardList, Filter
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
@@ -29,10 +28,7 @@ const esMora = (prestamo) => {
   return fin < hoy;
 };
 
-const calcularCuotaSemanal = (monto, interes, cuotas) => {
-  const total = Number(monto) * (1 + Number(interes) / 100);
-  return total / Number(cuotas);
-};
+const calcularCuotaMensual = (monto, cuotas) => Number(monto) / Number(cuotas || 1);
 
 const formatearFecha = (fecha) => {
   if (!fecha) return "";
@@ -68,16 +64,14 @@ export default function Prestamos() {
   const fetchPrestamos = async () => {
     try {
       const token = localStorage.getItem("token");
-      const url = clienteId
-        ? `${ROUTES.PRESTAMOS}/cliente/${clienteId}`
-        : ROUTES.PRESTAMOS;
+      const url = clienteId ? `${ROUTES.PRESTAMOS}/cliente/${clienteId}` : ROUTES.PRESTAMOS;
 
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Error cargando préstamos");
+        setError(data.message || "Error cargando ventas");
         return;
       }
       setPrestamos(data);
@@ -129,7 +123,7 @@ export default function Prestamos() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Seguro que deseas eliminar este préstamo?")) return;
+    if (!window.confirm("¿Seguro que deseas eliminar esta venta?")) return;
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${ROUTES.PRESTAMOS}/${id}`, {
@@ -143,40 +137,33 @@ export default function Prestamos() {
       }
       cerrarModal();
       fetchPrestamos();
-      showToast("Préstamo eliminado correctamente", "success");
+      showToast("Venta eliminada correctamente", "success");
     } catch (err) {
       console.error(err);
-      showToast("Error eliminando préstamo", "error");
+      showToast("Error eliminando venta", "error");
     }
   };
 
+  const cuotasPagadas = pagos.map((p) => p.numeroCuota);
+  let siguienteCuota = 1;
+  while (cuotasPagadas.includes(siguienteCuota)) siguienteCuota++;
+  const todasPagadas = selectedPrestamo ? siguienteCuota > selectedPrestamo.cuotas : false;
+
   const handleRegistrarPago = async () => {
-    if (!selectedPrestamo) return;
+    if (!selectedPrestamo || todasPagadas) return;
 
-    const cuotaSemanal = calcularCuotaSemanal(
-      selectedPrestamo.monto,
-      selectedPrestamo.interes,
-      selectedPrestamo.cuotas
-    );
-
-    const cuotasPagadas = pagos.map((p) => p.numeroCuota);
-    let siguienteCuota = 1;
-    while (cuotasPagadas.includes(siguienteCuota)) siguienteCuota++;
-
-    if (siguienteCuota > selectedPrestamo.cuotas) {
-      showToast("Este préstamo ya tiene todas las cuotas pagadas", "warning");
-      return;
-    }
+    const cuotaMensual = calcularCuotaMensual(selectedPrestamo.monto, selectedPrestamo.cuotas);
 
     if (
       !window.confirm(
-        `¿Registrar pago de cuota #${siguienteCuota} por Q${cuotaSemanal.toLocaleString("es-GT", {
+        `¿Registrar pago de cuota #${siguienteCuota} por Q${cuotaMensual.toLocaleString("es-GT", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}?`
       )
-    )
+    ) {
       return;
+    }
 
     setRegistrandoPago(true);
     try {
@@ -192,7 +179,7 @@ export default function Prestamos() {
         body: JSON.stringify({
           prestamoId: selectedPrestamo.id,
           numeroCuota: siguienteCuota,
-          montoPagado: cuotaSemanal.toFixed(2),
+          montoPagado: cuotaMensual.toFixed(2),
           fechaPago: hoy,
         }),
       });
@@ -209,7 +196,7 @@ export default function Prestamos() {
       if (siguienteCuota >= selectedPrestamo.cuotas) {
         cerrarModal();
         setPestana("finalizados");
-        showToast("¡Préstamo pagado! Todas las cuotas registradas", "success");
+        showToast("¡Venta pagada! Todas las cuotas registradas", "success");
       } else {
         showToast(`Cuota #${siguienteCuota} registrada correctamente`, "success");
       }
@@ -221,13 +208,6 @@ export default function Prestamos() {
     }
   };
 
-  const cuotasPagadas = pagos.map((p) => p.numeroCuota);
-  let siguienteCuota = 1;
-  while (cuotasPagadas.includes(siguienteCuota)) siguienteCuota++;
-  const todasPagadas = selectedPrestamo
-    ? siguienteCuota > selectedPrestamo.cuotas
-    : false;
-
   const prestamosActivos = prestamos.filter((p) => p.estado !== "pagado");
   const todosFinalizados = prestamos.filter((p) => p.estado === "pagado");
   const finalizadosRecientes = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) <= 6);
@@ -235,88 +215,58 @@ export default function Prestamos() {
   const finalizadosBase = mostrarAntiguos ? todosFinalizados : finalizadosRecientes;
   const prestamosFinalizados = busquedaFinalizado.trim()
     ? todosFinalizados.filter((p) =>
-        `${p.cliente?.nombres} ${p.cliente?.apellidos}`
-          .toLowerCase()
-          .includes(busquedaFinalizado.toLowerCase())
+        `${p.cliente?.nombres} ${p.cliente?.apellidos}`.toLowerCase().includes(busquedaFinalizado.toLowerCase())
       )
     : finalizadosBase;
 
   const prestamosVisibles = pestana === "activos" ? prestamosActivos : prestamosFinalizados;
-
-  // ── Helper: ¿el préstamo seleccionado está pagado? ──────────────────────────
   const esPagado = selectedPrestamo?.estado === "pagado";
 
   return (
     <div className="pt-16 text-[var(--text)]">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Préstamos</h1>
+          <h1 className="text-2xl font-bold">Ventas</h1>
           {clienteNombre && (
             <p className="text-sm text-gray-400 mt-1">
-              Filtrando por:{" "}
-              <span className="font-semibold text-[var(--primary)]">{clienteNombre}</span>
-              <button
-                onClick={() => navigate("/prestamos")}
-                className="ml-2 text-xs text-red-400 hover:underline"
-              >
-                (ver todos)
-              </button>
+              Filtrando por: <span className="font-semibold text-[var(--primary)]">{clienteNombre}</span>
             </p>
           )}
         </div>
         <button
-          onClick={() =>
-            navigate(clienteId ? `/prestamos/crear?clienteId=${clienteId}` : "/prestamos/crear")
-          }
+          onClick={() => navigate(clienteId ? `/prestamos/crear?clienteId=${clienteId}` : "/prestamos/crear")}
           className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
         >
           <Plus size={16} />
-          Crear Préstamo
+          Crear Venta
         </button>
       </div>
 
-      {/* PESTAÑAS */}
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setPestana("activos")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
-            pestana === "activos" ? "text-white shadow" : "opacity-50 hover:opacity-80"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${pestana === "activos" ? "text-white shadow" : "opacity-50 hover:opacity-80"}`}
           style={{
             backgroundColor: pestana === "activos" ? "var(--primary)" : "var(--card)",
             border: "1px solid var(--card-border)",
           }}
         >
           <HandCoins size={15} />
-          Activos
-          {prestamosActivos.length > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-              {prestamosActivos.length}
-            </span>
-          )}
+          Activas
         </button>
         <button
           onClick={() => setPestana("finalizados")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
-            pestana === "finalizados" ? "text-white shadow" : "opacity-50 hover:opacity-80"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${pestana === "finalizados" ? "text-white shadow" : "opacity-50 hover:opacity-80"}`}
           style={{
             backgroundColor: pestana === "finalizados" ? "#6b7280" : "var(--card)",
             border: "1px solid var(--card-border)",
           }}
         >
           <CheckCircle2 size={15} />
-          Finalizados
-          {todosFinalizados.length > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-              {todosFinalizados.length}
-            </span>
-          )}
+          Finalizadas
         </button>
       </div>
 
-      {/* FILTROS FINALIZADOS */}
       {pestana === "finalizados" && (
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="flex-1 relative">
@@ -344,13 +294,13 @@ export default function Prestamos() {
                 border: "1px solid var(--card-border)",
               }}
             >
-              {mostrarAntiguos ? "Ocultar antiguos" : `Ver todos (+${finalizadosAntiguos.length} hace +6 meses)`}
+              {mostrarAntiguos ? "Ocultar antiguas" : `Ver todas (+${finalizadosAntiguos.length})`}
             </button>
           )}
         </div>
       )}
 
-      {loading && <p>Cargando préstamos...</p>}
+      {loading && <p>Cargando ventas...</p>}
       {error && <p className="text-red-500">{error}</p>}
       {!loading && prestamosVisibles.length === 0 && (
         <div
@@ -358,32 +308,21 @@ export default function Prestamos() {
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
         >
           <div className="flex justify-center mb-3">
-            {pestana === "activos"
-              ? <Inbox size={40} className="opacity-40" />
-              : <PartyPopper size={40} className="opacity-40" />
-            }
+            {pestana === "activos" ? <Inbox size={40} className="opacity-40" /> : <PartyPopper size={40} className="opacity-40" />}
           </div>
           <p className="font-semibold opacity-70">
-            {pestana === "activos"
-              ? "No hay préstamos activos."
-              : busquedaFinalizado
-              ? `No se encontró ningún cliente con "${busquedaFinalizado}".`
-              : "Aún no hay préstamos finalizados."}
+            {pestana === "activos" ? "No hay ventas activas." : "Aún no hay ventas finalizadas."}
           </p>
         </div>
       )}
 
-      {/* GRID */}
       {!loading && prestamosVisibles.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {prestamosVisibles.map((prestamo) => {
             const mora = esMora(prestamo);
             const pagado = prestamo.estado === "pagado";
-            const cuotaSemanal = calcularCuotaSemanal(
-              prestamo.monto,
-              prestamo.interes,
-              prestamo.cuotas
-            );
+            const cuotaMensual = calcularCuotaMensual(prestamo.monto, prestamo.cuotas);
+            const pagadas = prestamo.pagos?.length || 0;
 
             return (
               <div
@@ -392,11 +331,7 @@ export default function Prestamos() {
                 className="rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
                 style={{
                   backgroundColor: "var(--card)",
-                  border: pagado
-                    ? "2px solid #6b7280"
-                    : mora
-                    ? "2px solid #ef4444"
-                    : "2px solid transparent",
+                  border: pagado ? "2px solid #6b7280" : mora ? "2px solid #ef4444" : "2px solid transparent",
                   opacity: pagado ? 0.85 : 1,
                 }}
               >
@@ -404,84 +339,34 @@ export default function Prestamos() {
                   <h2 className="font-bold text-base">
                     {prestamo.cliente?.nombres} {prestamo.cliente?.apellidos}
                   </h2>
-                  <span
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${
-                      pagado
-                        ? "bg-blue-100 text-blue-700"
-                        : mora
-                        ? "bg-red-100 text-red-700"
-                        : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {pagado
-                      ? <><CheckCircle2 size={11} /> pagado</>
-                      : mora
-                      ? <><AlertTriangle size={11} /> mora</>
-                      : prestamo.estado
-                    }
+                  <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${pagado ? "bg-blue-100 text-blue-700" : mora ? "bg-red-100 text-red-700" : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"}`}>
+                    {pagado ? <><CheckCircle2 size={11} /> pagado</> : mora ? <><AlertTriangle size={11} /> mora</> : prestamo.estado}
                   </span>
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-500">
                   <div className="flex items-center justify-between">
                     <p>
-                      <span className="font-medium text-[var(--text)]">Monto:</span>{" "}
-                      Q{Number(prestamo.monto).toLocaleString()}
+                      <span className="font-medium text-[var(--text)]">Lote:</span> {prestamo.numeroLote || "N/A"}
                     </p>
                     <p className="font-bold" style={{ color: pagado ? "#6b7280" : "var(--primary)" }}>
-                      Q{cuotaSemanal.toLocaleString("es-GT", {
+                      Q{cuotaMensual.toLocaleString("es-GT", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })}/sem
+                      })}/mes
                     </p>
                   </div>
-                  <p><span className="font-medium text-[var(--text)]">Interés:</span> {prestamo.interes}%</p>
-                  <p><span className="font-medium text-[var(--text)]">Cuotas:</span> {prestamo.cuotas} semanas</p>
+                  <p><span className="font-medium text-[var(--text)]">Precio:</span> Q{Number(prestamo.monto).toLocaleString()}</p>
+                  <p><span className="font-medium text-[var(--text)]">Cuotas:</span> {pagadas}/{prestamo.cuotas}</p>
                   <p><span className="font-medium text-[var(--text)]">Inicio:</span> {formatearFecha(prestamo.fechaInicio)}</p>
                   <p><span className="font-medium text-[var(--text)]">Fin:</span> {formatearFecha(prestamo.fechaFin)}</p>
                 </div>
-
-                {prestamo.estado === "activo" && (
-                  <div className="mt-3">
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            ((new Date() - new Date(prestamo.fechaInicio)) /
-                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
-                          )}%`,
-                          backgroundColor: mora ? "#ef4444" : "var(--primary)",
-                        }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1 text-right">
-                      {mora
-                        ? <span className="flex items-center justify-end gap-1"><AlertTriangle size={10} /> Plazo vencido</span>
-                        : `${Math.round(
-                            ((new Date() - new Date(prestamo.fechaInicio)) /
-                              (new Date(prestamo.fechaFin) - new Date(prestamo.fechaInicio))) * 100
-                          )}% del plazo`
-                      }
-                    </p>
-                  </div>
-                )}
-
-                {pagado && (
-                  <div className="mt-3 text-center">
-                    <span className="flex items-center justify-center gap-1 text-xs text-blue-400">
-                      <CheckCircle2 size={12} /> Todas las cuotas pagadas
-                    </span>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* MODAL */}
       {selectedPrestamo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -492,30 +377,12 @@ export default function Prestamos() {
             onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "var(--card)",
-              animation: "zoomIn 0.2s ease-out",
-              border: esPagado
-                ? "2px solid #3b82f6"
-                : esMora(selectedPrestamo)
-                ? "2px solid #ef4444"
-                : "none",
+              border: esPagado ? "2px solid #3b82f6" : esMora(selectedPrestamo) ? "2px solid #ef4444" : "none",
             }}
           >
             <div className="flex justify-center mb-4">
-              <span
-                className={`flex items-center gap-1 text-sm px-4 py-1 rounded-full font-semibold ${
-                  esPagado
-                    ? "bg-blue-100 text-blue-700"
-                    : esMora(selectedPrestamo)
-                    ? "bg-red-100 text-red-700"
-                    : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {esPagado
-                  ? <><CheckCircle2 size={13} /> Pagado</>
-                  : esMora(selectedPrestamo)
-                  ? <><AlertTriangle size={13} /> En mora</>
-                  : selectedPrestamo.estado
-                }
+              <span className={`flex items-center gap-1 text-sm px-4 py-1 rounded-full font-semibold ${esPagado ? "bg-blue-100 text-blue-700" : esMora(selectedPrestamo) ? "bg-red-100 text-red-700" : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"}`}>
+                {esPagado ? <><CheckCircle2 size={13} /> Pagada</> : esMora(selectedPrestamo) ? <><AlertTriangle size={13} /> En mora</> : selectedPrestamo.estado}
               </span>
             </div>
 
@@ -527,73 +394,37 @@ export default function Prestamos() {
               <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
                 Q{Number(selectedPrestamo.monto).toLocaleString()}
               </p>
-              <span className="text-gray-400">|</span>
-              <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>
-                Q{calcularCuotaSemanal(
-                  selectedPrestamo.monto,
-                  selectedPrestamo.interes,
-                  selectedPrestamo.cuotas
-                ).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/sem
-              </p>
             </div>
 
             <div className="space-y-2 text-sm mb-4 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
-              <p><span className="font-semibold">Interés:</span> {selectedPrestamo.interes}%</p>
-              <p><span className="font-semibold">Cuotas:</span> {selectedPrestamo.cuotas} semanas</p>
+              <p><span className="font-semibold">Lote:</span> {selectedPrestamo.numeroLote || "N/A"}</p>
+              <p><span className="font-semibold">Medida:</span> {selectedPrestamo.medidaLote || "N/A"}</p>
+              <p><span className="font-semibold">Área:</span> {selectedPrestamo.areaLote || "N/A"}</p>
+              <p><span className="font-semibold">Cuotas:</span> {pagos.length}/{selectedPrestamo.cuotas}</p>
+              <p><span className="font-semibold">Fracción:</span> {`${pagos.length}/${selectedPrestamo.cuotas}`}</p>
+              <p><span className="font-semibold">Porcentaje:</span> {Math.round(((pagos.length / selectedPrestamo.cuotas) || 0) * 100)}%</p>
+              <p><span className="font-semibold">Cobro:</span> {selectedPrestamo.tipoCobro === "automatico" ? "Automático" : "Manual"}</p>
               <p><span className="font-semibold">Fecha inicio:</span> {formatearFecha(selectedPrestamo.fechaInicio)}</p>
               <p><span className="font-semibold">Fecha fin:</span> {formatearFecha(selectedPrestamo.fechaFin)}</p>
               <hr style={{ borderColor: "var(--card-border)" }} />
               <p>
-                <span className="font-semibold">Total a pagar:</span>{" "}
-                Q{(Number(selectedPrestamo.monto) * (1 + Number(selectedPrestamo.interes) / 100)).toLocaleString("es-GT", {
+                <span className="font-semibold">Cuota mensual:</span>{" "}
+                Q{calcularCuotaMensual(selectedPrestamo.monto, selectedPrestamo.cuotas).toLocaleString("es-GT", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </p>
             </div>
 
-            {/* Banner préstamo pagado */}
             {esPagado && (
               <div className="rounded-xl p-4 mb-4 text-center bg-blue-50" style={{ border: "1px solid #bfdbfe" }}>
                 <div className="flex justify-center mb-1">
                   <PartyPopper size={28} className="text-blue-400" />
                 </div>
-                <p className="text-blue-700 font-semibold">¡Préstamo finalizado!</p>
-                <p className="text-xs text-blue-400 mt-1">Todas las {selectedPrestamo.cuotas} cuotas fueron pagadas</p>
+                <p className="text-blue-700 font-semibold">¡Venta finalizada!</p>
               </div>
             )}
 
-            {selectedPrestamo.estado === "activo" && (
-              <div
-                className="rounded-xl p-4 mb-4 text-center"
-                style={{
-                  backgroundColor: todasPagadas ? "#dcfce7" : "var(--bg)",
-                  border: `1px solid ${todasPagadas ? "#86efac" : "var(--card-border)"}`,
-                }}
-              >
-                {todasPagadas ? (
-                  <p className="flex items-center justify-center gap-2 text-green-700 font-semibold">
-                    <CheckCircle2 size={16} /> Todas las cuotas han sido pagadas
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm opacity-60 mb-1">Siguiente cuota pendiente</p>
-                    <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>
-                      Cuota #{siguienteCuota} de {selectedPrestamo.cuotas}
-                    </p>
-                    <p className="text-sm font-semibold mt-1">
-                      Q{calcularCuotaSemanal(
-                        selectedPrestamo.monto,
-                        selectedPrestamo.interes,
-                        selectedPrestamo.cuotas
-                      ).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Historial de pagos */}
             <div className="mb-4">
               <p className="flex items-center gap-2 text-sm font-semibold mb-2">
                 <ClipboardList size={15} /> Historial de pagos
@@ -624,7 +455,6 @@ export default function Prestamos() {
               )}
             </div>
 
-            {/* ── BOTONES — solo Cerrar si está pagado ── */}
             <div className="flex flex-col gap-2">
               {!esPagado && selectedPrestamo.estado === "activo" && !todasPagadas && (
                 <button
@@ -644,7 +474,7 @@ export default function Prestamos() {
                   className="w-full flex items-center justify-center gap-2 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
                 >
                   <Pencil size={15} />
-                  Editar Préstamo
+                  Editar Venta
                 </button>
               )}
 
@@ -654,7 +484,7 @@ export default function Prestamos() {
                   className="w-full flex items-center justify-center gap-2 py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
                 >
                   <Trash2 size={15} />
-                  Eliminar Préstamo
+                  Eliminar Venta
                 </button>
               )}
 
@@ -667,13 +497,6 @@ export default function Prestamos() {
               </button>
             </div>
           </div>
-
-          <style>{`
-            @keyframes zoomIn {
-              from { opacity: 0; transform: scale(0.85); }
-              to   { opacity: 1; transform: scale(1); }
-            }
-          `}</style>
         </div>
       )}
 

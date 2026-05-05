@@ -132,8 +132,7 @@ export default class RutasController {
         .filter(prestamo => !idsSinCobrar.has(prestamo.id))
         .filter(prestamo => prestamo.pagos.length < prestamo.cuotas) // ← FIX: excluir préstamos con todas las cuotas pagadas
         .map((prestamo) => {
-          const montoTotal    = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
-          const montoCuota    = Number((montoTotal / prestamo.cuotas).toFixed(2))
+          const montoCuota    = Number((Number(prestamo.monto) / prestamo.cuotas).toFixed(2))
           const cuotasPagadas = prestamo.pagos.length
           const proximaCuota  = cuotasPagadas + 1
 
@@ -173,6 +172,7 @@ export default class RutasController {
             proximaCuota,
             cuotasPagadas,
             totalCuotas: prestamo.cuotas,
+            numeroLote: prestamo.numeroLote,
             yaPagoHoy,
           }
         })
@@ -180,8 +180,7 @@ export default class RutasController {
       // ── 6. Mapear "sin cobrar hoy" ─────────────────────────────────────────
       const sinCobrar = seguimientosDeHoy.map((seg) => {
         const prestamo   = seg.prestamo
-        const montoTotal = Number(prestamo.monto) * (1 + Number(prestamo.interes) / 100)
-        const montoCuota = Number((montoTotal / prestamo.cuotas).toFixed(2))
+        const montoCuota = Number((Number(prestamo.monto) / prestamo.cuotas).toFixed(2))
 
         let fechaSeguimientoStr = ''
         try {
@@ -215,6 +214,7 @@ export default class RutasController {
             direccion: prestamo.cliente.direccion,
           },
           montoCuota,
+          numeroLote: prestamo.numeroLote,
         }
       })
 

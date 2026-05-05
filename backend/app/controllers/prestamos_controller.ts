@@ -5,7 +5,6 @@ import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { DateTime } from 'luxon'
 
 export default class PrestamosController {
-
   private async verifyToken(token: string) {
     if (!token) return null
     const apiToken = await ApiToken.query()
@@ -22,17 +21,12 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const { clienteId, mostrarAntiguos } = request.qs()
-
-      const query = Prestamo.query().preload('cliente')
+      const query = Prestamo.query().preload('cliente').preload('pagos')
 
       if (clienteId) {
         query.where('cliente_id', clienteId)
       }
 
-      // ── Ocultar cancelados con más de 6 meses (a menos que pidan verlos) ──
-      // Los activos/vencidos siempre se muestran
-      // Los cancelados solo se muestran si tienen menos de 6 meses
-      // o si el usuario pide ver los antiguos con ?mostrarAntiguos=true
       if (!mostrarAntiguos) {
         const hace6Meses = DateTime.now()
           .setZone('America/Guatemala')
@@ -40,11 +34,9 @@ export default class PrestamosController {
           .toISODate()
 
         query.where((q) => {
-          q.where('estado', '!=', 'cancelado')
-            .orWhere((q2) => {
-              q2.where('estado', 'cancelado')
-                .where('fecha_fin', '>=', hace6Meses!)
-            })
+          q.where('estado', '!=', 'cancelado').orWhere((q2) => {
+            q2.where('estado', 'cancelado').where('fecha_fin', '>=', hace6Meses!)
+          })
         })
       }
 
@@ -52,7 +44,7 @@ export default class PrestamosController {
       return response.ok(prestamos)
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al obtener préstamos' })
+      return response.internalServerError({ message: 'Error al obtener ventas' })
     }
   }
 
@@ -65,13 +57,14 @@ export default class PrestamosController {
       const prestamo = await Prestamo.query()
         .where('id', params.id)
         .preload('cliente')
+        .preload('pagos')
         .first()
 
-      if (!prestamo) return response.notFound({ message: 'Préstamo no encontrado' })
+      if (!prestamo) return response.notFound({ message: 'Venta no encontrada' })
       return response.ok(prestamo)
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al obtener préstamo' })
+      return response.internalServerError({ message: 'Error al obtener venta' })
     }
   }
 
@@ -81,14 +74,14 @@ export default class PrestamosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      // Para ver préstamos de un cliente específico se muestran todos sin filtro de tiempo
       const prestamos = await Prestamo.query()
         .where('cliente_id', params.clienteId)
         .preload('cliente')
+        .preload('pagos')
       return response.ok(prestamos)
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al obtener préstamos del cliente' })
+      return response.internalServerError({ message: 'Error al obtener ventas del cliente' })
     }
   }
 
@@ -101,14 +94,27 @@ export default class PrestamosController {
       const data = request.only([
         'clienteId', 'monto', 'interes', 'cuotas',
         'fechaInicio', 'fechaFin', 'frecuenciaPago',
+        'numeroLote', 'medidaLote', 'areaLote',
+        'tipoCobro', 'fechaCobro', 'ultimoPagoAutomatico',
       ])
 
-      if (!data.clienteId || !data.monto || !data.interes || !data.cuotas || !data.fechaInicio || !data.fechaFin) {
-        return response.badRequest({ message: 'Todos los campos son obligatorios' })
+      if (
+        !data.clienteId ||
+        !data.monto ||
+        !data.cuotas ||
+        !data.fechaInicio ||
+        !data.fechaFin ||
+        !data.numeroLote
+      ) {
+        return response.badRequest({ message: 'Cliente, lote, precio, cuotas y fechas son obligatorios' })
       }
 
-      // Estado siempre activo al crear — el sistema lo cambia automáticamente
-      const prestamo = await Prestamo.create({ ...data, estado: 'activo' })
+      const prestamo = await Prestamo.create({
+        ...data,
+        interes: 0,
+        frecuenciaPago: data.frecuenciaPago || 'mensual',
+        estado: 'activo',
+      })
       await prestamo.load('cliente')
 
       await registrarActividad({
@@ -116,14 +122,19 @@ export default class PrestamosController {
         tipo: 'crear',
         entidad: 'prestamo',
         entidadId: prestamo.id,
-        descripcion: `Creó préstamo de Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`,
-        detalle: { monto: prestamo.monto, cuotas: prestamo.cuotas, interes: prestamo.interes },
+        descripcion: `Creo venta del lote ${prestamo.numeroLote || 'N/A'} por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`,
+        detalle: {
+          monto: prestamo.monto,
+          cuotas: prestamo.cuotas,
+          numeroLote: prestamo.numeroLote,
+          tipoCobro: prestamo.tipoCobro,
+        },
       })
 
-      return response.created({ message: 'Préstamo creado exitosamente', prestamo })
+      return response.created({ message: 'Venta creada exitosamente', prestamo })
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al crear préstamo' })
+      return response.internalServerError({ message: 'Error al crear venta' })
     }
   }
 
@@ -135,11 +146,14 @@ export default class PrestamosController {
 
       const prestamo = await Prestamo.findOrFail(params.id)
 
-      // Solo admin puede cambiar el estado manualmente
-      const camposPermitidos = ['monto', 'interes', 'cuotas', 'fechaInicio', 'fechaFin', 'frecuenciaPago']
+      const camposPermitidos = [
+        'monto', 'interes', 'cuotas', 'fechaInicio', 'fechaFin', 'frecuenciaPago',
+        'numeroLote', 'medidaLote', 'areaLote', 'tipoCobro', 'fechaCobro', 'ultimoPagoAutomatico',
+      ]
       if (user.role === 'admin') camposPermitidos.push('estado')
 
       const data = request.only(camposPermitidos)
+      if ('interes' in data) data.interes = 0
 
       prestamo.merge(data)
       await prestamo.save()
@@ -150,13 +164,13 @@ export default class PrestamosController {
         tipo: 'actualizar',
         entidad: 'prestamo',
         entidadId: prestamo.id,
-        descripcion: `Actualizó préstamo de ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos} — estado: ${prestamo.estado}`,
+        descripcion: `Actualizo venta del lote ${prestamo.numeroLote || 'N/A'} de ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos} - estado: ${prestamo.estado}`,
       })
 
-      return response.ok({ message: 'Préstamo actualizado exitosamente', prestamo })
+      return response.ok({ message: 'Venta actualizada exitosamente', prestamo })
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al actualizar préstamo' })
+      return response.internalServerError({ message: 'Error al actualizar venta' })
     }
   }
 
@@ -167,7 +181,7 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       if (user.role !== 'admin') {
-        return response.forbidden({ message: 'Solo el administrador puede eliminar préstamos' })
+        return response.forbidden({ message: 'Solo el administrador puede eliminar ventas' })
       }
 
       const prestamo = await Prestamo.findOrFail(params.id)
@@ -180,13 +194,13 @@ export default class PrestamosController {
         tipo: 'eliminar',
         entidad: 'prestamo',
         entidadId: Number(params.id),
-        descripcion: `Eliminó préstamo de ${desc}`,
+        descripcion: `Elimino venta de ${desc}`,
       })
 
-      return response.ok({ message: 'Préstamo eliminado exitosamente' })
+      return response.ok({ message: 'Venta eliminada exitosamente' })
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al eliminar préstamo' })
+      return response.internalServerError({ message: 'Error al eliminar venta' })
     }
   }
 }

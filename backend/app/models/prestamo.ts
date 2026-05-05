@@ -37,6 +37,24 @@ export default class Prestamo extends BaseModel {
   @column()
   declare diaVisita: string | null
 
+  @column()
+  declare numeroLote: string | null
+
+  @column()
+  declare medidaLote: string | null
+
+  @column()
+  declare areaLote: string | null
+
+  @column()
+  declare tipoCobro: string | null
+
+  @column.date()
+  declare fechaCobro: DateTime | null
+
+  @column.date()
+  declare ultimoPagoAutomatico: DateTime | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

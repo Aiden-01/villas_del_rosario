@@ -1,6 +1,6 @@
 import { BaseCommand } from '@adonisjs/core/ace'
 import { CommandOptions } from '@adonisjs/core/types/ace'
-import { marcarVencidos } from '../app/jobs/marcar_vencidos_job.js'
+import { marcarVencidos } from '../app/jobs/Marcar_Vencidos_job.js'
 
 export default class MarcarVencidosCommand extends BaseCommand {
   static commandName = 'prestamos:marcar-vencidos'

@@ -55,7 +55,11 @@ export default function Clientes() {
       const term = search.toLowerCase();
       const results = clientes.filter((cliente) => {
         const fullName = `${cliente.nombres} ${cliente.apellidos}`.toLowerCase();
-        return cliente.dpi.includes(term) || fullName.includes(term);
+        return (
+          fullName.includes(term) ||
+          (cliente.telefono || "").toLowerCase().includes(term) ||
+          (cliente.direccion || "").toLowerCase().includes(term)
+        );
       });
       setFilteredClientes(results);
     }, 400);
@@ -72,7 +76,7 @@ export default function Clientes() {
       });
       const data = await res.json();
       if (!res.ok) {
-       showToast(data.message || "No se pudo eliminar", "error")
+        showToast(data.message || "No se pudo eliminar", "error");
         return;
       }
       setSelectedCliente(null);
@@ -80,7 +84,7 @@ export default function Clientes() {
       showToast("Cliente eliminado correctamente", "success");
     } catch (err) {
       console.error(err);
-     showToast("Error eliminando cliente", "error")
+      showToast("Error eliminando cliente", "error");
     }
   };
 
@@ -92,7 +96,6 @@ export default function Clientes() {
 
   return (
     <div className="pt-16 text-[var(--text)]">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">Clientes</h1>
         <button
@@ -103,11 +106,10 @@ export default function Clientes() {
         </button>
       </div>
 
-      {/* BUSCADOR */}
       <div className="mb-6">
         <input
           type="text"
-          placeholder="Buscar por DPI, nombre o apellido..."
+          placeholder="Buscar por nombre, teléfono o dirección..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full px-4 py-2 rounded-lg bg-[var(--card)] border border-gray-300 focus:outline-none"
@@ -116,11 +118,8 @@ export default function Clientes() {
 
       {loading && <p>Cargando clientes...</p>}
       {error && <p className="text-red-500">{error}</p>}
-      {!loading && filteredClientes.length === 0 && (
-        <p>No se encontraron clientes.</p>
-      )}
+      {!loading && filteredClientes.length === 0 && <p>No se encontraron clientes.</p>}
 
-      {/* GRID DE TARJETAS */}
       {!loading && filteredClientes.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredClientes.map((cliente) => (
@@ -141,7 +140,6 @@ export default function Clientes() {
                 </div>
               </div>
               <div className="space-y-1 text-sm text-gray-500">
-                <p><span className="font-medium text-[var(--text)]">DPI:</span> {cliente.dpi}</p>
                 <p><span className="font-medium text-[var(--text)]">Tel:</span> {cliente.telefono}</p>
                 <p><span className="font-medium text-[var(--text)]">Dir:</span> {cliente.direccion}</p>
               </div>
@@ -150,7 +148,6 @@ export default function Clientes() {
         </div>
       )}
 
-      {/* MODAL */}
       {selectedCliente && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -172,7 +169,6 @@ export default function Clientes() {
             </div>
 
             <div className="space-y-2 text-sm mb-6 bg-[var(--bg)] rounded-xl p-4">
-              <p><span className="font-semibold">DPI:</span> {selectedCliente.dpi}</p>
               <p><span className="font-semibold">Teléfono:</span> {selectedCliente.telefono}</p>
               <p><span className="font-semibold">Dirección:</span> {selectedCliente.direccion}</p>
             </div>
@@ -182,13 +178,13 @@ export default function Clientes() {
                 onClick={() => navigate(`/prestamos/crear?clienteId=${selectedCliente.id}`)}
                 className="w-full py-2 bg-green-500 text-white rounded-xl font-semibold hover:opacity-90"
               >
-                + Crear Préstamo
+                + Crear Venta
               </button>
               <button
                 onClick={() => navigate(`/prestamos?clienteId=${selectedCliente.id}`)}
                 className="w-full py-2 bg-[var(--secondary)] text-white rounded-xl font-semibold hover:opacity-90"
               >
-                Ver Préstamos
+                Ver Ventas
               </button>
               <button
                 onClick={() => navigate(`/clientes/editar/${selectedCliente.id}`)}

@@ -6,7 +6,8 @@ import useToast from "../hooks/useToast";
 import { User, Search, CalendarDays } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
-const FRECUENCIAS = ["diario","semanal","quincenal"];
+const FRECUENCIAS = ["mensual"];
+const TIPOS_COBRO = ["manual", "automatico"];
 
 export default function PrestamoForm({ mode, prestamoId }) {
   const navigate = useNavigate();
@@ -17,12 +18,17 @@ export default function PrestamoForm({ mode, prestamoId }) {
   const [formData, setFormData] = useState({
     clienteId: clienteIdFromUrl || "",
     monto: "",
-    interes: "",
     cuotas: "",
     fechaInicio: "",
     fechaFin: "",
-    frecuenciaPago: "semanal",
-    // estado eliminado — lo controla el sistema automáticamente
+    frecuenciaPago: "mensual",
+    numeroLote: "",
+    medidaLote: "",
+    areaLote: "",
+    tipoCobro: "manual",
+    fechaCobro: "",
+    ultimoPagoAutomatico: "",
+    interes: 0,
   });
 
   const [clientes, setClientes] = useState([]);
@@ -34,7 +40,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
   useEffect(() => {
     if (formData.fechaInicio && formData.cuotas) {
       const inicio = new Date(formData.fechaInicio);
-      inicio.setDate(inicio.getDate() + Number(formData.cuotas) * 7);
+      inicio.setMonth(inicio.getMonth() + Number(formData.cuotas));
       const fechaFin = inicio.toISOString().split("T")[0];
       setFormData((prev) => ({ ...prev, fechaFin }));
     }
@@ -47,12 +53,19 @@ export default function PrestamoForm({ mode, prestamoId }) {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (!busquedaCliente.trim()) { setClientesFiltrados(clientes); return; }
+      if (!busquedaCliente.trim()) {
+        setClientesFiltrados(clientes);
+        return;
+      }
       const term = busquedaCliente.toLowerCase();
       setClientesFiltrados(
         clientes.filter((c) => {
           const fullName = `${c.nombres} ${c.apellidos}`.toLowerCase();
-          return fullName.includes(term) || c.dpi.includes(term);
+          return (
+            fullName.includes(term) ||
+            (c.telefono || "").toLowerCase().includes(term) ||
+            (c.direccion || "").toLowerCase().includes(term)
+          );
         })
       );
     }, 250);
@@ -84,16 +97,22 @@ export default function PrestamoForm({ mode, prestamoId }) {
       });
       const prestamo = res.data;
       setFormData({
-        clienteId:      prestamo.clienteId      || "",
-        monto:          prestamo.monto          || "",
-        interes:        prestamo.interes        || "",
-        cuotas:         prestamo.cuotas         || "",
-        fechaInicio:    prestamo.fechaInicio?.split("T")[0] || "",
-        fechaFin:       prestamo.fechaFin?.split("T")[0]   || "",
-        frecuenciaPago: prestamo.frecuenciaPago || "semanal",
+        clienteId: prestamo.clienteId || "",
+        monto: prestamo.monto || "",
+        cuotas: prestamo.cuotas || "",
+        fechaInicio: prestamo.fechaInicio?.split("T")[0] || "",
+        fechaFin: prestamo.fechaFin?.split("T")[0] || "",
+        frecuenciaPago: prestamo.frecuenciaPago || "mensual",
+        numeroLote: prestamo.numeroLote || "",
+        medidaLote: prestamo.medidaLote || "",
+        areaLote: prestamo.areaLote || "",
+        tipoCobro: prestamo.tipoCobro || "manual",
+        fechaCobro: prestamo.fechaCobro?.split("T")[0] || "",
+        ultimoPagoAutomatico: prestamo.ultimoPagoAutomatico?.split("T")[0] || "",
+        interes: 0,
       });
     } catch (error) {
-      console.error("Error cargando préstamo:", error);
+      console.error("Error cargando venta:", error);
     }
   };
 
@@ -105,17 +124,17 @@ export default function PrestamoForm({ mode, prestamoId }) {
         await axios.put(`${API_URL}/api/prestamos/${prestamoId}`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        showToast("Préstamo actualizado correctamente", "success");
+        showToast("Venta actualizada correctamente", "success");
       } else {
         await axios.post(`${API_URL}/api/prestamos`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        showToast("Préstamo creado correctamente", "success");
+        showToast("Venta creada correctamente", "success");
       }
       setTimeout(() => navigate("/prestamos"), 1500);
     } catch (error) {
       console.error(error);
-      const mensaje = error?.response?.data?.message || "Error al guardar el préstamo";
+      const mensaje = error?.response?.data?.message || "Error al guardar la venta";
       showToast(mensaje, "error");
     }
   };
@@ -132,7 +151,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
         onSubmit={handleSubmit}
         className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
-        {/* ── CLIENTE ── */}
         {clientePreseleccionado && !isEdit ? (
           <div className="flex items-center gap-2 w-full p-2 rounded font-semibold" style={inputStyle}>
             <User size={15} className="opacity-60 shrink-0" />
@@ -147,18 +165,12 @@ export default function PrestamoForm({ mode, prestamoId }) {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o DPI..."
+                placeholder="Buscar por nombre, teléfono o dirección..."
                 value={busquedaCliente}
                 onChange={(e) => setBusquedaCliente(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none"
                 style={inputStyle}
               />
-              {busquedaCliente && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-50"
-                  style={{ color: "var(--text)" }}>
-                  {clientesFiltrados.length} resultado{clientesFiltrados.length !== 1 ? "s" : ""}
-                </span>
-              )}
             </div>
             <select
               value={formData.clienteId}
@@ -170,64 +182,82 @@ export default function PrestamoForm({ mode, prestamoId }) {
               <option value="">— Seleccionar cliente —</option>
               {clientesFiltrados.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.nombres} {c.apellidos} — {c.dpi}
+                  {c.nombres} {c.apellidos} — {c.telefono}
                 </option>
               ))}
             </select>
-            {busquedaCliente && clientesFiltrados.length === 0 && (
-              <p className="text-xs text-center opacity-50 py-1" style={{ color: "var(--text)" }}>
-                No se encontraron clientes con ese criterio.
-              </p>
-            )}
           </div>
         )}
 
-        {/* ── MONTO ── */}
         <input
-          type="number" placeholder="Monto"
+          type="text"
+          placeholder="Número de lote"
+          value={formData.numeroLote}
+          onChange={(e) => setFormData({ ...formData, numeroLote: e.target.value })}
+          className="w-full p-2 rounded"
+          style={inputStyle}
+        />
+
+        <input
+          type="text"
+          placeholder="Medida lineal del lote (ej. 24x15)"
+          value={formData.medidaLote}
+          onChange={(e) => setFormData({ ...formData, medidaLote: e.target.value })}
+          className="w-full p-2 rounded"
+          style={inputStyle}
+        />
+
+        <input
+          type="text"
+          placeholder="Área del lote (ej. 400 m²)"
+          value={formData.areaLote}
+          onChange={(e) => setFormData({ ...formData, areaLote: e.target.value })}
+          className="w-full p-2 rounded"
+          style={inputStyle}
+        />
+
+        <input
+          type="number"
+          placeholder="Precio del lote"
           value={formData.monto}
           onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-          className="w-full p-2 rounded" style={inputStyle}
+          className="w-full p-2 rounded"
+          style={inputStyle}
         />
 
-        {/* ── INTERÉS ── */}
         <input
-          type="number" placeholder="Interés (%)"
-          value={formData.interes}
-          onChange={(e) => setFormData({ ...formData, interes: e.target.value })}
-          className="w-full p-2 rounded" style={inputStyle}
-        />
-
-        {/* ── CUOTAS ── */}
-        <input
-          type="number" placeholder="Número de cuotas (semanas)"
+          type="number"
+          placeholder="Número de cuotas (meses)"
           value={formData.cuotas}
           onChange={(e) => setFormData({ ...formData, cuotas: e.target.value })}
-          className="w-full p-2 rounded" style={inputStyle}
+          className="w-full p-2 rounded"
+          style={inputStyle}
         />
 
-        {/* ── FECHA INICIO ── */}
         <input
-          type="date" value={formData.fechaInicio}
+          type="date"
+          value={formData.fechaInicio}
           onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
-          className="w-full p-2 rounded" style={inputStyle}
+          className="w-full p-2 rounded"
+          style={inputStyle}
         />
 
-        {/* ── FECHA FIN (auto) ── */}
         <div>
           <input
-            type="date" value={formData.fechaFin} readOnly
-            className="w-full p-2 rounded cursor-not-allowed opacity-70" style={inputStyle}
+            type="date"
+            value={formData.fechaFin}
+            readOnly
+            className="w-full p-2 rounded cursor-not-allowed opacity-70"
+            style={inputStyle}
           />
           {formData.fechaFin && (
             <p className="flex items-center gap-1 text-xs mt-1 opacity-60">
               <CalendarDays size={11} />
-              Fecha fin calculada automáticamente ({formData.cuotas} semanas desde el inicio)
+              Fecha fin calculada automáticamente ({formData.cuotas} meses desde el inicio)
             </p>
           )}
         </div>
 
-        {/* ── FRECUENCIA DE PAGO ── */}
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
             Frecuencia de pago
@@ -235,7 +265,8 @@ export default function PrestamoForm({ mode, prestamoId }) {
           <select
             value={formData.frecuenciaPago}
             onChange={(e) => setFormData({ ...formData, frecuenciaPago: e.target.value })}
-            className="w-full p-2 rounded" style={inputStyle}
+            className="w-full p-2 rounded"
+            style={inputStyle}
           >
             {FRECUENCIAS.map((f) => (
               <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
@@ -243,26 +274,70 @@ export default function PrestamoForm({ mode, prestamoId }) {
           </select>
         </div>
 
-        {/* ── ESTADO — solo admin en edición ── */}
+        <div>
+          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
+            Tipo de cobro
+          </label>
+          <select
+            value={formData.tipoCobro}
+            onChange={(e) => setFormData({ ...formData, tipoCobro: e.target.value })}
+            className="w-full p-2 rounded"
+            style={inputStyle}
+          >
+            {TIPOS_COBRO.map((tipo) => (
+              <option key={tipo} value={tipo}>
+                {tipo === "automatico" ? "Automático" : "Manual"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
+            Fecha de cobro
+          </label>
+          <input
+            type="date"
+            value={formData.fechaCobro}
+            onChange={(e) => setFormData({ ...formData, fechaCobro: e.target.value })}
+            className="w-full p-2 rounded"
+            style={inputStyle}
+          />
+        </div>
+
+        {formData.tipoCobro === "automatico" && (
+          <div>
+            <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
+              Último pago automático
+            </label>
+            <input
+              type="date"
+              value={formData.ultimoPagoAutomatico}
+              onChange={(e) => setFormData({ ...formData, ultimoPagoAutomatico: e.target.value })}
+              className="w-full p-2 rounded"
+              style={inputStyle}
+            />
+          </div>
+        )}
+
         {isEdit && (
           <div
             className="rounded-xl px-4 py-3 text-sm"
             style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}
           >
             <p className="opacity-50 text-xs">
-              El estado del préstamo es controlado automáticamente por el sistema.
+              El estado de la venta es controlado automáticamente por el sistema.
               Solo un administrador puede modificarlo si es necesario.
             </p>
           </div>
         )}
 
-        {/* ── SUBMIT ── */}
         <button
           type="submit"
           className="w-full p-2 rounded text-white font-semibold hover:opacity-90 transition"
           style={{ backgroundColor: "var(--secondary)" }}
         >
-          {isEdit ? "Actualizar Préstamo" : "Crear Préstamo"}
+          {isEdit ? "Actualizar Venta" : "Crear Venta"}
         </button>
       </form>
 

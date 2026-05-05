@@ -4,7 +4,6 @@ import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 
 export default class ClientsController {
-
   private async verifyToken(token: string) {
     if (!token) return null
     const apiToken = await ApiToken.query()
@@ -39,19 +38,12 @@ export default class ClientsController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const data = request.only([
-        'dpi', 'nombres', 'apellidos', 'telefono', 'direccion',
-        'zona', 'rutaId', 'ordenVisita'
+        'nombres', 'apellidos', 'telefono', 'direccion',
+        'zona', 'rutaId', 'ordenVisita',
       ])
 
       if (!data.nombres || !data.apellidos || !data.telefono || !data.direccion) {
         return response.badRequest({ message: 'Todos los campos son obligatorios' })
-      }
-
-      if (data.dpi) {
-        const existingClient = await Client.findBy('dpi', data.dpi)
-        if (existingClient) {
-          return response.conflict({ message: 'El DPI ya está registrado' })
-        }
       }
 
       const newClient = await Client.create(data)
@@ -61,8 +53,8 @@ export default class ClientsController {
         tipo: 'crear',
         entidad: 'cliente',
         entidadId: newClient.id,
-        descripcion: `Creó el cliente ${newClient.nombres} ${newClient.apellidos}`,
-        detalle: { dpi: newClient.dpi, telefono: newClient.telefono },
+        descripcion: `Creo el cliente ${newClient.nombres} ${newClient.apellidos}`,
+        detalle: { telefono: newClient.telefono, direccion: newClient.direccion },
       })
 
       return response.created({ message: 'Cliente creado exitosamente', client: newClient })
@@ -80,21 +72,9 @@ export default class ClientsController {
 
       const client = await Client.findOrFail(params.id)
       const data = request.only([
-        'dpi', 'nombres', 'apellidos', 'telefono', 'direccion',
-        'zona', 'rutaId', 'ordenVisita'
+        'nombres', 'apellidos', 'telefono', 'direccion',
+        'zona', 'rutaId', 'ordenVisita',
       ])
-
-      // Verificar que el DPI no pertenezca a OTRO cliente distinto al actual
-      if (data.dpi) {
-        const existingClient = await Client.query()
-          .where('dpi', data.dpi)
-          .whereNot('id', params.id)
-          .first()
-
-        if (existingClient) {
-          return response.conflict({ message: 'El DPI ya está registrado por otro cliente' })
-        }
-      }
 
       client.merge(data)
       await client.save()
@@ -104,7 +84,7 @@ export default class ClientsController {
         tipo: 'actualizar',
         entidad: 'cliente',
         entidadId: client.id,
-        descripcion: `Actualizó el cliente ${client.nombres} ${client.apellidos}`,
+        descripcion: `Actualizo el cliente ${client.nombres} ${client.apellidos}`,
       })
 
       return response.ok({ message: 'Cliente actualizado exitosamente', client })
@@ -133,7 +113,7 @@ export default class ClientsController {
         tipo: 'eliminar',
         entidad: 'cliente',
         entidadId: Number(params.id),
-        descripcion: `Eliminó el cliente ${nombre}`,
+        descripcion: `Elimino el cliente ${nombre}`,
       })
 
       return response.ok({ message: 'Cliente eliminado exitosamente' })

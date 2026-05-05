@@ -12,7 +12,6 @@ export default function ClienteForm({ mode, clienteId }) {
   const [rutas, setRutas] = useState([]);
 
   const [formData, setFormData] = useState({
-    dpi: "",
     nombres: "",
     apellidos: "",
     telefono: "",
@@ -55,7 +54,6 @@ export default function ClienteForm({ mode, clienteId }) {
       });
       const cliente = res.data;
       setFormData({
-        dpi: cliente.dpi || "",
         nombres: cliente.nombres || "",
         apellidos: cliente.apellidos || "",
         telefono: cliente.telefono || "",
@@ -92,9 +90,7 @@ export default function ClienteForm({ mode, clienteId }) {
       }
       setTimeout(() => navigate("/clientes"), 1500);
     } catch (error) {
-      // Leer el mensaje real que manda el backend
-      const mensaje =
-        error?.response?.data?.message || "Error al guardar el cliente";
+      const mensaje = error?.response?.data?.message || "Error al guardar el cliente";
       showToast(mensaje, "error");
     }
   };
@@ -105,14 +101,6 @@ export default function ClienteForm({ mode, clienteId }) {
         onSubmit={handleSubmit}
         className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
-        <input
-          type="text"
-          placeholder="DPI (opcional)"
-          value={formData.dpi}
-          onChange={(e) => setFormData({ ...formData, dpi: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
-        />
         <input
           type="text"
           placeholder="Nombres"
@@ -146,7 +134,6 @@ export default function ClienteForm({ mode, clienteId }) {
           style={inputStyle}
         />
 
-        {/* ZONA */}
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
             Zona / Sector
@@ -161,7 +148,6 @@ export default function ClienteForm({ mode, clienteId }) {
           />
         </div>
 
-        {/* RUTA */}
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
             Ruta asignada
@@ -181,7 +167,6 @@ export default function ClienteForm({ mode, clienteId }) {
           </select>
         </div>
 
-        {/* ORDEN */}
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
             Orden de visita

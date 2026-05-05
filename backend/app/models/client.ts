@@ -10,9 +10,6 @@ export default class Client extends BaseModel {
   declare id: number
 
   @column()
-  declare dpi: string | null
-
-  @column()
   declare nombres: string
 
   @column()

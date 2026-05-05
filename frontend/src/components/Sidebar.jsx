@@ -7,25 +7,23 @@ import {
   LogOut
 } from "lucide-react";
 
-// Cada item del menú tiene delay para el efecto stagger
 const MENU_ITEMS_BASE = [
-  { label: "Inicio",        path: "/dashboard",    icon: LayoutDashboard, delay: 0   },
-  { label: "Clientes",      path: "/clientes",     icon: Users,           delay: 40  },
-  { label: "Préstamos",     path: "/prestamos",    icon: HandCoins,       delay: 80  },
-  { label: "Ruta de Hoy",   path: "/ruta-del-dia", icon: MapPin,          delay: 120 },
+  { label: "Inicio", path: "/dashboard", icon: LayoutDashboard, delay: 0 },
+  { label: "Clientes", path: "/clientes", icon: Users, delay: 40 },
+  { label: "Ventas", path: "/prestamos", icon: HandCoins, delay: 80 },
+  { label: "Ruta de Hoy", path: "/ruta-del-dia", icon: MapPin, delay: 120 },
 ];
 
 const MENU_ITEMS_ADMIN = [
-  { label: "Rutas",         path: "/rutas",        icon: Map,             delay: 160 },
-  { label: "Usuarios",      path: "/usuarios",     icon: UserCog,         delay: 200 },
-  { label: "Reportes",      path: "/reportes",     icon: FileBarChart2,   delay: 240 },
-  { label: "Historial",     path: "/historial",    icon: ClipboardList,   delay: 280 },
+  { label: "Rutas", path: "/rutas", icon: Map, delay: 160 },
+  { label: "Usuarios", path: "/usuarios", icon: UserCog, delay: 200 },
+  { label: "Reportes", path: "/reportes", icon: FileBarChart2, delay: 240 },
+  { label: "Historial", path: "/historial", icon: ClipboardList, delay: 280 },
 ];
 
 export default function Sidebar({ menuOpen, setMenuOpen, role }) {
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
-  // itemsVisible controla el stagger: true cuando el drawer ya abrió
   const [itemsVisible, setItemsVisible] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -45,8 +43,6 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
     }
   }, [dark]);
 
-  // Cuando el drawer abre, activa el stagger con un pequeño delay
-  // Cuando cierra, lo quita inmediatamente para resetear
   useEffect(() => {
     let timeout;
     if (menuOpen) {
@@ -57,7 +53,6 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
     return () => clearTimeout(timeout);
   }, [menuOpen]);
 
-  // Cerrar perfil si se cierra el sidebar
   useEffect(() => {
     if (!menuOpen) setProfileOpen(false);
   }, [menuOpen]);
@@ -75,16 +70,11 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
     window.location.href = "/";
   };
 
-  const allItems = isAdmin
-    ? [...MENU_ITEMS_BASE, ...MENU_ITEMS_ADMIN]
-    : MENU_ITEMS_BASE;
+  const allItems = isAdmin ? [...MENU_ITEMS_BASE, ...MENU_ITEMS_ADMIN] : MENU_ITEMS_BASE;
 
   return (
     <>
-      {/* PERFIL + DARKMODE — top right */}
       <div className="fixed top-4 right-4 z-[120] flex items-center gap-3">
-
-        {/* TOGGLE DARKMODE */}
         <button
           onClick={toggleDark}
           aria-label="Cambiar tema"
@@ -95,14 +85,10 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
             className="absolute w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 flex items-center justify-center bg-white"
             style={{ transform: dark ? "translateX(24px)" : "translateX(0px)" }}
           >
-            {dark
-              ? <Moon size={14} className="text-slate-700" />
-              : <Sun  size={14} className="text-yellow-500" />
-            }
+            {dark ? <Moon size={14} className="text-slate-700" /> : <Sun size={14} className="text-yellow-500" />}
           </div>
         </button>
 
-        {/* PERFIL */}
         <div className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}
@@ -122,7 +108,6 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
             <span className="text-sm font-semibold">{user?.username}</span>
           </button>
 
-          {/* DROPDOWN PERFIL */}
           <div
             className="absolute right-0 top-12 w-44 rounded-xl shadow-xl overflow-hidden transition-all duration-200"
             style={{
@@ -145,11 +130,6 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
         </div>
       </div>
 
-      {/* ─── DRAWER ─── */}
-      {/*
-        Spring animation: cubic-bezier(0.34, 1.56, 0.64, 1) — overshoot suave
-        Al cerrar: ease-in rápido para que se sienta responsivo
-      */}
       <div
         className="fixed top-0 left-0 h-full w-72 text-white z-[100] shadow-2xl flex flex-col"
         style={{
@@ -160,34 +140,29 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
             : "transform 0.28s cubic-bezier(0.4, 0, 1, 1)",
         }}
       >
-        {/* Header del drawer */}
         <div className="pt-6 px-6 pb-4 border-b border-white/10">
-          {/* Logo / nombre app */}
           <div className="mt-10 flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
-              style={{ backgroundColor: "var(--primary)" }}
-            >
-              $
+            <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg ring-1 ring-white/20 bg-white">
+              <img
+                src="/logo.jpeg"
+                alt="Logo Villas del Rosario"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
-              <p className="font-bold text-base leading-tight">Inversiones CRUMAN</p>
+              <p className="font-bold text-base leading-tight">Villas del Rosario</p>
               <p className="text-xs opacity-50 capitalize">{role}</p>
             </div>
           </div>
         </div>
 
-        {/* Navegación con stagger */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {allItems.map(({ label, path, icon: Icon, delay }) => (
             <button
               key={path}
               onClick={() => handleNavigate(path)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium text-sm
-                         hover:bg-white/15 active:bg-white/25 active:scale-[0.98]
-                         transition-all duration-150"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium text-sm hover:bg-white/15 active:bg-white/25 active:scale-[0.98] transition-all duration-150"
               style={{
-                // Stagger: cada item entra con su propio delay
                 opacity: itemsVisible ? 1 : 0,
                 transform: itemsVisible ? "translateX(0)" : "translateX(-18px)",
                 transition: `opacity 0.3s ease ${delay}ms, transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) ${delay}ms, background-color 0.15s ease`,
@@ -207,17 +182,14 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
           )}
         </nav>
 
-        {/* Footer del drawer: logout accesible desde el sidebar también */}
         <div className="px-3 pb-6 pt-2 border-t border-white/10">
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm
-                       text-red-300 hover:bg-red-500/20 active:scale-[0.98]
-                       transition-all duration-150"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm text-red-300 hover:bg-red-500/20 active:scale-[0.98] transition-all duration-150"
             style={{
               opacity: itemsVisible ? 1 : 0,
               transform: itemsVisible ? "translateX(0)" : "translateX(-18px)",
-              transition: `opacity 0.3s ease 320ms, transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) 320ms`,
+              transition: "opacity 0.3s ease 320ms, transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) 320ms",
             }}
           >
             <LogOut size={18} />

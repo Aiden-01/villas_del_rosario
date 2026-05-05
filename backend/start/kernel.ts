@@ -13,9 +13,9 @@ server.errorHandler(() => import('#exceptions/handler'))
 server.use([
   () => import('@adonisjs/core/bodyparser_middleware'),
   () => import('@adonisjs/cors/cors_middleware'),
-  () => import('@adonisjs/auth/initialize_auth_middleware'),
 ])
 
 /**
- * NO named middleware for now
+ * Route middleware is registered directly from start/routes.ts
+ * using router.named(...)
  */

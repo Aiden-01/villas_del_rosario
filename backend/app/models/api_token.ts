@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from './user.js'
@@ -16,10 +17,10 @@ export default class ApiToken extends BaseModel {
   declare token: string
 
   @column()
-  declare expiresAt: Date | null
+  declare expiresAt: DateTime | null
 
   @column.dateTime()
-  declare createdAt: Date
+  declare createdAt: DateTime
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>

@@ -5,7 +5,6 @@ import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 
 export default class PagosController {
-
   private async verifyToken(token: string) {
     if (!token) return null
     const apiToken = await ApiToken.query()
@@ -45,7 +44,7 @@ export default class PagosController {
       return response.ok(pagos)
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al obtener pagos del préstamo' })
+      return response.internalServerError({ message: 'Error al obtener pagos de la venta' })
     }
   }
 
@@ -76,7 +75,6 @@ export default class PagosController {
       await pago.load('prestamo', (q) => q.preload('cliente'))
       await pago.load('usuario')
 
-      // ✅ AUTO-MARCAR como pagado si es la última cuota
       const prestamo = await Prestamo.findOrFail(data.prestamoId)
       if (data.numeroCuota >= prestamo.cuotas) {
         prestamo.estado = 'pagado'
@@ -87,7 +85,7 @@ export default class PagosController {
           tipo: 'actualizar',
           entidad: 'prestamo',
           entidadId: prestamo.id,
-          descripcion: `Préstamo de ${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos} marcado como pagado — todas las cuotas pagadas`,
+          descripcion: `Venta del lote ${pago.prestamo.numeroLote || 'N/A'} marcada como pagada`,
         })
       }
 
@@ -96,7 +94,7 @@ export default class PagosController {
         tipo: 'pago',
         entidad: 'pago',
         entidadId: pago.id,
-        descripcion: `Registró cuota #${pago.numeroCuota} de Q${pago.montoPagado} — ${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos}`,
+        descripcion: `Registro cuota #${pago.numeroCuota} de Q${pago.montoPagado} - lote ${pago.prestamo.numeroLote || 'N/A'} / ${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos}`,
         detalle: { numeroCuota: pago.numeroCuota, montoPagado: pago.montoPagado },
       })
 
@@ -125,7 +123,7 @@ export default class PagosController {
         tipo: 'eliminar',
         entidad: 'pago',
         entidadId: Number(params.id),
-        descripcion: `Eliminó el pago #${params.id}`,
+        descripcion: `Elimino el pago #${params.id}`,
       })
 
       return response.ok({ message: 'Pago eliminado exitosamente' })
