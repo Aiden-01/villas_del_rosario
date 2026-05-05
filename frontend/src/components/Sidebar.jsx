@@ -1,36 +1,52 @@
-import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
-  User, Moon, Sun,
-  LayoutDashboard, Users, HandCoins,
-  MapPin, Map, UserCog, FileBarChart2, ClipboardList,
-  LogOut
+  LayoutDashboard,
+  Users,
+  HandCoins,
+  FileBarChart2,
+  UserCog,
+  ClipboardList,
+  Map,
+  MapPin,
+  X,
+  LogOut,
+  Menu,
+  Moon,
+  Sun,
 } from "lucide-react";
 
-const MENU_ITEMS_BASE = [
+const NAV = [
   { label: "Inicio", path: "/dashboard", icon: LayoutDashboard, delay: 0 },
-  { label: "Clientes", path: "/clientes", icon: Users, delay: 40 },
-  { label: "Ventas", path: "/ventas", icon: HandCoins, delay: 80 },
-  { label: "Ruta de Hoy", path: "/ruta-del-dia", icon: MapPin, delay: 120 },
+  { label: "Clientes", path: "/clientes", icon: Users, delay: 50 },
+  { label: "Ventas", path: "/ventas", icon: HandCoins, delay: 100 },
+  { label: "Ruta de Hoy", path: "/ruta-del-dia", icon: MapPin, delay: 150 },
 ];
 
-const MENU_ITEMS_ADMIN = [
-  { label: "Rutas", path: "/rutas", icon: Map, delay: 160 },
-  { label: "Usuarios", path: "/usuarios", icon: UserCog, delay: 200 },
-  { label: "Reportes", path: "/reportes", icon: FileBarChart2, delay: 240 },
-  { label: "Historial", path: "/historial", icon: ClipboardList, delay: 280 },
+const NAV_ADMIN = [
+  { label: "Rutas", path: "/rutas", icon: Map, delay: 200 },
+  { label: "Reportes", path: "/reportes", icon: FileBarChart2, delay: 250 },
+  { label: "Usuarios", path: "/usuarios", icon: UserCog, delay: 300 },
+  { label: "Historial", path: "/historial", icon: ClipboardList, delay: 350 },
 ];
 
-export default function Sidebar({ menuOpen, setMenuOpen, role }) {
+const SIDEBAR_BG = "#0f172a";
+const SIDEBAR_BG_ITEM_HOVER = "rgba(255,255,255,0.06)";
+
+export default function Sidebar({
+  usuario,
+  menuOpen,
+  setMenuOpen,
+  isMobile,
+  onLogout,
+  collapsed,
+  setCollapsed,
+}) {
   const navigate = useNavigate();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [itemsVisible, setItemsVisible] = useState(false);
-
-  const user = JSON.parse(localStorage.getItem("user"));
-  const isAdmin = role === "admin";
-  const isWorker = role === "worker";
+  const location = useLocation();
 
   const [dark, setDark] = useState(localStorage.getItem("theme") === "dark");
+  const visible = !isMobile || menuOpen;
 
   useEffect(() => {
     const html = document.documentElement;
@@ -43,160 +59,184 @@ export default function Sidebar({ menuOpen, setMenuOpen, role }) {
     }
   }, [dark]);
 
-  useEffect(() => {
-    let timeout;
-    if (menuOpen) {
-      timeout = setTimeout(() => setItemsVisible(true), 80);
-    } else {
-      setItemsVisible(false);
-    }
-    return () => clearTimeout(timeout);
-  }, [menuOpen]);
-
-  useEffect(() => {
-    if (!menuOpen) setProfileOpen(false);
-  }, [menuOpen]);
-
-  const toggleDark = () => setDark(!dark);
-
-  const handleNavigate = (path) => {
+  const handleNav = (path) => {
     navigate(path);
-    setMenuOpen(false);
+    if (isMobile) setMenuOpen(false);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/";
-  };
-
-  const allItems = isAdmin ? [...MENU_ITEMS_BASE, ...MENU_ITEMS_ADMIN] : MENU_ITEMS_BASE;
+  const items = usuario?.role === "admin" ? [...NAV, ...NAV_ADMIN] : NAV;
 
   return (
     <>
-      <div className="fixed top-4 right-4 z-[120] flex items-center gap-3">
-        <button
-          onClick={toggleDark}
-          aria-label="Cambiar tema"
-          className="relative w-14 h-8 flex items-center rounded-full px-1 transition-all duration-300 shadow-lg"
-          style={{ backgroundColor: "var(--secondary)" }}
-        >
-          <div
-            className="absolute w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 flex items-center justify-center bg-white"
-            style={{ transform: dark ? "translateX(24px)" : "translateX(0px)" }}
-          >
-            {dark ? <Moon size={14} className="text-slate-700" /> : <Sun size={14} className="text-yellow-500" />}
-          </div>
-        </button>
+      {isMobile && menuOpen && (
+        <div
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(2px)",
+            zIndex: 90,
+          }}
+        />
+      )}
 
-        <div className="relative">
-          <button
-            onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2 shadow-lg px-3 py-2 rounded-full hover:scale-105 active:scale-95 transition-transform duration-150"
-            style={{
-              backgroundColor: "var(--card)",
-              color: "var(--text)",
-              border: "1px solid var(--card-border)",
-            }}
-          >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-              style={{ backgroundColor: "var(--primary)" }}
-            >
-              <User size={16} />
-            </div>
-            <span className="text-sm font-semibold">{user?.username}</span>
-          </button>
-
-          <div
-            className="absolute right-0 top-12 w-44 rounded-xl shadow-xl overflow-hidden transition-all duration-200"
-            style={{
-              backgroundColor: "var(--card)",
-              border: "1px solid var(--card-border)",
-              opacity: profileOpen ? 1 : 0,
-              transform: profileOpen ? "translateY(0) scale(1)" : "translateY(-8px) scale(0.95)",
-              pointerEvents: profileOpen ? "auto" : "none",
-              transformOrigin: "top right",
-            }}
-          >
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150"
-            >
-              <LogOut size={15} />
-              <span className="text-sm font-medium">Cerrar sesión</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="fixed top-0 left-0 h-full w-72 text-white z-[100] shadow-2xl flex flex-col"
+      <aside
         style={{
-          backgroundColor: "var(--secondary)",
-          transform: menuOpen ? "translateX(0)" : "translateX(-100%)",
-          transition: menuOpen
-            ? "transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)"
-            : "transform 0.28s cubic-bezier(0.4, 0, 1, 1)",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100%",
+          width: collapsed ? 80 : 260,
+          background: SIDEBAR_BG,
+          color: "#fff",
+          zIndex: 100,
+          transform: isMobile ? (menuOpen ? "translateX(0)" : "translateX(-100%)") : "translateX(0)",
+          transition: "all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
+          display: "flex",
+          flexDirection: "column",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <div className="pt-6 px-6 pb-4 border-b border-white/10">
-          <div className="mt-10 flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg ring-1 ring-white/20 bg-white">
-              <img
-                src="/logo.jpeg"
-                alt="Logo Villas del Rosario"
-                className="w-full h-full object-cover"
-              />
+        <div style={{ padding: "1rem 1rem 0.5rem" }}>
+          <button
+            onClick={() => {
+              if (isMobile) setMenuOpen(!menuOpen);
+              else setCollapsed(!collapsed);
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              padding: "0.4rem",
+              borderRadius: 6,
+              display: "flex",
+            }}
+          >
+            {isMobile ? <X size={20} /> : <Menu size={20} />}
+          </button>
+
+          {!collapsed && (
+            <div style={{ marginTop: "0.75rem" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg ring-1 ring-white/20 bg-white">
+                  <img
+                    src="/logo.jpeg"
+                    alt="Logo Villas del Rosario"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <h2
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 700,
+                      color: "#fff",
+                      margin: 0,
+                    }}
+                  >
+                    Villas del Rosario
+                  </h2>
+                  <p style={{ fontSize: "0.75rem", opacity: 0.5, margin: "2px 0 0" }}>
+                    Sistema de cobros
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-base leading-tight">Villas del Rosario</p>
-              <p className="text-xs opacity-50 capitalize">{role}</p>
-            </div>
-          </div>
+          )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {allItems.map(({ label, path, icon: Icon, delay }) => (
-            <button
-              key={path}
-              onClick={() => handleNavigate(path)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium text-sm hover:bg-white/15 active:bg-white/25 active:scale-[0.98] transition-all duration-150"
-              style={{
-                opacity: itemsVisible ? 1 : 0,
-                transform: itemsVisible ? "translateX(0)" : "translateX(-18px)",
-                transition: `opacity 0.3s ease ${delay}ms, transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) ${delay}ms, background-color 0.15s ease`,
-              }}
-            >
-              <span className="opacity-80 flex-shrink-0">
-                <Icon size={18} />
-              </span>
-              <span>{label}</span>
-            </button>
-          ))}
-
-          {isWorker && (
-            <p className="text-xs opacity-40 px-4 pt-4">
-              Acceso limitado a funciones administrativas.
-            </p>
-          )}
+        <nav style={{ flex: 1, padding: "0.75rem 0.5rem", overflowY: "auto" }}>
+          {items.map((item) => {
+            const { label, path, delay } = item;
+            const ItemIcon = item.icon;
+            const isActive = location.pathname.startsWith(path);
+            return (
+              <div key={path} style={{ position: "relative" }}>
+                <button
+                  onClick={() => handleNav(path)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    gap: "0.75rem",
+                    width: "100%",
+                    padding: "0.65rem 0.75rem",
+                    borderRadius: 10,
+                    marginBottom: 4,
+                    border: "none",
+                    cursor: "pointer",
+                    background: isActive ? "var(--primary)" : SIDEBAR_BG_ITEM_HOVER,
+                    color: isActive ? "#fff" : "rgba(255,255,255,0.72)",
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: "0.9rem",
+                    opacity: visible ? 1 : 0,
+                    transform: visible ? "translateX(0)" : "translateX(-10px)",
+                    transition: `opacity 0.3s ease ${delay}ms,
+                                 transform 0.3s ease ${delay}ms,
+                                 background 0.15s ease,
+                                 color 0.15s ease`,
+                  }}
+                >
+                  <ItemIcon size={20} />
+                  {!collapsed && <span>{label}</span>}
+                </button>
+              </div>
+            );
+          })}
         </nav>
 
-        <div className="px-3 pb-6 pt-2 border-t border-white/10">
+        <div
+          style={{
+            padding: "0.75rem 0.5rem 1rem",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
           <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm text-red-300 hover:bg-red-500/20 active:scale-[0.98] transition-all duration-150"
+            onClick={() => setDark(!dark)}
             style={{
-              opacity: itemsVisible ? 1 : 0,
-              transform: itemsVisible ? "translateX(0)" : "translateX(-18px)",
-              transition: "opacity 0.3s ease 320ms, transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) 320ms",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: "0.6rem",
+              width: "100%",
+              padding: "0.6rem 0.75rem",
+              marginBottom: "0.4rem",
+              background: "transparent",
+              border: "none",
+              color: "rgba(255,255,255,0.72)",
+              cursor: "pointer",
+              borderRadius: 8,
+              fontSize: "0.9rem",
+            }}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+            {!collapsed && (dark ? "Modo claro" : "Modo oscuro")}
+          </button>
+
+          <button
+            onClick={onLogout}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: "0.6rem",
+              width: "100%",
+              padding: "0.6rem 0.75rem",
+              color: "#f87171",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              borderRadius: 8,
+              fontSize: "0.9rem",
             }}
           >
             <LogOut size={18} />
-            <span className="font-medium">Cerrar sesión</span>
+            {!collapsed && "Cerrar sesión"}
           </button>
         </div>
-      </div>
+      </aside>
     </>
   );
 }

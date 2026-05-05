@@ -1,80 +1,88 @@
+import { Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 
 export default function Layout() {
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const user = JSON.parse(localStorage.getItem("user"));
-  const role = user?.role;
+  const usuario = JSON.parse(localStorage.getItem("user"));
 
-  // Bloquear scroll cuando el menú está abierto
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [menuOpen]);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setMenuOpen(false);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isMobile && menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobile, menuOpen]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/");
+  };
+
+  const sidebarWidth = isMobile ? 0 : collapsed ? 80 : 260;
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "var(--bg)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+      {isMobile && (
+        <button
+          onClick={() => setMenuOpen(true)}
+          style={{
+            position: "fixed",
+            top: 14,
+            left: 14,
+            zIndex: 200,
+            background: "var(--primary)",
+            color: "#fff",
+            border: "none",
+            padding: "0.5rem",
+            borderRadius: 8,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+          }}
+        >
+          <Menu size={22} />
+        </button>
+      )}
 
-      {/* BOTÓN HAMBURGUESA ANIMADO */}
-      <button
-        onClick={() => setMenuOpen(!menuOpen)}
-        aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
-        className="fixed top-4 left-4 z-[200] w-11 h-11 flex flex-col items-center justify-center gap-[5px] rounded-xl shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
-        style={{ backgroundColor: "var(--primary)" }}
-      >
-        <span
-          className="block h-[2px] bg-white rounded-full transition-all duration-300 origin-center"
-          style={{
-            width: "20px",
-            transform: menuOpen ? "translateY(7px) rotate(45deg)" : "none",
-          }}
-        />
-        <span
-          className="block h-[2px] bg-white rounded-full transition-all duration-300"
-          style={{
-            width: "14px",
-            opacity: menuOpen ? 0 : 1,
-            transform: menuOpen ? "scaleX(0)" : "scaleX(1)",
-          }}
-        />
-        <span
-          className="block h-[2px] bg-white rounded-full transition-all duration-300 origin-center"
-          style={{
-            width: "20px",
-            transform: menuOpen ? "translateY(-7px) rotate(-45deg)" : "none",
-          }}
-        />
-      </button>
-
-      {/* BACKDROP */}
-      <div
-        onClick={() => setMenuOpen(false)}
-        className="fixed inset-0 z-[90] transition-all duration-300"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.45)",
-          backdropFilter: menuOpen ? "blur(2px)" : "blur(0px)",
-          opacity: menuOpen ? 1 : 0,
-          pointerEvents: menuOpen ? "auto" : "none",
-        }}
+      <Sidebar
+        usuario={usuario}
+        onLogout={handleLogout}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        isMobile={isMobile}
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
       />
 
-      {/* SIDEBAR */}
-      <Sidebar menuOpen={menuOpen} setMenuOpen={setMenuOpen} role={role} />
-
-      {/* CONTENIDO */}
-      <div className="flex-1 p-6">
+      <main
+        style={{
+          marginLeft: sidebarWidth,
+          padding: isMobile ? "3.5rem 1rem 1.5rem" : "2rem",
+          transition: "margin 0.3s ease",
+          minHeight: "100vh",
+        }}
+      >
         <Outlet />
-      </div>
-
-      {/* FOOTER */}
-      <footer className="text-center py-4 px-6">
-        <p className="text-xs opacity-25">
-          © 2026 <span className="font-semibold">hercor.nexus</span> — Todos los derechos reservados
-        </p>
-      </footer>
-
+      </main>
     </div>
   );
 }
