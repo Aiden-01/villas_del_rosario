@@ -175,13 +175,13 @@ export default function Clientes() {
 
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => navigate(`/prestamos/crear?clienteId=${selectedCliente.id}`)}
+                onClick={() => navigate(`/ventas/crear?clienteId=${selectedCliente.id}`)}
                 className="w-full py-2 bg-green-500 text-white rounded-xl font-semibold hover:opacity-90"
               >
                 + Crear Venta
               </button>
               <button
-                onClick={() => navigate(`/prestamos?clienteId=${selectedCliente.id}`)}
+                onClick={() => navigate(`/ventas?clienteId=${selectedCliente.id}`)}
                 className="w-full py-2 bg-[var(--secondary)] text-white rounded-xl font-semibold hover:opacity-90"
               >
                 Ver Ventas

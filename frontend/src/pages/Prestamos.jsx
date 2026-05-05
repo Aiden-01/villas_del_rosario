@@ -10,7 +10,7 @@ import {
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
 const ROUTES = {
-  PRESTAMOS: `${API_URL}/api/prestamos`,
+  PRESTAMOS: `${API_URL}/api/ventas`,
   CLIENTES: `${API_URL}/api/clientes`,
   PAGOS: `${API_URL}/api/pagos`,
 };
@@ -95,7 +95,7 @@ export default function Prestamos() {
     setLoadingPagos(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${ROUTES.PAGOS}/prestamo/${prestamoId}`, {
+      const res = await fetch(`${ROUTES.PAGOS}/venta/${prestamoId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -234,7 +234,7 @@ export default function Prestamos() {
           )}
         </div>
         <button
-          onClick={() => navigate(clienteId ? `/prestamos/crear?clienteId=${clienteId}` : "/prestamos/crear")}
+          onClick={() => navigate(clienteId ? `/ventas/crear?clienteId=${clienteId}` : "/ventas/crear")}
           className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
         >
           <Plus size={16} />
@@ -473,7 +473,7 @@ export default function Prestamos() {
 
               {!esPagado && (
                 <button
-                  onClick={() => navigate(`/prestamos/editar/${selectedPrestamo.id}`)}
+                  onClick={() => navigate(`/ventas/editar/${selectedPrestamo.id}`)}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
                 >
                   <Pencil size={15} />

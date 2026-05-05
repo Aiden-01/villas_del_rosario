@@ -26,7 +26,7 @@ export default function Dashboard() {
 
         <div className="flex flex-wrap gap-4">
           <button
-            onClick={() => navigate("/prestamos/crear")}
+            onClick={() => navigate("/ventas/crear")}
             className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
             style={{ backgroundColor: "var(--secondary)" }}
           >
@@ -70,13 +70,13 @@ export default function Dashboard() {
         <div
           className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-          onClick={() => navigate("/prestamos")}
+          onClick={() => navigate("/ventas")}
         >
           <div className="flex justify-center mb-2">
             <HandCoins size={32} style={{ color: "var(--secondary)" }} />
           </div>
           <p className="font-semibold mt-2">Ventas</p>
-          <p className="text-sm opacity-60">Ver todos los financiamientos</p>
+          <p className="text-sm opacity-60">Ver todas las ventas y sus cuotas</p>
         </div>
 
         <div

@@ -525,7 +525,7 @@ export default function RutaDelDia() {
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}>
                 <div className="flex justify-center mb-4"><PartyPopper size={48} className="opacity-40" /></div>
                 <p className="text-xl font-bold">¡No hay cobros para hoy!</p>
-                <p className="text-sm opacity-60 mt-1">No hay préstamos con visita programada para {hoyNombre}.</p>
+                <p className="text-sm opacity-60 mt-1">No hay ventas con visita programada para {hoyNombre}.</p>
               </div>
             )}
           </>

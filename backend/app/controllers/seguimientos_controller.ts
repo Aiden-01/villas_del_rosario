@@ -42,7 +42,7 @@ export default class SeguimientosController {
         tipo: 'crear',
         entidad: 'pago',
         entidadId: seguimiento.id,
-        descripcion: `Registró seguimiento (${data.tipo}) para préstamo #${data.prestamoId} — próxima visita: ${data.fechaSeguimiento}`,
+        descripcion: `Registró seguimiento (${data.tipo}) para venta #${data.prestamoId} - próxima visita: ${data.fechaSeguimiento}`,
         detalle: { nota: data.nota, fechaSeguimiento: data.fechaSeguimiento },
       })
 

@@ -56,12 +56,12 @@ export default function PrestamoForm({ mode, prestamoId }) {
       }
       const term = busquedaCliente.toLowerCase();
       setClientesFiltrados(
-        clientes.filter((c) => {
-          const fullName = `${c.nombres} ${c.apellidos}`.toLowerCase();
+        clientes.filter((cliente) => {
+          const fullName = `${cliente.nombres} ${cliente.apellidos}`.toLowerCase();
           return (
             fullName.includes(term) ||
-            (c.telefono || "").toLowerCase().includes(term) ||
-            (c.direccion || "").toLowerCase().includes(term)
+            (cliente.telefono || "").toLowerCase().includes(term) ||
+            (cliente.direccion || "").toLowerCase().includes(term)
           );
         })
       );
@@ -78,7 +78,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
       setClientes(res.data);
       setClientesFiltrados(res.data);
       if (clienteIdFromUrl) {
-        const encontrado = res.data.find((c) => c.id === parseInt(clienteIdFromUrl));
+        const encontrado = res.data.find((cliente) => cliente.id === parseInt(clienteIdFromUrl));
         if (encontrado) setClientePreseleccionado(encontrado);
       }
     } catch (error) {
@@ -89,7 +89,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
   const obtenerPrestamo = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/prestamos/${prestamoId}`, {
+      const res = await axios.get(`${API_URL}/api/ventas/${prestamoId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const prestamo = res.data;
@@ -116,17 +116,17 @@ export default function PrestamoForm({ mode, prestamoId }) {
     try {
       const token = localStorage.getItem("token");
       if (isEdit) {
-        await axios.put(`${API_URL}/api/prestamos/${prestamoId}`, formData, {
+        await axios.put(`${API_URL}/api/ventas/${prestamoId}`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Venta actualizada correctamente", "success");
       } else {
-        await axios.post(`${API_URL}/api/prestamos`, formData, {
+        await axios.post(`${API_URL}/api/ventas`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Venta creada correctamente", "success");
       }
-      setTimeout(() => navigate("/prestamos"), 1500);
+      setTimeout(() => navigate("/ventas"), 1500);
     } catch (error) {
       console.error(error);
       const mensaje = error?.response?.data?.message || "Error al guardar la venta";
@@ -174,10 +174,10 @@ export default function PrestamoForm({ mode, prestamoId }) {
               style={inputStyle}
               size={clientesFiltrados.length > 0 && busquedaCliente ? Math.min(clientesFiltrados.length + 1, 6) : 1}
             >
-              <option value="">— Seleccionar cliente —</option>
-              {clientesFiltrados.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombres} {c.apellidos} — {c.telefono}
+              <option value="">- Seleccionar cliente -</option>
+              {clientesFiltrados.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.nombres} {cliente.apellidos} - {cliente.telefono}
                 </option>
               ))}
             </select>
@@ -204,7 +204,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
 
         <input
           type="text"
-          placeholder="Área del lote (ej. 400 m²)"
+          placeholder="Área del lote (ej. 400 m2)"
           value={formData.areaLote}
           onChange={(e) => setFormData({ ...formData, areaLote: e.target.value })}
           className="w-full p-2 rounded"
@@ -263,8 +263,10 @@ export default function PrestamoForm({ mode, prestamoId }) {
             className="w-full p-2 rounded"
             style={inputStyle}
           >
-            {FRECUENCIAS.map((f) => (
-              <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+            {FRECUENCIAS.map((frecuencia) => (
+              <option key={frecuencia} value={frecuencia}>
+                {frecuencia.charAt(0).toUpperCase() + frecuencia.slice(1)}
+              </option>
             ))}
           </select>
         </div>

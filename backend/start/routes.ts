@@ -61,8 +61,21 @@ router
 
 router
   .group(() => {
+    router.get('/', [PrestamosController, 'index'])
+    router.get('/cliente/:clienteId', [PrestamosController, 'byCliente'])
+    router.get('/:id', [PrestamosController, 'show'])
+    router.post('/', [PrestamosController, 'store'])
+    router.put('/:id', [PrestamosController, 'update'])
+    router.delete('/:id', [PrestamosController, 'destroy']).use(middleware.admin())
+  })
+  .prefix('api/ventas')
+  .use(middleware.auth())
+
+router
+  .group(() => {
     router.get('/', [PagosController, 'index'])
     router.get('/prestamo/:prestamoId', [PagosController, 'byPrestamo'])
+    router.get('/venta/:prestamoId', [PagosController, 'byPrestamo'])
     router.post('/', [PagosController, 'store'])
     router.delete('/:id', [PagosController, 'destroy']).use(middleware.admin())
   })
@@ -72,7 +85,9 @@ router
 router
   .group(() => {
     router.get('/pagos', [ReportesController, 'pagos'])
+    router.get('/ventas', [ReportesController, 'ventas'])
     router.get('/prestamos', [ReportesController, 'prestamos'])
+    router.get('/cartera', [ReportesController, 'cartera'])
     router.get('/ganancias', [ReportesController, 'ganancias'])
     router.get('/exportar/excel', [ReportesController, 'exportarExcel'])
     router.get('/exportar/pdf', [ReportesController, 'exportarPDF'])
@@ -103,6 +118,7 @@ router
     router.post('/', [SeguimientosController, 'store'])
     router.put('/:id/resolver', [SeguimientosController, 'resolver'])
     router.get('/prestamo/:prestamoId', [SeguimientosController, 'byPrestamo'])
+    router.get('/venta/:prestamoId', [SeguimientosController, 'byPrestamo'])
   })
   .prefix('api/seguimientos')
   .use(middleware.auth())

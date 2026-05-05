@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -35,8 +35,11 @@ function App() {
           <Route path="/clientes/crear" element={<CrearCliente />} />
           <Route path="/clientes/editar/:clienteId" element={<CrearCliente />} />
 
-          <Route path="/prestamos" element={<Prestamos />} />
-          <Route path="/prestamos/crear" element={<CrearPrestamo />} />
+          <Route path="/ventas" element={<Prestamos />} />
+          <Route path="/ventas/crear" element={<CrearPrestamo />} />
+          <Route path="/ventas/editar/:ventaId" element={<CrearPrestamo />} />
+          <Route path="/prestamos" element={<Navigate to="/ventas" replace />} />
+          <Route path="/prestamos/crear" element={<Navigate to="/ventas/crear" replace />} />
           <Route path="/prestamos/editar/:prestamoId" element={<CrearPrestamo />} />
 
           <Route path="/ruta-del-dia" element={<RutaDelDia />} />

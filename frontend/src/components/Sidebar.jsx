@@ -10,7 +10,7 @@ import {
 const MENU_ITEMS_BASE = [
   { label: "Inicio", path: "/dashboard", icon: LayoutDashboard, delay: 0 },
   { label: "Clientes", path: "/clientes", icon: Users, delay: 40 },
-  { label: "Ventas", path: "/prestamos", icon: HandCoins, delay: 80 },
+  { label: "Ventas", path: "/ventas", icon: HandCoins, delay: 80 },
   { label: "Ruta de Hoy", path: "/ruta-del-dia", icon: MapPin, delay: 120 },
 ];
 
