@@ -30,42 +30,37 @@ export default function ClienteForm({ mode, clienteId }) {
   };
 
   useEffect(() => {
-    cargarRutas();
-    if (isEdit && clienteId) obtenerCliente();
-  }, [clienteId]);
+    const cargarDatos = async () => {
+      try {
+        const token = localStorage.getItem("token");
 
-  const cargarRutas = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/rutas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setRutas(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.error("Error cargando rutas:", error);
-    }
-  };
+        const resRutas = await axios.get(`${API_URL}/api/rutas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setRutas(Array.isArray(resRutas.data) ? resRutas.data : []);
 
-  const obtenerCliente = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/clientes/${clienteId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const cliente = res.data;
-      setFormData({
-        nombres: cliente.nombres || "",
-        apellidos: cliente.apellidos || "",
-        telefono: cliente.telefono || "",
-        direccion: cliente.direccion || "",
-        zona: cliente.zona || "",
-        rutaId: cliente.rutaId || "",
-        ordenVisita: cliente.ordenVisita || "",
-      });
-    } catch (error) {
-      console.error("Error cargando cliente:", error);
-    }
-  };
+        if (isEdit && clienteId) {
+          const resCliente = await axios.get(`${API_URL}/api/clientes/${clienteId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const cliente = resCliente.data;
+          setFormData({
+            nombres: cliente.nombres || "",
+            apellidos: cliente.apellidos || "",
+            telefono: cliente.telefono || "",
+            direccion: cliente.direccion || "",
+            zona: cliente.zona || "",
+            rutaId: cliente.rutaId || "",
+            ordenVisita: cliente.ordenVisita || "",
+          });
+        }
+      } catch (error) {
+        console.error("Error cargando datos del cliente:", error);
+      }
+    };
+
+    cargarDatos();
+  }, [clienteId, isEdit]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
