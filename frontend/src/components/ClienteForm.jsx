@@ -140,7 +140,7 @@ export default function ClienteForm({ mode, clienteId }) {
           </label>
           <input
             type="text"
-            placeholder="Ej: El Chal - Barrio Minerva"
+            placeholder="Ej: El Chal - Barrio El Paraíso"
             value={formData.zona}
             onChange={(e) => setFormData({ ...formData, zona: e.target.value })}
             className="w-full p-2 rounded"

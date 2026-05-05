@@ -403,7 +403,10 @@ export default function Prestamos() {
               <p><span className="font-semibold">Cuotas:</span> {pagos.length}/{selectedPrestamo.cuotas}</p>
               <p><span className="font-semibold">Fracción:</span> {`${pagos.length}/${selectedPrestamo.cuotas}`}</p>
               <p><span className="font-semibold">Porcentaje:</span> {Math.round(((pagos.length / selectedPrestamo.cuotas) || 0) * 100)}%</p>
-              <p><span className="font-semibold">Cobro:</span> {selectedPrestamo.tipoCobro === "automatico" ? "Automático" : "Manual"}</p>
+              <p><span className="font-semibold">Cobro:</span> Manual</p>
+              {selectedPrestamo.fechaCobro && (
+                <p><span className="font-semibold">Fecha pactada:</span> {formatearFecha(selectedPrestamo.fechaCobro)}</p>
+              )}
               <p><span className="font-semibold">Fecha inicio:</span> {formatearFecha(selectedPrestamo.fechaInicio)}</p>
               <p><span className="font-semibold">Fecha fin:</span> {formatearFecha(selectedPrestamo.fechaFin)}</p>
               <hr style={{ borderColor: "var(--card-border)" }} />

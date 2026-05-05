@@ -7,7 +7,6 @@ import { User, Search, CalendarDays } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const FRECUENCIAS = ["mensual"];
-const TIPOS_COBRO = ["manual", "automatico"];
 
 export default function PrestamoForm({ mode, prestamoId }) {
   const navigate = useNavigate();
@@ -25,9 +24,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
     numeroLote: "",
     medidaLote: "",
     areaLote: "",
-    tipoCobro: "manual",
     fechaCobro: "",
-    ultimoPagoAutomatico: "",
     interes: 0,
   });
 
@@ -106,9 +103,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
         numeroLote: prestamo.numeroLote || "",
         medidaLote: prestamo.medidaLote || "",
         areaLote: prestamo.areaLote || "",
-        tipoCobro: prestamo.tipoCobro || "manual",
         fechaCobro: prestamo.fechaCobro?.split("T")[0] || "",
-        ultimoPagoAutomatico: prestamo.ultimoPagoAutomatico?.split("T")[0] || "",
         interes: 0,
       });
     } catch (error) {
@@ -276,25 +271,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
 
         <div>
           <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-            Tipo de cobro
-          </label>
-          <select
-            value={formData.tipoCobro}
-            onChange={(e) => setFormData({ ...formData, tipoCobro: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
-          >
-            {TIPOS_COBRO.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {tipo === "automatico" ? "Automático" : "Manual"}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-            Fecha de cobro
+            Fecha de cobro pactada
           </label>
           <input
             type="date"
@@ -303,22 +280,10 @@ export default function PrestamoForm({ mode, prestamoId }) {
             className="w-full p-2 rounded"
             style={inputStyle}
           />
+          <p className="text-xs mt-1 opacity-60">
+            Solo como referencia para saber cuándo corresponde registrar manualmente la cuota.
+          </p>
         </div>
-
-        {formData.tipoCobro === "automatico" && (
-          <div>
-            <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-              Último pago automático
-            </label>
-            <input
-              type="date"
-              value={formData.ultimoPagoAutomatico}
-              onChange={(e) => setFormData({ ...formData, ultimoPagoAutomatico: e.target.value })}
-              className="w-full p-2 rounded"
-              style={inputStyle}
-            />
-          </div>
-        )}
 
         {isEdit && (
           <div
@@ -326,8 +291,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
             style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}
           >
             <p className="opacity-50 text-xs">
-              El estado de la venta es controlado automáticamente por el sistema.
-              Solo un administrador puede modificarlo si es necesario.
+              Los cobros se registran manualmente para mantener control total del sistema.
             </p>
           </div>
         )}

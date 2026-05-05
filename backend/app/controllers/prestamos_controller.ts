@@ -95,7 +95,7 @@ export default class PrestamosController {
         'clienteId', 'monto', 'interes', 'cuotas',
         'fechaInicio', 'fechaFin', 'frecuenciaPago',
         'numeroLote', 'medidaLote', 'areaLote',
-        'tipoCobro', 'fechaCobro', 'ultimoPagoAutomatico',
+        'fechaCobro',
       ])
 
       if (
@@ -113,6 +113,8 @@ export default class PrestamosController {
         ...data,
         interes: 0,
         frecuenciaPago: data.frecuenciaPago || 'mensual',
+        tipoCobro: 'manual',
+        ultimoPagoAutomatico: null,
         estado: 'activo',
       })
       await prestamo.load('cliente')
@@ -127,7 +129,7 @@ export default class PrestamosController {
           monto: prestamo.monto,
           cuotas: prestamo.cuotas,
           numeroLote: prestamo.numeroLote,
-          tipoCobro: prestamo.tipoCobro,
+          tipoCobro: 'manual',
         },
       })
 
@@ -148,12 +150,14 @@ export default class PrestamosController {
 
       const camposPermitidos = [
         'monto', 'interes', 'cuotas', 'fechaInicio', 'fechaFin', 'frecuenciaPago',
-        'numeroLote', 'medidaLote', 'areaLote', 'tipoCobro', 'fechaCobro', 'ultimoPagoAutomatico',
+        'numeroLote', 'medidaLote', 'areaLote', 'fechaCobro',
       ]
       if (user.role === 'admin') camposPermitidos.push('estado')
 
       const data = request.only(camposPermitidos)
       if ('interes' in data) data.interes = 0
+      data.tipoCobro = 'manual'
+      data.ultimoPagoAutomatico = null
 
       prestamo.merge(data)
       await prestamo.save()
