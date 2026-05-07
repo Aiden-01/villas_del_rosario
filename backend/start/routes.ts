@@ -11,9 +11,7 @@ const ClientsController = () => import('#controllers/clients_controller')
 const PrestamosController = () => import('#controllers/prestamos_controller')
 const PagosController = () => import('#controllers/pagos_controller')
 const ReportesController = () => import('#controllers/reportes_controller')
-const RutasController = () => import('#controllers/rutas_controller')
 const ActividadesController = () => import('#controllers/actividades_controller')
-const SeguimientosController = () => import('#controllers/seguimientos_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando' }
@@ -37,8 +35,6 @@ router
 router
   .group(() => {
     router.get('/', [ClientsController, 'index'])
-    router.put('/ordenar', [ClientsController, 'actualizarOrdenes'])
-    router.put('/ordenar-rutas', [ClientsController, 'actualizarOrdenRutas'])
     router.get('/:id', [ClientsController, 'show'])
     router.post('/', [ClientsController, 'store'])
     router.put('/:id', [ClientsController, 'update'])
@@ -74,9 +70,12 @@ router
 router
   .group(() => {
     router.get('/', [PagosController, 'index'])
+    router.get('/agenda', [PagosController, 'agenda'])
+    router.get('/calendario', [PagosController, 'calendario'])
     router.get('/prestamo/:prestamoId', [PagosController, 'byPrestamo'])
     router.get('/venta/:prestamoId', [PagosController, 'byPrestamo'])
     router.post('/', [PagosController, 'store'])
+    router.post('/programaciones', [PagosController, 'programar'])
     router.delete('/:id', [PagosController, 'destroy']).use(middleware.admin())
   })
   .prefix('api/pagos')
@@ -97,28 +96,7 @@ router
 
 router
   .group(() => {
-    router.get('/hoy', [RutasController, 'rutaDelDia'])
-    router.get('/', [RutasController, 'index'])
-    router.post('/', [RutasController, 'store']).use(middleware.admin())
-    router.put('/:id', [RutasController, 'update']).use(middleware.admin())
-    router.delete('/:id', [RutasController, 'destroy']).use(middleware.admin())
-  })
-  .prefix('api/rutas')
-  .use(middleware.auth())
-
-router
-  .group(() => {
     router.get('/', [ActividadesController, 'index'])
   })
   .prefix('api/historial')
-  .use(middleware.auth())
-
-router
-  .group(() => {
-    router.post('/', [SeguimientosController, 'store'])
-    router.put('/:id/resolver', [SeguimientosController, 'resolver'])
-    router.get('/prestamo/:prestamoId', [SeguimientosController, 'byPrestamo'])
-    router.get('/venta/:prestamoId', [SeguimientosController, 'byPrestamo'])
-  })
-  .prefix('api/seguimientos')
   .use(middleware.auth())

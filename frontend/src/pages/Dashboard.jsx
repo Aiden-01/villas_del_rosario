@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, HandCoins, MapPin, Map, Plus } from "lucide-react";
+import { Users, HandCoins, Plus, FileBarChart2, CalendarDays } from "lucide-react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -12,7 +12,8 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold">
           Bienvenido, {user?.username || "Usuario"}
         </h1>
-        <p className="opacity-70">Panel principal del sistema de cobros</p>
+        <p className="opacity-70">Panel principal del sistema de lotificaciones</p>
+        <p className="opacity-70">Control de clientes, ventas y pagos</p>
         <p className="opacity-70">Villas del Rosario</p>
       </div>
 
@@ -21,7 +22,7 @@ export default function Dashboard() {
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
       >
         <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--secondary)" }}>
-          Acciones rápidas
+          Acciones rapidas
         </h2>
 
         <div className="flex flex-wrap gap-4">
@@ -43,18 +44,29 @@ export default function Dashboard() {
             Crear Cliente
           </button>
 
+          {isAdmin && (
+            <button
+              onClick={() => navigate("/reportes")}
+              className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
+              style={{ backgroundColor: "#0f766e" }}
+            >
+              <FileBarChart2 size={16} />
+              Ver Reportes
+            </button>
+          )}
+
           <button
-            onClick={() => navigate("/ruta-del-dia")}
+            onClick={() => navigate("/pagos")}
             className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow transition hover:scale-105 hover:opacity-90"
-            style={{ backgroundColor: "#16a34a" }}
+            style={{ backgroundColor: "#0f766e" }}
           >
-            <MapPin size={16} />
-            Ruta de Hoy
+            <CalendarDays size={16} />
+            Agenda de Pagos
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${isAdmin ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div
           className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
@@ -82,26 +94,26 @@ export default function Dashboard() {
         <div
           className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-          onClick={() => navigate("/ruta-del-dia")}
+          onClick={() => navigate("/pagos")}
         >
           <div className="flex justify-center mb-2">
-            <MapPin size={32} style={{ color: "#16a34a" }} />
+            <CalendarDays size={32} style={{ color: "#0f766e" }} />
           </div>
-          <p className="font-semibold mt-2">Ruta de Hoy</p>
-          <p className="text-sm opacity-60">Ver cobros del día</p>
+          <p className="font-semibold mt-2">Pagos</p>
+          <p className="text-sm opacity-60">Ver agenda de cobros y reprogramaciones</p>
         </div>
 
         {isAdmin && (
           <div
             className="p-5 rounded-xl shadow text-center cursor-pointer hover:scale-105 transition"
             style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
-            onClick={() => navigate("/rutas")}
+            onClick={() => navigate("/reportes")}
           >
             <div className="flex justify-center mb-2">
-              <Map size={32} style={{ color: "var(--secondary)" }} />
+              <FileBarChart2 size={32} style={{ color: "#0f766e" }} />
             </div>
-            <p className="font-semibold mt-2">Rutas</p>
-            <p className="text-sm opacity-60">Gestionar rutas de cobro</p>
+            <p className="font-semibold mt-2">Reportes</p>
+            <p className="text-sm opacity-60">Resumen de cartera y pagos</p>
           </div>
         )}
       </div>

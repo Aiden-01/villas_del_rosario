@@ -27,6 +27,28 @@ const fechaMasUnDia = (fecha?: string) => {
 
 const formatearMoneda = (valor: number) => `Q${Number(valor || 0).toFixed(2)}`
 
+const calcularCuotaMonto = (prestamo: Prestamo) =>
+  Number((Number(prestamo.monto) / Number(prestamo.cuotas || 1)).toFixed(2))
+
+const calcularCuotasPagadas = (prestamo: Prestamo) => {
+  const cuotaMonto = calcularCuotaMonto(prestamo)
+  const pagosPorCuota = new Map<number, number>()
+
+  for (const pago of prestamo.pagos || []) {
+    const actual = pagosPorCuota.get(pago.numeroCuota) || 0
+    pagosPorCuota.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)))
+  }
+
+  let completas = 0
+  for (let cuota = 1; cuota <= Number(prestamo.cuotas || 0); cuota++) {
+    if ((pagosPorCuota.get(cuota) || 0) + 0.01 >= cuotaMonto) {
+      completas++
+    }
+  }
+
+  return completas
+}
+
 const normalizarTipoReporte = (tipo?: string) => {
   if (tipo === 'prestamos') return 'ventas'
   if (tipo === 'ganancias') return 'cartera'
@@ -89,7 +111,7 @@ const calcularCobrado = (prestamo: Prestamo) =>
 const calcularResumenVenta = (prestamo: Prestamo) => {
   const cobrado = calcularCobrado(prestamo)
   const saldoPendiente = Math.max(Number(prestamo.monto) - cobrado, 0)
-  const cuotasPagadas = prestamo.pagos?.length || 0
+  const cuotasPagadas = calcularCuotasPagadas(prestamo)
   const totalCuotas = Number(prestamo.cuotas || 0)
   const porcentaje = totalCuotas > 0 ? Math.round((cuotasPagadas / totalCuotas) * 100) : 0
   const ultimoPago = [...(prestamo.pagos || [])]
@@ -137,7 +159,7 @@ export default class ReportesController {
       const pagos = await Pago.query()
         .where('fecha_pago', '>=', fechaInicio)
         .where('fecha_pago', '<', fechaMasUnDia(fechaFin)!)
-        .preload('prestamo', (query) => query.preload('cliente'))
+        .preload('prestamo', (query) => query.preload('cliente').preload('lote'))
         .preload('usuario')
         .orderBy('fecha_pago', 'asc')
 
@@ -154,7 +176,7 @@ export default class ReportesController {
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { estado, fechaInicio, fechaFin } = request.qs()
-      const query = Prestamo.query().preload('cliente').preload('pagos')
+      const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
 
       if (estado) query.where('estado', estado)
       if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
@@ -179,7 +201,7 @@ export default class ReportesController {
 
       const { estado, fechaInicio, fechaFin } = request.qs()
 
-      const query = Prestamo.query().preload('cliente').preload('pagos')
+      const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
       if (estado) query.where('estado', estado)
       if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
       if (fechaFin) query.where('fecha_inicio', '<', fechaMasUnDia(fechaFin)!)
@@ -234,7 +256,7 @@ export default class ReportesController {
         const pagos = await Pago.query()
           .where('fecha_pago', '>=', fechaInicio)
           .where('fecha_pago', '<', fechaFinStr!)
-          .preload('prestamo', (query) => query.preload('cliente'))
+          .preload('prestamo', (query) => query.preload('cliente').preload('lote'))
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
 
@@ -283,7 +305,7 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Ventas')
         sheet.properties.defaultRowHeight = 20
 
-        const query = Prestamo.query().preload('cliente').preload('pagos')
+        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
@@ -352,7 +374,7 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Cartera')
         sheet.properties.defaultRowHeight = 20
 
-        const query = Prestamo.query().preload('cliente').preload('pagos')
+        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
@@ -449,7 +471,7 @@ export default class ReportesController {
         const pagos = await Pago.query()
           .where('fecha_pago', '>=', fechaInicio)
           .where('fecha_pago', '<', fechaFinStr!)
-          .preload('prestamo', (query) => query.preload('cliente'))
+          .preload('prestamo', (query) => query.preload('cliente').preload('lote'))
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
 
@@ -465,7 +487,7 @@ export default class ReportesController {
       }
 
       if (tipo === 'ventas') {
-        const query = Prestamo.query().preload('cliente').preload('pagos')
+        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
@@ -483,7 +505,7 @@ export default class ReportesController {
       }
 
       if (tipo === 'cartera') {
-        const query = Prestamo.query().preload('cliente').preload('pagos')
+        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)

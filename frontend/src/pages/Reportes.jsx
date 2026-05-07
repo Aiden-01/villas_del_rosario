@@ -24,6 +24,23 @@ const formatearFecha = (fecha) => {
 const formatearMoneda = (monto) =>
   Number(monto || 0).toLocaleString("es-GT", { minimumFractionDigits: 2 });
 
+const calcularCuotasPagadas = (venta) => {
+  const cuotaMensual = Number(venta.monto) / Number(venta.cuotas || 1);
+  const pagosPorCuota = new Map();
+
+  (venta.pagos || []).forEach((pago) => {
+    const actual = pagosPorCuota.get(pago.numeroCuota) || 0;
+    pagosPorCuota.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)));
+  });
+
+  let completas = 0;
+  for (let cuota = 1; cuota <= Number(venta.cuotas || 0); cuota++) {
+    if ((pagosPorCuota.get(cuota) || 0) + 0.01 >= cuotaMensual) completas += 1;
+  }
+
+  return completas;
+};
+
 const TABS = [
   { key: "pagos", label: "Pagos", icon: CreditCard },
   { key: "ventas", label: "Ventas", icon: ClipboardList },
@@ -333,7 +350,7 @@ export default function Reportes() {
                   </thead>
                   <tbody>
                     {datos.map((venta) => {
-                      const cuotasPagadas = venta.pagos?.length || 0;
+                      const cuotasPagadas = calcularCuotasPagadas(venta);
                       const porcentaje = venta.cuotas ? Math.round((cuotasPagadas / venta.cuotas) * 100) : 0;
                       const totalCobrado = (venta.pagos || []).reduce(
                         (suma, pago) => suma + Number(pago.montoPagado),

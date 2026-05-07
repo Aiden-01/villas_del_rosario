@@ -4,11 +4,10 @@ import {
   LayoutDashboard,
   Users,
   HandCoins,
+  CalendarDays,
   FileBarChart2,
   UserCog,
   ClipboardList,
-  Map,
-  MapPin,
   X,
   LogOut,
   Menu,
@@ -20,14 +19,13 @@ const NAV = [
   { label: "Inicio", path: "/dashboard", icon: LayoutDashboard, delay: 0 },
   { label: "Clientes", path: "/clientes", icon: Users, delay: 50 },
   { label: "Ventas", path: "/ventas", icon: HandCoins, delay: 100 },
-  { label: "Ruta de Hoy", path: "/ruta-del-dia", icon: MapPin, delay: 150 },
+  { label: "Pagos", path: "/pagos", icon: CalendarDays, delay: 150 },
 ];
 
 const NAV_ADMIN = [
-  { label: "Rutas", path: "/rutas", icon: Map, delay: 200 },
-  { label: "Reportes", path: "/reportes", icon: FileBarChart2, delay: 250 },
-  { label: "Usuarios", path: "/usuarios", icon: UserCog, delay: 300 },
-  { label: "Historial", path: "/historial", icon: ClipboardList, delay: 350 },
+  { label: "Reportes", path: "/reportes", icon: FileBarChart2, delay: 200 },
+  { label: "Usuarios", path: "/usuarios", icon: UserCog, delay: 250 },
+  { label: "Historial", path: "/historial", icon: ClipboardList, delay: 300 },
 ];
 
 const SIDEBAR_BG = "#0f172a";
@@ -139,7 +137,7 @@ export default function Sidebar({
                     Villas del Rosario
                   </h2>
                   <p style={{ fontSize: "0.75rem", opacity: 0.5, margin: "2px 0 0" }}>
-                    Sistema de cobros
+                    Sistema de lotificaciones
                   </p>
                 </div>
               </div>
@@ -233,7 +231,7 @@ export default function Sidebar({
             }}
           >
             <LogOut size={18} />
-            {!collapsed && "Cerrar sesión"}
+            {!collapsed && "Cerrar sesion"}
           </button>
         </div>
       </aside>

@@ -3,7 +3,7 @@ import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
 import {
   ClipboardList, RefreshCw, Plus, Pencil, X,
-  HandCoins, KeyRound, User, DollarSign, Map,
+  HandCoins, KeyRound, User, DollarSign,
   Users, Pin, Inbox, Calendar, Clock
 } from "lucide-react";
 
@@ -21,12 +21,11 @@ const ENTIDAD_CONFIG = {
   cliente:  { icon: User,       label: "Cliente" },
   prestamo: { icon: DollarSign, label: "Venta" },
   pago:     { icon: HandCoins,  label: "Pago" },
-  ruta:     { icon: Map,        label: "Ruta" },
   usuario:  { icon: Users,      label: "Usuario" },
 };
 
 const FILTROS_TIPO = ["todos", "crear", "actualizar", "eliminar", "pago"];
-const FILTROS_ENTIDAD = ["todos", "cliente", "prestamo", "pago", "ruta", "usuario"];
+const FILTROS_ENTIDAD = ["todos", "cliente", "prestamo", "pago", "usuario"];
 
 export default function Historial() {
   const [actividades, setActividades] = useState([]);

@@ -19,11 +19,7 @@ export default class ClientsController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const clients = await Client.query()
-        .preload('ruta')
-        .orderBy('ruta_id', 'asc')
-        .orderBy('orden_visita', 'asc')
-
+      const clients = await Client.query().orderBy('nombres', 'asc').orderBy('apellidos', 'asc')
       return response.ok(clients)
     } catch (error) {
       console.error(error)
@@ -37,10 +33,7 @@ export default class ClientsController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only([
-        'nombres', 'apellidos', 'telefono', 'direccion',
-        'zona', 'rutaId', 'ordenVisita',
-      ])
+      const data = request.only(['nombres', 'apellidos', 'telefono', 'direccion', 'zona'])
 
       if (!data.nombres || !data.apellidos || !data.telefono || !data.direccion) {
         return response.badRequest({ message: 'Todos los campos son obligatorios' })
@@ -71,10 +64,7 @@ export default class ClientsController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const client = await Client.findOrFail(params.id)
-      const data = request.only([
-        'nombres', 'apellidos', 'telefono', 'direccion',
-        'zona', 'rutaId', 'ordenVisita',
-      ])
+      const data = request.only(['nombres', 'apellidos', 'telefono', 'direccion', 'zona'])
 
       client.merge(data)
       await client.save()
@@ -129,62 +119,13 @@ export default class ClientsController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const client = await Client.query()
-        .where('id', params.id)
-        .preload('ruta')
-        .first()
+      const client = await Client.query().where('id', params.id).first()
 
       if (!client) return response.notFound({ message: 'Cliente no encontrado' })
       return response.ok(client)
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al obtener cliente' })
-    }
-  }
-
-  async actualizarOrdenes({ request, response }: HttpContext) {
-    try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-      if (!user) return response.forbidden({ message: 'No autorizado' })
-
-      const { ordenes } = request.body()
-      for (const item of ordenes) {
-        const client = await Client.find(item.id)
-        if (client) {
-          client.ordenVisita = item.ordenVisita
-          await client.save()
-        }
-      }
-
-      return response.ok({ message: 'Orden actualizado correctamente' })
-    } catch (error) {
-      console.error(error)
-      return response.internalServerError({ message: 'Error al actualizar orden' })
-    }
-  }
-
-  async actualizarOrdenRutas({ request, response }: HttpContext) {
-    try {
-      const authHeader = request.header('authorization')
-      const user = await this.verifyToken(authHeader || '')
-      if (!user) return response.forbidden({ message: 'No autorizado' })
-
-      const { ordenes } = request.body()
-      const Ruta = (await import('#models/ruta')).default
-
-      for (const item of ordenes) {
-        const ruta = await Ruta.find(item.id)
-        if (ruta) {
-          ruta.orden = item.orden
-          await ruta.save()
-        }
-      }
-
-      return response.ok({ message: 'Orden de rutas actualizado' })
-    } catch (error) {
-      console.error(error)
-      return response.internalServerError({ message: 'Error al actualizar orden de rutas' })
     }
   }
 }

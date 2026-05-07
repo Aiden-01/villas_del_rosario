@@ -1,11 +1,13 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, computed } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Client from '#models/client'
 import Pago from '#models/pago'
+import Lote from '#models/lote'
+import ProgramacionPago from '#models/programacion_pago'
 
 export default class Prestamo extends BaseModel {
-  public static table = 'prestamos'
+  public static table = 'ventas'
 
   @column({ isPrimary: true })
   declare id: number
@@ -14,10 +16,10 @@ export default class Prestamo extends BaseModel {
   declare clienteId: number
 
   @column()
-  declare monto: number
+  declare loteId: number | null
 
   @column()
-  declare interes: number
+  declare monto: number
 
   @column()
   declare cuotas: number
@@ -34,37 +36,47 @@ export default class Prestamo extends BaseModel {
   @column()
   declare frecuenciaPago: string | null
 
-  @column()
-  declare diaVisita: string | null
-
-  @column()
-  declare numeroLote: string | null
-
-  @column()
-  declare medidaLote: string | null
-
-  @column()
-  declare areaLote: string | null
-
-  @column()
-  declare tipoCobro: string | null
-
   @column.date()
   declare fechaCobro: DateTime | null
 
-  @column.date()
-  declare ultimoPagoAutomatico: DateTime | null
-
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
 
   @belongsTo(() => Client, {
     foreignKey: 'clienteId',
   })
   declare cliente: BelongsTo<typeof Client>
 
+  @belongsTo(() => Lote, {
+    foreignKey: 'loteId',
+  })
+  declare lote: BelongsTo<typeof Lote>
+
   @hasMany(() => Pago, {
     foreignKey: 'prestamoId',
   })
   declare pagos: HasMany<typeof Pago>
+
+  @hasMany(() => ProgramacionPago, {
+    foreignKey: 'prestamoId',
+  })
+  declare programaciones: HasMany<typeof ProgramacionPago>
+
+  @computed({ serializeAs: 'numeroLote' })
+  get numeroLote() {
+    return this.lote?.numero ?? null
+  }
+
+  @computed({ serializeAs: 'medidaLote' })
+  get medidaLote() {
+    return this.lote?.medida ?? null
+  }
+
+  @computed({ serializeAs: 'areaLote' })
+  get areaLote() {
+    return this.lote?.area ?? null
+  }
 }

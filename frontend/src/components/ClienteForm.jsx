@@ -9,7 +9,6 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 export default function ClienteForm({ mode, clienteId }) {
   const navigate = useNavigate();
   const { toast, showToast, closeToast } = useToast();
-  const [rutas, setRutas] = useState([]);
 
   const [formData, setFormData] = useState({
     nombres: "",
@@ -17,8 +16,6 @@ export default function ClienteForm({ mode, clienteId }) {
     telefono: "",
     direccion: "",
     zona: "",
-    rutaId: "",
-    ordenVisita: "",
   });
 
   const isEdit = mode === "edit";
@@ -34,11 +31,6 @@ export default function ClienteForm({ mode, clienteId }) {
       try {
         const token = localStorage.getItem("token");
 
-        const resRutas = await axios.get(`${API_URL}/api/rutas`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setRutas(Array.isArray(resRutas.data) ? resRutas.data : []);
-
         if (isEdit && clienteId) {
           const resCliente = await axios.get(`${API_URL}/api/clientes/${clienteId}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -50,8 +42,6 @@ export default function ClienteForm({ mode, clienteId }) {
             telefono: cliente.telefono || "",
             direccion: cliente.direccion || "",
             zona: cliente.zona || "",
-            rutaId: cliente.rutaId || "",
-            ordenVisita: cliente.ordenVisita || "",
           });
         }
       } catch (error) {
@@ -66,19 +56,14 @@ export default function ClienteForm({ mode, clienteId }) {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
-      const payload = {
-        ...formData,
-        rutaId: formData.rutaId ? Number(formData.rutaId) : null,
-        ordenVisita: formData.ordenVisita ? Number(formData.ordenVisita) : null,
-      };
 
       if (isEdit) {
-        await axios.put(`${API_URL}/api/clientes/${clienteId}`, payload, {
+        await axios.put(`${API_URL}/api/clientes/${clienteId}`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Cliente actualizado correctamente", "success");
       } else {
-        await axios.post(`${API_URL}/api/clientes`, payload, {
+        await axios.post(`${API_URL}/api/clientes`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Cliente creado correctamente", "success");
@@ -114,7 +99,7 @@ export default function ClienteForm({ mode, clienteId }) {
         />
         <input
           type="text"
-          placeholder="Teléfono"
+          placeholder="Telefono"
           value={formData.telefono}
           onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
           className="w-full p-2 rounded"
@@ -122,7 +107,7 @@ export default function ClienteForm({ mode, clienteId }) {
         />
         <input
           type="text"
-          placeholder="Dirección"
+          placeholder="Direccion"
           value={formData.direccion}
           onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
           className="w-full p-2 rounded"
@@ -135,48 +120,12 @@ export default function ClienteForm({ mode, clienteId }) {
           </label>
           <input
             type="text"
-            placeholder="Ej: El Chal - Barrio El Paraíso"
+            placeholder="Ej: El Chal - Barrio El Paraiso"
             value={formData.zona}
             onChange={(e) => setFormData({ ...formData, zona: e.target.value })}
             className="w-full p-2 rounded"
             style={inputStyle}
           />
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-            Ruta asignada
-          </label>
-          <select
-            value={formData.rutaId}
-            onChange={(e) => setFormData({ ...formData, rutaId: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
-          >
-            <option value="">Sin ruta asignada</option>
-            {rutas.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-            Orden de visita
-          </label>
-          <input
-            type="number"
-            placeholder="Ej: 1, 2, 3..."
-            value={formData.ordenVisita}
-            onChange={(e) => setFormData({ ...formData, ordenVisita: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
-          />
-          <p className="text-xs mt-1 opacity-60">
-            Número que indica en qué posición se visita dentro de su zona
-          </p>
         </div>
 
         <button

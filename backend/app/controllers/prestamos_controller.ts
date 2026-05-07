@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Prestamo from '#models/prestamo'
+import Lote from '#models/lote'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { DateTime } from 'luxon'
@@ -14,6 +15,30 @@ export default class PrestamosController {
     return apiToken?.user || null
   }
 
+  private async resolverLote(data: { numeroLote?: string; medidaLote?: string; areaLote?: string }) {
+    const numero = data.numeroLote?.trim()
+    if (!numero) return null
+
+    const lote = await Lote.firstOrCreate(
+      { numero },
+      {
+        numero,
+        medida: data.medidaLote?.trim() || null,
+        area: data.areaLote?.trim() || null,
+        estado: 'disponible',
+      }
+    )
+
+    lote.merge({
+      medida: data.medidaLote?.trim() || lote.medida || null,
+      area: data.areaLote?.trim() || lote.area || null,
+      estado: 'vendido',
+    })
+    await lote.save()
+
+    return lote
+  }
+
   async index({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -21,7 +46,7 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const { clienteId, mostrarAntiguos } = request.qs()
-      const query = Prestamo.query().preload('cliente').preload('pagos')
+      const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
 
       if (clienteId) {
         query.where('cliente_id', clienteId)
@@ -58,6 +83,7 @@ export default class PrestamosController {
         .where('id', params.id)
         .preload('cliente')
         .preload('pagos')
+        .preload('lote')
         .first()
 
       if (!prestamo) return response.notFound({ message: 'Venta no encontrada' })
@@ -78,6 +104,7 @@ export default class PrestamosController {
         .where('cliente_id', params.clienteId)
         .preload('cliente')
         .preload('pagos')
+        .preload('lote')
       return response.ok(prestamos)
     } catch (error) {
       console.error(error)
@@ -92,32 +119,37 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const data = request.only([
-        'clienteId', 'monto', 'interes', 'cuotas',
-        'fechaInicio', 'fechaFin', 'frecuenciaPago',
-        'numeroLote', 'medidaLote', 'areaLote',
+        'clienteId',
+        'monto',
+        'cuotas',
+        'fechaInicio',
+        'fechaFin',
+        'frecuenciaPago',
+        'numeroLote',
+        'medidaLote',
+        'areaLote',
         'fechaCobro',
       ])
 
-      if (
-        !data.clienteId ||
-        !data.monto ||
-        !data.cuotas ||
-        !data.fechaInicio ||
-        !data.fechaFin ||
-        !data.numeroLote
-      ) {
+      if (!data.clienteId || !data.monto || !data.cuotas || !data.fechaInicio || !data.fechaFin || !data.numeroLote) {
         return response.badRequest({ message: 'Cliente, lote, precio, cuotas y fechas son obligatorios' })
       }
 
+      const lote = await this.resolverLote(data)
+
       const prestamo = await Prestamo.create({
-        ...data,
-        interes: 0,
+        clienteId: data.clienteId,
+        loteId: lote?.id || null,
+        monto: data.monto,
+        cuotas: data.cuotas,
+        fechaInicio: data.fechaInicio,
+        fechaFin: data.fechaFin,
         frecuenciaPago: data.frecuenciaPago || 'mensual',
-        tipoCobro: 'manual',
-        ultimoPagoAutomatico: null,
+        fechaCobro: data.fechaCobro || null,
         estado: 'activo',
       })
       await prestamo.load('cliente')
+      await prestamo.load('lote')
 
       await registrarActividad({
         usuarioId: user.id,
@@ -129,7 +161,6 @@ export default class PrestamosController {
           monto: prestamo.monto,
           cuotas: prestamo.cuotas,
           numeroLote: prestamo.numeroLote,
-          tipoCobro: 'manual',
         },
       })
 
@@ -149,19 +180,34 @@ export default class PrestamosController {
       const prestamo = await Prestamo.findOrFail(params.id)
 
       const camposPermitidos = [
-        'monto', 'interes', 'cuotas', 'fechaInicio', 'fechaFin', 'frecuenciaPago',
-        'numeroLote', 'medidaLote', 'areaLote', 'fechaCobro',
+        'monto',
+        'cuotas',
+        'fechaInicio',
+        'fechaFin',
+        'frecuenciaPago',
+        'numeroLote',
+        'medidaLote',
+        'areaLote',
+        'fechaCobro',
       ]
       if (user.role === 'admin') camposPermitidos.push('estado')
 
       const data = request.only(camposPermitidos)
-      if ('interes' in data) data.interes = 0
-      data.tipoCobro = 'manual'
-      data.ultimoPagoAutomatico = null
+      const lote = await this.resolverLote(data)
 
-      prestamo.merge(data)
+      prestamo.merge({
+        monto: data.monto ?? prestamo.monto,
+        cuotas: data.cuotas ?? prestamo.cuotas,
+        fechaInicio: data.fechaInicio ?? prestamo.fechaInicio,
+        fechaFin: data.fechaFin ?? prestamo.fechaFin,
+        frecuenciaPago: data.frecuenciaPago ?? prestamo.frecuenciaPago,
+        fechaCobro: data.fechaCobro ?? prestamo.fechaCobro,
+        estado: data.estado ?? prestamo.estado,
+        loteId: lote?.id ?? prestamo.loteId,
+      })
       await prestamo.save()
       await prestamo.load('cliente')
+      await prestamo.load('lote')
 
       await registrarActividad({
         usuarioId: user.id,
@@ -190,6 +236,16 @@ export default class PrestamosController {
 
       const prestamo = await Prestamo.findOrFail(params.id)
       await prestamo.load('cliente')
+      await prestamo.load('lote')
+
+      if (prestamo.loteId) {
+        const lote = await Lote.find(prestamo.loteId)
+        if (lote) {
+          lote.estado = 'disponible'
+          await lote.save()
+        }
+      }
+
       const desc = `${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`
       await prestamo.delete()
 
