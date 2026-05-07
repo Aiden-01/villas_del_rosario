@@ -447,9 +447,22 @@ docker compose up --build
 
 - esta configuracion esta pensada para `desarrollo`
 - el backend corre migraciones al iniciar
+- el backend crea o actualiza un usuario admin por defecto al iniciar
 - el frontend corre Vite en modo desarrollo
 - PostgreSQL corre en un contenedor aparte
 - el codigo local se monta dentro del contenedor para que puedas seguir editando desde tu maquina
+
+Credenciales por defecto en Docker:
+
+- usuario: `admin`
+- password: `admin123`
+
+Si quieres cambiarlas, modifica estas variables en `docker-compose.yml`:
+
+- `ADMIN_NAME`
+- `ADMIN_EMAIL`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
 
 ### 14.9 Docker y AWS Ubuntu
 
