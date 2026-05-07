@@ -353,3 +353,125 @@ Cambiar el puerto en `backend/.env` o cerrar el proceso que lo esta usando.
 - agregar `seeders` oficiales para usuario admin inicial
 - agregar Docker para levantar backend + frontend + PostgreSQL mas rapido
 - agregar archivo `.env.example` tambien para frontend si despues se define `VITE_API_URL`
+
+## 14. Docker
+
+Este proyecto ya puede prepararse para correr con Docker en desarrollo usando:
+
+- `docker-compose.yml`
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- `.dockerignore` en backend y frontend
+
+### 14.1 Que se sube a Git
+
+Cuando uses Docker, lo normal es subir al repo:
+
+- `docker-compose.yml`
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- `backend/.dockerignore`
+- `frontend/.dockerignore`
+- este archivo de documentacion
+
+No se sube:
+
+- `node_modules`
+- contenedores creados
+- imagenes Docker construidas
+- secretos reales de `.env`
+
+### 14.2 Para que sirve Docker aqui
+
+Docker ayuda a que otra persona pueda levantar el proyecto sin instalar manualmente:
+
+- versiones especificas de Node.js
+- PostgreSQL local configurado a mano
+- dependencias del backend y frontend una por una
+
+En otras palabras, reduce mucho el problema de:
+
+`en mi maquina si funciona`
+
+### 14.3 Requisito previo para Docker
+
+Instalar:
+
+- `Docker Desktop` en Windows
+- o `Docker Engine + Docker Compose` en Ubuntu/Linux
+
+Verificar:
+
+```bash
+docker --version
+docker compose version
+```
+
+### 14.4 Levantar el proyecto con Docker
+
+Desde la raiz:
+
+```bash
+docker compose up --build
+```
+
+Servicios esperados:
+
+- `frontend`: `http://localhost:5173`
+- `backend`: `http://localhost:3333`
+- `postgres`: `localhost:5432`
+
+### 14.5 Detener contenedores
+
+```bash
+docker compose down
+```
+
+### 14.6 Detener y borrar volumenes
+
+Esto elimina tambien la data local del PostgreSQL del contenedor:
+
+```bash
+docker compose down -v
+```
+
+### 14.7 Reconstruir imagenes
+
+Si cambias dependencias o Dockerfiles:
+
+```bash
+docker compose up --build
+```
+
+### 14.8 Notas de esta configuracion Docker
+
+- esta configuracion esta pensada para `desarrollo`
+- el backend corre migraciones al iniciar
+- el frontend corre Vite en modo desarrollo
+- PostgreSQL corre en un contenedor aparte
+- el codigo local se monta dentro del contenedor para que puedas seguir editando desde tu maquina
+
+### 14.9 Docker y AWS Ubuntu
+
+Docker no te perjudica si luego subes el proyecto a un servidor Ubuntu en AWS.
+
+De hecho ayuda porque:
+
+- mantienes un entorno consistente
+- despliegas algo mas parecido a lo que ya probaste localmente
+- reduces diferencias entre tu PC y el servidor
+
+Recomendacion para produccion:
+
+- usar contenedor para `backend`
+- usar contenedor para `frontend`
+- evitar usar PostgreSQL dentro del mismo servidor si el proyecto va a crecer
+- preferir una base administrada como `Amazon RDS`
+
+### 14.10 Flujo sugerido con Git + Docker
+
+1. desarrollar el proyecto localmente
+2. probarlo con `docker compose up --build`
+3. subir a Git los archivos del proyecto y los archivos Docker
+4. en otra maquina o servidor, clonar el repo
+5. levantarlo con Docker sin repetir toda la instalacion manual
