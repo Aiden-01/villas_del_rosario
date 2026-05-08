@@ -43,6 +43,16 @@ services:
       ADMIN_EMAIL: admin@villasdelrosario.local
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: admin123
+      COBROS_NOTIFICACIONES_AUTO: "false"
+      COBROS_NOTIFICACIONES_HORA: 7
+      COBROS_NOTIFICACIONES_MINUTO: 0
+      COBROS_NOTIFY_TO: ""
+      SMTP_HOST: ""
+      SMTP_PORT: 587
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: ""
       CHOKIDAR_USEPOLLING: "true"
     ports:
       - "3333:3333"

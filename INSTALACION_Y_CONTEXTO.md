@@ -488,3 +488,42 @@ Recomendacion para produccion:
 3. subir a Git los archivos del proyecto y los archivos Docker
 4. en otra maquina o servidor, clonar el repo
 5. levantarlo con Docker sin repetir toda la instalacion manual
+
+## 15. Notificaciones gratis por correo para cobros
+
+El backend puede enviar un solo correo resumen al dueno del sistema con los cobros pactados para el dia.
+
+La proteccion contra correos repetidos esta en la tabla `notificaciones_cobros`: por cada venta, cuota, fecha y canal solo puede existir un registro. Si el comando corre dos veces el mismo dia, no vuelve a enviar el mismo cobro.
+
+Variables necesarias:
+
+```env
+COBROS_NOTIFICACIONES_AUTO=true
+COBROS_NOTIFICACIONES_HORA=7
+COBROS_NOTIFICACIONES_MINUTO=0
+COBROS_NOTIFY_TO=correo_del_dueno@gmail.com
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=correo_que_envia@gmail.com
+SMTP_PASS=app_password_de_gmail
+SMTP_FROM="Villas del Rosario <correo_que_envia@gmail.com>"
+```
+
+Para Gmail no uses la contrasena normal de la cuenta. Activa verificacion en dos pasos y genera una "contrasena de aplicacion".
+
+Probar sin enviar correo ni guardar historial:
+
+```powershell
+$env:COBROS_NOTIFICACIONES_DRY_RUN='true'
+node ace cobros:notificar
+```
+
+Enviar manualmente el resumen del dia:
+
+```bash
+npm run notify:cobros
+```
+
+Si `COBROS_NOTIFICACIONES_AUTO=true`, el servidor agenda el envio diario a la hora configurada. En Docker tambien debes cambiar esas variables en `docker-compose.yml`.

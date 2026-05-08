@@ -188,7 +188,9 @@ export default class PagosController {
         .preload('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
 
       const gestionadosKeys = new Set(
-        programacionesDelDia.map((programacion) => `${programacion.prestamoId}-${programacion.numeroCuota}`)
+        programacionesDelDia.map(
+          (programacion) => `${programacion.prestamoId}-${programacion.numeroCuota}`
+        )
       )
 
       const pendientes: any[] = []
@@ -222,7 +224,9 @@ export default class PagosController {
           cuotasAfectadas: new Set<number>(),
         }
 
-        current.totalPagadoHoy = Number((current.totalPagadoHoy + Number(pago.montoPagado)).toFixed(2))
+        current.totalPagadoHoy = Number(
+          (current.totalPagadoHoy + Number(pago.montoPagado)).toFixed(2)
+        )
         current.cuotasAfectadas.add(pago.numeroCuota)
         cobradosAgrupados.set(venta.id, current)
       }
@@ -282,7 +286,9 @@ export default class PagosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const mesInput = request.input('mes') || DateTime.now().setZone(TZ).toFormat('yyyy-MM')
-      const inicioMes = DateTime.fromFormat(String(mesInput), 'yyyy-MM', { zone: TZ }).startOf('month')
+      const inicioMes = DateTime.fromFormat(String(mesInput), 'yyyy-MM', { zone: TZ }).startOf(
+        'month'
+      )
 
       if (!inicioMes.isValid) {
         return response.badRequest({ message: 'Mes invalido' })
@@ -374,7 +380,13 @@ export default class PagosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only(['prestamoId', 'ventaId', 'numeroCuota', 'montoPagado', 'fechaPago'])
+      const data = request.only([
+        'prestamoId',
+        'ventaId',
+        'numeroCuota',
+        'montoPagado',
+        'fechaPago',
+      ])
       const ventaId = data.ventaId || data.prestamoId
 
       if (!ventaId || !data.numeroCuota || !data.montoPagado || !data.fechaPago) {
@@ -420,7 +432,10 @@ export default class PagosController {
       await pago.load('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
       await pago.load('usuario')
 
-      const ventaActualizada = await Prestamo.query().where('id', ventaId).preload('pagos').firstOrFail()
+      const ventaActualizada = await Prestamo.query()
+        .where('id', ventaId)
+        .preload('pagos')
+        .firstOrFail()
       const resumenDespues = this.resumenCuotas(ventaActualizada)
 
       if (!resumenDespues.proximaCuota) {
@@ -468,7 +483,9 @@ export default class PagosController {
 
       const ventaId = data.ventaId || data.prestamoId
       if (!ventaId || !data.tipoGestion || !data.fechaProgramada) {
-        return response.badRequest({ message: 'Venta, tipo de gestion y fecha programada son obligatorios' })
+        return response.badRequest({
+          message: 'Venta, tipo de gestion y fecha programada son obligatorios',
+        })
       }
 
       if (!['no_pago', 'pago_parcial'].includes(data.tipoGestion)) {
@@ -476,7 +493,9 @@ export default class PagosController {
       }
 
       if (!String(data.nota || '').trim()) {
-        return response.badRequest({ message: 'Debes agregar una nota explicando la gestion realizada' })
+        return response.badRequest({
+          message: 'Debes agregar una nota explicando la gestion realizada',
+        })
       }
 
       const prestamo = await Prestamo.query()
@@ -499,7 +518,9 @@ export default class PagosController {
         }
 
         if (montoParcial - resumen.montoPendienteCuota > EPSILON) {
-          return response.badRequest({ message: 'El monto parcial excede el pendiente de la cuota' })
+          return response.badRequest({
+            message: 'El monto parcial excede el pendiente de la cuota',
+          })
         }
 
         if (Math.abs(montoParcial - resumen.montoPendienteCuota) <= EPSILON) {

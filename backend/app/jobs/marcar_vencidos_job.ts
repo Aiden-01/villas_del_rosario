@@ -6,9 +6,7 @@ export async function marcarVencidos() {
     const ahora = DateTime.now().setZone('America/Guatemala')
     const hoy = ahora.toISODate()!
 
-    const vencidos = await Prestamo.query()
-      .where('estado', 'activo')
-      .where('fecha_fin', '<', hoy)
+    const vencidos = await Prestamo.query().where('estado', 'activo').where('fecha_fin', '<', hoy)
 
     let count = 0
     for (const prestamo of vencidos) {

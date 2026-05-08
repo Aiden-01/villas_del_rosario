@@ -6,7 +6,13 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.integer('usuario_id').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
+      table
+        .integer('usuario_id')
+        .unsigned()
+        .references('id')
+        .inTable('users')
+        .onDelete('SET NULL')
+        .nullable()
       table.string('tipo').notNullable()
       // crear, actualizar, eliminar, pago, login
       table.string('entidad').notNullable()

@@ -11,32 +11,32 @@ export default class AuthController {
     try {
       // 1. Buscar usuario
       const user = await User.findBy('username', username)
-      
+
       if (!user) {
-        return response.unauthorized({ 
-          message: 'Credenciales incorrectas' 
+        return response.unauthorized({
+          message: 'Credenciales incorrectas',
         })
       }
-      
+
       // 2. Verificar contraseña
       const isValid = await Hash.verify(user.password, password)
-      
+
       if (!isValid) {
-        return response.unauthorized({ 
-          message: 'Credenciales incorrectas' 
+        return response.unauthorized({
+          message: 'Credenciales incorrectas',
         })
       }
-      
+
       // 3. Generar token simple (sin usar auth.use)
       const tokenValue = randomUUID().replace(/-/g, '')
-      
+
       // Crear el token directamente
       const token = await user.related('apiTokens').create({
         type: 'api',
         token: tokenValue,
         expiresAt: null,
       })
-      
+
       return {
         type: 'bearer',
         token: token.token,
@@ -47,12 +47,12 @@ export default class AuthController {
           email: user.email,
           role: user.role,
           createdAt: user.createdAt,
-        }
+        },
       }
     } catch (error) {
       console.error('Login error:', error)
-      return response.unauthorized({ 
-        message: 'Error en el servidor' 
+      return response.unauthorized({
+        message: 'Error en el servidor',
       })
     }
   }

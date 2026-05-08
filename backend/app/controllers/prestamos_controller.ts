@@ -15,7 +15,11 @@ export default class PrestamosController {
     return apiToken?.user || null
   }
 
-  private async resolverLote(data: { numeroLote?: string; medidaLote?: string; areaLote?: string }) {
+  private async resolverLote(data: {
+    numeroLote?: string
+    medidaLote?: string
+    areaLote?: string
+  }) {
     const numero = data.numeroLote?.trim()
     if (!numero) return null
 
@@ -131,8 +135,17 @@ export default class PrestamosController {
         'fechaCobro',
       ])
 
-      if (!data.clienteId || !data.monto || !data.cuotas || !data.fechaInicio || !data.fechaFin || !data.numeroLote) {
-        return response.badRequest({ message: 'Cliente, lote, precio, cuotas y fechas son obligatorios' })
+      if (
+        !data.clienteId ||
+        !data.monto ||
+        !data.cuotas ||
+        !data.fechaInicio ||
+        !data.fechaFin ||
+        !data.numeroLote
+      ) {
+        return response.badRequest({
+          message: 'Cliente, lote, precio, cuotas y fechas son obligatorios',
+        })
       }
 
       const lote = await this.resolverLote(data)

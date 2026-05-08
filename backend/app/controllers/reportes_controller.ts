@@ -106,7 +106,9 @@ const agregarInfoReporte = (
 }
 
 const calcularCobrado = (prestamo: Prestamo) =>
-  Number((prestamo.pagos || []).reduce((suma, pago) => suma + Number(pago.montoPagado), 0).toFixed(2))
+  Number(
+    (prestamo.pagos || []).reduce((suma, pago) => suma + Number(pago.montoPagado), 0).toFixed(2)
+  )
 
 const calcularResumenVenta = (prestamo: Prestamo) => {
   const cobrado = calcularCobrado(prestamo)
@@ -114,8 +116,9 @@ const calcularResumenVenta = (prestamo: Prestamo) => {
   const cuotasPagadas = calcularCuotasPagadas(prestamo)
   const totalCuotas = Number(prestamo.cuotas || 0)
   const porcentaje = totalCuotas > 0 ? Math.round((cuotasPagadas / totalCuotas) * 100) : 0
-  const ultimoPago = [...(prestamo.pagos || [])]
-    .sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago)))[0]
+  const ultimoPago = [...(prestamo.pagos || [])].sort((a, b) =>
+    String(b.fechaPago).localeCompare(String(a.fechaPago))
+  )[0]
 
   return {
     lote: prestamo.numeroLote || 'N/A',
@@ -222,7 +225,8 @@ export default class ReportesController {
         totalSaldoPendiente: Number(totalSaldoPendiente.toFixed(2)),
         totalCuotasPagadas,
         totalCuotas,
-        porcentajeGeneral: totalCuotas > 0 ? Math.round((totalCuotasPagadas / totalCuotas) * 100) : 0,
+        porcentajeGeneral:
+          totalCuotas > 0 ? Math.round((totalCuotasPagadas / totalCuotas) * 100) : 0,
         detalle,
       })
     } catch (error) {
@@ -275,7 +279,14 @@ export default class ReportesController {
           { key: 'usuario', width: 22 },
         ]
 
-        const headerRow = sheet.addRow(['Fecha', 'Cliente', 'Lote', 'Cuota', 'Monto Pagado (Q)', 'Registrado por'])
+        const headerRow = sheet.addRow([
+          'Fecha',
+          'Cliente',
+          'Lote',
+          'Cuota',
+          'Monto Pagado (Q)',
+          'Registrado por',
+        ])
         estilizarEncabezado(headerRow)
 
         let totalCobrado = 0
@@ -313,7 +324,13 @@ export default class ReportesController {
 
         agregarInfoReporte(sheet, 'Reporte de Ventas de Lotes', [
           { label: 'Estado filtrado', valor: estado || 'Todos' },
-          { label: 'Periodo', valor: fechaInicio && fechaFin ? `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` : 'Todos' },
+          {
+            label: 'Periodo',
+            valor:
+              fechaInicio && fechaFin
+                ? `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`
+                : 'Todos',
+          },
           { label: 'Total de registros', valor: String(ventas.length) },
           { label: 'Generado', valor: fechaCorta(new Date().toISOString()) },
         ])
@@ -387,7 +404,13 @@ export default class ReportesController {
 
         agregarInfoReporte(sheet, 'Resumen de Cartera', [
           { label: 'Estado filtrado', valor: estado || 'Todos' },
-          { label: 'Periodo', valor: fechaInicio && fechaFin ? `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` : 'Todos' },
+          {
+            label: 'Periodo',
+            valor:
+              fechaInicio && fechaFin
+                ? `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`
+                : 'Todos',
+          },
           { label: 'Valor de lotes', valor: formatearMoneda(totalValorLotes) },
           { label: 'Cobrado historico', valor: formatearMoneda(totalCobrado) },
           { label: 'Saldo pendiente', valor: formatearMoneda(totalPendiente) },
@@ -436,7 +459,10 @@ export default class ReportesController {
       }
 
       const buffer = await workbook.xlsx.writeBuffer()
-      response.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      response.header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
       response.header('Content-Disposition', `attachment; filename="reporte_${tipo}.xlsx"`)
       return response.send(buffer)
     } catch (error) {
@@ -461,9 +487,13 @@ export default class ReportesController {
       doc.fontSize(18).font('Helvetica-Bold').text('Villas del Rosario', { align: 'center' })
       doc.fontSize(12).font('Helvetica').text(`Reporte: ${tipo}`, { align: 'center' })
       if (fechaInicio && fechaFin) {
-        doc.text(`Periodo: ${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`, { align: 'center' })
+        doc.text(`Periodo: ${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`, {
+          align: 'center',
+        })
       }
-      doc.fontSize(9).fillColor('#6B7280')
+      doc
+        .fontSize(9)
+        .fillColor('#6B7280')
         .text(`Generado el ${fechaCorta(new Date().toISOString())}`, { align: 'center' })
       doc.fillColor('#000000').moveDown()
 
@@ -476,12 +506,21 @@ export default class ReportesController {
           .orderBy('fecha_pago', 'asc')
 
         pagos.forEach((pago) => {
-          doc.font('Helvetica-Bold').fontSize(11)
-            .text(`Lote ${pago.prestamo.numeroLote || 'N/A'} - cuota ${pago.numeroCuota}/${pago.prestamo.cuotas}`)
-          doc.font('Helvetica')
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(11)
+            .text(
+              `Lote ${pago.prestamo.numeroLote || 'N/A'} - cuota ${pago.numeroCuota}/${pago.prestamo.cuotas}`
+            )
+          doc
+            .font('Helvetica')
             .text(`${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos}`)
-          doc.fontSize(10).fillColor('#4B5563')
-            .text(`Monto: ${formatearMoneda(Number(pago.montoPagado))}   Fecha: ${fechaCorta(pago.fechaPago)}   Registrado por: ${pago.usuario?.username || 'N/A'}`)
+          doc
+            .fontSize(10)
+            .fillColor('#4B5563')
+            .text(
+              `Monto: ${formatearMoneda(Number(pago.montoPagado))}   Fecha: ${fechaCorta(pago.fechaPago)}   Registrado por: ${pago.usuario?.username || 'N/A'}`
+            )
           doc.fillColor('#000000').moveDown(0.5)
         })
       }
@@ -495,11 +534,17 @@ export default class ReportesController {
 
         ventas.forEach((venta) => {
           const resumen = calcularResumenVenta(venta)
-          doc.font('Helvetica-Bold').fontSize(11)
-            .text(`${resumen.cliente} - lote ${resumen.lote}`)
-          doc.font('Helvetica').fontSize(10).fillColor('#4B5563')
-            .text(`Precio: ${formatearMoneda(resumen.precioLote)}   Avance: ${resumen.fraccion} (${resumen.porcentaje}%)   Estado: ${resumen.estado}`)
-            .text(`Saldo pendiente: ${formatearMoneda(resumen.saldoPendiente)}   Cobro pactado: ${fechaCorta(resumen.fechaCobro) || 'N/A'}`)
+          doc.font('Helvetica-Bold').fontSize(11).text(`${resumen.cliente} - lote ${resumen.lote}`)
+          doc
+            .font('Helvetica')
+            .fontSize(10)
+            .fillColor('#4B5563')
+            .text(
+              `Precio: ${formatearMoneda(resumen.precioLote)}   Avance: ${resumen.fraccion} (${resumen.porcentaje}%)   Estado: ${resumen.estado}`
+            )
+            .text(
+              `Saldo pendiente: ${formatearMoneda(resumen.saldoPendiente)}   Cobro pactado: ${fechaCorta(resumen.fechaCobro) || 'N/A'}`
+            )
           doc.fillColor('#000000').moveDown(0.5)
         })
       }
@@ -514,16 +559,22 @@ export default class ReportesController {
         const totalPendiente = detalle.reduce((suma, venta) => suma + venta.saldoPendiente, 0)
 
         detalle.forEach((venta) => {
-          doc.font('Helvetica-Bold').fontSize(11)
-            .text(`${venta.cliente} - lote ${venta.lote}`)
-          doc.font('Helvetica').fontSize(10).fillColor('#4B5563')
-            .text(`Cobrado: ${formatearMoneda(venta.cobrado)}   Saldo: ${formatearMoneda(venta.saldoPendiente)}   Avance: ${venta.fraccion} (${venta.porcentaje}%)`)
+          doc.font('Helvetica-Bold').fontSize(11).text(`${venta.cliente} - lote ${venta.lote}`)
+          doc
+            .font('Helvetica')
+            .fontSize(10)
+            .fillColor('#4B5563')
+            .text(
+              `Cobrado: ${formatearMoneda(venta.cobrado)}   Saldo: ${formatearMoneda(venta.saldoPendiente)}   Avance: ${venta.fraccion} (${venta.porcentaje}%)`
+            )
             .text(`Ultimo pago: ${fechaCorta(venta.ultimoPago) || 'N/A'}   Estado: ${venta.estado}`)
           doc.fillColor('#000000').moveDown(0.5)
         })
 
         doc.moveDown()
-        doc.font('Helvetica-Bold').fontSize(13)
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(13)
           .text(`Saldo total pendiente: ${formatearMoneda(totalPendiente)}`, { align: 'right' })
       }
 

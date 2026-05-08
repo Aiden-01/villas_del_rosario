@@ -4,7 +4,6 @@ import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 
 export default class UsersController {
-
   private async verifyToken(token: string) {
     if (!token) return null
     const apiToken = await ApiToken.query()
@@ -22,7 +21,14 @@ export default class UsersController {
         return response.forbidden({ message: 'No tienes permisos' })
       }
 
-      const users = await User.query().select('id', 'name', 'username', 'email', 'role', 'createdAt')
+      const users = await User.query().select(
+        'id',
+        'name',
+        'username',
+        'email',
+        'role',
+        'createdAt'
+      )
       return response.ok(users)
     } catch (error) {
       console.error('Error:', error)
@@ -67,8 +73,8 @@ export default class UsersController {
           username: newUser.username,
           email: newUser.email,
           role: newUser.role,
-          createdAt: newUser.createdAt
-        }
+          createdAt: newUser.createdAt,
+        },
       })
     } catch (error) {
       console.error('Error:', error)

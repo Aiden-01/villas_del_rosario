@@ -6,8 +6,19 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.integer('prestamo_id').unsigned().references('id').inTable('prestamos').onDelete('CASCADE')
-      table.integer('usuario_id').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
+      table
+        .integer('prestamo_id')
+        .unsigned()
+        .references('id')
+        .inTable('prestamos')
+        .onDelete('CASCADE')
+      table
+        .integer('usuario_id')
+        .unsigned()
+        .references('id')
+        .inTable('users')
+        .onDelete('SET NULL')
+        .nullable()
       // tipo: 'no_pago' | 'pago_parcial'
       table.string('tipo').notNullable()
       // monto pagado (0 si no_pago, menor a cuota si pago_parcial)

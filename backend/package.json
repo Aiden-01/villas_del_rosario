@@ -8,6 +8,7 @@
     "start": "node bin/server.js",
     "build": "node ace build",
     "dev": "node ace serve --hmr",
+    "notify:cobros": "node ace cobros:notificar",
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -59,6 +60,7 @@
     "@vinejs/vine": "^3.0.1",
     "exceljs": "^4.4.0",
     "luxon": "^3.7.2",
+    "nodemailer": "^8.0.7",
     "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2"

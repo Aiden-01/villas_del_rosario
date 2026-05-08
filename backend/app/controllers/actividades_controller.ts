@@ -3,7 +3,6 @@ import Actividad from '#models/actividad'
 import ApiToken from '#models/api_token'
 
 export default class ActividadesController {
-
   private async verifyToken(token: string) {
     if (!token) return null
     const apiToken = await ApiToken.query()
@@ -21,14 +20,14 @@ export default class ActividadesController {
 
       const { page = 1, limit = 50, entidad, tipo } = request.qs()
 
-      const query = Actividad.query()
-        .preload('usuario')
-        .orderBy('created_at', 'desc')
+      const query = Actividad.query().preload('usuario').orderBy('created_at', 'desc')
 
       if (entidad) query.where('entidad', entidad)
       if (tipo) query.where('tipo', tipo)
 
-      const actividades = await query.limit(Number(limit)).offset((Number(page) - 1) * Number(limit))
+      const actividades = await query
+        .limit(Number(limit))
+        .offset((Number(page) - 1) * Number(limit))
 
       return response.ok(actividades)
     } catch (error) {
