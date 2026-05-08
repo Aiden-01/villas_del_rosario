@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
-import PrestamoForm from "../components/PrestamoForm";
+import VentaForm from "../components/VentaForm";
 
-export default function CrearPrestamo() {
+export default function CrearVenta() {
   const { prestamoId, ventaId } = useParams();
   const registroId = ventaId || prestamoId;
 
@@ -10,7 +10,7 @@ export default function CrearPrestamo() {
       <h1 className="text-2xl font-bold">
         {registroId ? "Editar Venta" : "Crear Venta"}
       </h1>
-      <PrestamoForm mode={registroId ? "edit" : "create"} prestamoId={registroId} />
+      <VentaForm mode={registroId ? "edit" : "create"} ventaId={registroId} />
     </div>
   );
 }

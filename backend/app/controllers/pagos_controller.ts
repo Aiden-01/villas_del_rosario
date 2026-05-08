@@ -5,11 +5,17 @@ import Prestamo from '#models/prestamo'
 import ApiToken from '#models/api_token'
 import ProgramacionPago from '#models/programacion_pago'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
+import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
 
 const TZ = 'America/Guatemala'
 const EPSILON = 0.01
 
-type PagoLike = { numeroCuota: number; montoPagado: number; fechaPago: any }
+type PagoLike = {
+  numeroCuota: number
+  montoPagado: number
+  fechaPago: any
+  tipoPago?: string | null
+}
 
 export default class PagosController {
   private async verifyToken(token: string) {
@@ -28,6 +34,8 @@ export default class PagosController {
   private agruparPagos(pagos: PagoLike[]) {
     const resumen = new Map<number, number>()
     for (const pago of pagos) {
+      if (pago.numeroCuota <= 0 || (pago.tipoPago && pago.tipoPago !== 'cuota')) continue
+
       const actual = resumen.get(pago.numeroCuota) || 0
       resumen.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)))
     }
@@ -37,6 +45,12 @@ export default class PagosController {
   private resumenCuotas(venta: Prestamo) {
     const cuotaMonto = this.cuotaMonto(venta)
     const pagosPorCuota = this.agruparPagos((venta.pagos || []) as PagoLike[])
+    const totalPagado = Number(
+      ((venta.pagos || []) as PagoLike[])
+        .reduce((sum, current) => sum + Number(current.montoPagado), 0)
+        .toFixed(2)
+    )
+    const saldoPendiente = Number(Math.max(Number(venta.monto) - totalPagado, 0).toFixed(2))
 
     let cuotasPagadas = 0
     let proximaCuota: number | null = null
@@ -50,12 +64,16 @@ export default class PagosController {
       }
 
       proximaCuota = cuota
-      montoPendienteCuota = Number(Math.max(cuotaMonto - pagado, 0).toFixed(2))
+      montoPendienteCuota = Number(Math.min(cuotaMonto - pagado, saldoPendiente).toFixed(2))
       break
     }
 
-    if (!proximaCuota) {
+    if (saldoPendiente <= EPSILON) {
+      proximaCuota = null
       montoPendienteCuota = 0
+    } else if (!proximaCuota && Number(venta.cuotas || 0) > 0) {
+      proximaCuota = Number(venta.cuotas)
+      montoPendienteCuota = saldoPendiente
     }
 
     return {
@@ -64,9 +82,8 @@ export default class PagosController {
       proximaCuota,
       montoPendienteCuota,
       pagosPorCuota,
-      totalPagado: Number(
-        [...pagosPorCuota.values()].reduce((sum, current) => sum + current, 0).toFixed(2)
-      ),
+      totalPagado,
+      saldoPendiente,
     }
   }
 
@@ -185,6 +202,8 @@ export default class PagosController {
 
       const pagosDelDia = await Pago.query()
         .where('fecha_pago', fecha)
+        .where('tipo_pago', 'cuota')
+        .where('numero_cuota', '>', 0)
         .preload('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
 
       const gestionadosKeys = new Set(
@@ -428,6 +447,7 @@ export default class PagosController {
         montoPagado: monto,
         fechaPago: data.fechaPago,
         usuarioId: user.id,
+        tipoPago: 'cuota',
       })
       await pago.load('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
       await pago.load('usuario')
@@ -438,7 +458,7 @@ export default class PagosController {
         .firstOrFail()
       const resumenDespues = this.resumenCuotas(ventaActualizada)
 
-      if (!resumenDespues.proximaCuota) {
+      if (resumenDespues.saldoPendiente <= EPSILON) {
         ventaActualizada.estado = 'pagado'
         await ventaActualizada.save()
       } else if (ventaActualizada.estado === 'pagado') {
@@ -463,6 +483,60 @@ export default class PagosController {
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al registrar pago' })
+    }
+  }
+
+  async abonar({ request, response }: HttpContext) {
+    try {
+      const authHeader = request.header('authorization')
+      const user = await this.verifyToken(authHeader || '')
+      if (!user) return response.forbidden({ message: 'No autorizado' })
+
+      const data = request.only(['prestamoId', 'ventaId', 'monto', 'fechaPago'])
+      const ventaId = data.ventaId || data.prestamoId
+      const fechaPago = data.fechaPago || DateTime.now().setZone(TZ).toISODate()
+
+      if (!ventaId || !data.monto || !fechaPago) {
+        return response.badRequest({ message: 'Venta, monto y fecha de pago son obligatorios' })
+      }
+
+      const resultado = await aplicarAbonoAVenta({
+        ventaId: Number(ventaId),
+        monto: Number(data.monto),
+        fechaPago,
+        usuarioId: user.id,
+      })
+
+      await resultado.venta.load('cliente')
+      await resultado.venta.load('lote')
+
+      await registrarActividad({
+        usuarioId: user.id,
+        tipo: 'pago',
+        entidad: 'pago',
+        entidadId: resultado.pagos[0]?.pago.id || resultado.venta.id,
+        descripcion: `Registro abono de Q${resultado.totalAplicado} - lote ${resultado.venta.numeroLote || 'N/A'} / ${resultado.venta.cliente.nombres} ${resultado.venta.cliente.apellidos}`,
+        detalle: {
+          ventaId: resultado.venta.id,
+          totalAplicado: resultado.totalAplicado,
+          saldoRestante: resultado.saldoRestante,
+          cuotasAplicadas: resultado.pagos.map((item) => ({
+            numeroCuota: item.numeroCuota,
+            monto: item.monto,
+          })),
+        },
+      })
+
+      return response.created({
+        message: resultado.ventaPagada
+          ? 'Abono registrado. La venta quedo saldada.'
+          : 'Abono registrado correctamente',
+        ...resultado,
+      })
+    } catch (error) {
+      console.error(error)
+      const message = error instanceof Error ? error.message : 'Error al registrar abono'
+      return response.badRequest({ message })
     }
   }
 
@@ -535,6 +609,7 @@ export default class PagosController {
           montoPagado: montoParcial,
           fechaPago: DateTime.now().setZone(TZ),
           usuarioId: user.id,
+          tipoPago: 'cuota',
         })
       }
 

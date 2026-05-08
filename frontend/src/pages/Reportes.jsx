@@ -29,6 +29,8 @@ const calcularCuotasPagadas = (venta) => {
   const pagosPorCuota = new Map();
 
   (venta.pagos || []).forEach((pago) => {
+    if (Number(pago.numeroCuota) <= 0 || pago.tipoPago !== "cuota") return;
+
     const actual = pagosPorCuota.get(pago.numeroCuota) || 0;
     pagosPorCuota.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)));
   });
@@ -39,6 +41,12 @@ const calcularCuotasPagadas = (venta) => {
   }
 
   return completas;
+};
+
+const etiquetaPago = (pago) => {
+  if (pago.tipoPago === "abono") return "Abono";
+  if (pago.tipoPago === "enganche") return "Enganche";
+  return `${pago.numeroCuota}/${pago.prestamo?.cuotas || 0}`;
 };
 
 const TABS = [
@@ -151,21 +159,24 @@ export default function Reportes() {
       </h1>
 
       <div className="flex gap-2 mb-6">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => resetFiltros(key)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition hover:opacity-90"
-            style={{
-              backgroundColor: tab === key ? "var(--primary)" : "var(--card)",
-              color: tab === key ? "white" : "var(--text)",
-              border: "1px solid var(--card-border)",
-            }}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
+        {TABS.map(({ key, label, icon }) => {
+          const TabIcon = icon;
+          return (
+            <button
+              key={key}
+              onClick={() => resetFiltros(key)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition hover:opacity-90"
+              style={{
+                backgroundColor: tab === key ? "var(--primary)" : "var(--card)",
+                color: tab === key ? "white" : "var(--text)",
+                border: "1px solid var(--card-border)",
+              }}
+            >
+              <TabIcon size={15} />
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div
@@ -304,7 +315,7 @@ export default function Reportes() {
                         </td>
                         <td className="p-3">{pago.prestamo?.numeroLote || "N/A"}</td>
                         <td className="p-3">
-                          {pago.numeroCuota}/{pago.prestamo?.cuotas || 0}
+                          {etiquetaPago(pago)}
                         </td>
                         <td className="p-3 font-semibold" style={{ color: "var(--primary)" }}>
                           Q{formatearMoneda(pago.montoPagado)}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
 import {
@@ -36,16 +36,15 @@ export default function Historial() {
   const [busqueda, setBusqueda] = useState("");
   const { toast, closeToast } = useToast();
 
-  const token = localStorage.getItem("token");
-  const headers = { Authorization: `Bearer ${token}` };
-
-  const cargarHistorial = async () => {
+  const cargarHistorial = useCallback(async () => {
     setLoading(true);
     try {
       let url = `${API_URL}/api/historial?limit=100`;
       if (filtroTipo !== "todos") url += `&tipo=${filtroTipo}`;
       if (filtroEntidad !== "todos") url += `&entidad=${filtroEntidad}`;
 
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
       const res = await fetch(url, { headers });
       const data = await res.json();
       if (!res.ok) {
@@ -59,11 +58,11 @@ export default function Historial() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filtroEntidad, filtroTipo]);
 
   useEffect(() => {
     cargarHistorial();
-  }, [filtroTipo, filtroEntidad]);
+  }, [cargarHistorial]);
 
   const actividadesFiltradas = actividades.filter(
     (actividad) =>

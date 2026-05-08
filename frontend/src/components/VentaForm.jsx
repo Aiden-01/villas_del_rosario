@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
@@ -8,7 +9,7 @@ import { User, Search, CalendarDays } from "lucide-react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const FRECUENCIAS = ["mensual"];
 
-export default function PrestamoForm({ mode, prestamoId }) {
+export default function VentaForm({ mode, ventaId }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const clienteIdFromUrl = searchParams.get("clienteId");
@@ -25,6 +26,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
     medidaLote: "",
     areaLote: "",
     fechaCobro: "",
+    enganche: "",
     interes: 0,
   });
 
@@ -42,11 +44,6 @@ export default function PrestamoForm({ mode, prestamoId }) {
       setFormData((prev) => ({ ...prev, fechaFin }));
     }
   }, [formData.fechaInicio, formData.cuotas]);
-
-  useEffect(() => {
-    obtenerClientes();
-    if (isEdit && prestamoId) obtenerPrestamo();
-  }, [prestamoId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -69,7 +66,7 @@ export default function PrestamoForm({ mode, prestamoId }) {
     return () => clearTimeout(timeout);
   }, [busquedaCliente, clientes]);
 
-  const obtenerClientes = async () => {
+  const obtenerClientes = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(`${API_URL}/api/clientes`, {
@@ -84,39 +81,45 @@ export default function PrestamoForm({ mode, prestamoId }) {
     } catch (error) {
       console.error("Error cargando clientes:", error);
     }
-  };
+  }, [clienteIdFromUrl]);
 
-  const obtenerPrestamo = async () => {
+  const obtenerVenta = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/ventas/${prestamoId}`, {
+      const res = await axios.get(`${API_URL}/api/ventas/${ventaId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const prestamo = res.data;
+      const venta = res.data;
       setFormData({
-        clienteId: prestamo.clienteId || "",
-        monto: prestamo.monto || "",
-        cuotas: prestamo.cuotas || "",
-        fechaInicio: prestamo.fechaInicio?.split("T")[0] || "",
-        fechaFin: prestamo.fechaFin?.split("T")[0] || "",
-        frecuenciaPago: prestamo.frecuenciaPago || "mensual",
-        numeroLote: prestamo.numeroLote || "",
-        medidaLote: prestamo.medidaLote || "",
-        areaLote: prestamo.areaLote || "",
-        fechaCobro: prestamo.fechaCobro?.split("T")[0] || "",
+        clienteId: venta.clienteId || "",
+        monto: venta.monto || "",
+        cuotas: venta.cuotas || "",
+        fechaInicio: venta.fechaInicio?.split("T")[0] || "",
+        fechaFin: venta.fechaFin?.split("T")[0] || "",
+        frecuenciaPago: venta.frecuenciaPago || "mensual",
+        numeroLote: venta.numeroLote || "",
+        medidaLote: venta.medidaLote || "",
+        areaLote: venta.areaLote || "",
+        fechaCobro: venta.fechaCobro?.split("T")[0] || "",
+        enganche: "",
         interes: 0,
       });
     } catch (error) {
       console.error("Error cargando venta:", error);
     }
-  };
+  }, [ventaId]);
+
+  useEffect(() => {
+    obtenerClientes();
+    if (isEdit && ventaId) obtenerVenta();
+  }, [isEdit, obtenerClientes, obtenerVenta, ventaId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
       if (isEdit) {
-        await axios.put(`${API_URL}/api/ventas/${prestamoId}`, formData, {
+        await axios.put(`${API_URL}/api/ventas/${ventaId}`, formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast("Venta actualizada correctamente", "success");
@@ -139,6 +142,10 @@ export default function PrestamoForm({ mode, prestamoId }) {
     color: "var(--text)",
     border: "1px solid var(--card-border)",
   };
+
+  const precio = Number(formData.monto || 0);
+  const enganche = Number(formData.enganche || 0);
+  const saldoDespuesEnganche = Math.max(precio - enganche, 0);
 
   return (
     <>
@@ -219,6 +226,30 @@ export default function PrestamoForm({ mode, prestamoId }) {
           className="w-full p-2 rounded"
           style={inputStyle}
         />
+
+        {!isEdit && (
+          <div>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Enganche inicial (opcional)"
+              value={formData.enganche}
+              onChange={(e) => setFormData({ ...formData, enganche: e.target.value })}
+              className="w-full p-2 rounded"
+              style={inputStyle}
+            />
+            {enganche > 0 && (
+              <p className="text-xs mt-1 opacity-60">
+                Se registrara como abono inicial. Saldo despues del enganche: Q
+                {saldoDespuesEnganche.toLocaleString("es-GT", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            )}
+          </div>
+        )}
 
         <input
           type="number"

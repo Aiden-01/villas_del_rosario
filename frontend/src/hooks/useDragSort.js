@@ -60,7 +60,7 @@ export function useDragSort({ items, onReorder }) {
       setDragOver(null);
       setDragging(false);
     },
-    onTouchStart: (e) => {
+    onTouchStart: () => {
       dragIndex.current = index;
       setDragging(true);
       // ✅ No stopPropagation aquí — dejar que el card lo maneje si hace falta

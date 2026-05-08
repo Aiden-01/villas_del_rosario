@@ -35,6 +35,8 @@ const calcularCuotasPagadas = (prestamo: Prestamo) => {
   const pagosPorCuota = new Map<number, number>()
 
   for (const pago of prestamo.pagos || []) {
+    if (pago.numeroCuota <= 0 || pago.tipoPago !== 'cuota') continue
+
     const actual = pagosPorCuota.get(pago.numeroCuota) || 0
     pagosPorCuota.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)))
   }
@@ -109,6 +111,12 @@ const calcularCobrado = (prestamo: Prestamo) =>
   Number(
     (prestamo.pagos || []).reduce((suma, pago) => suma + Number(pago.montoPagado), 0).toFixed(2)
   )
+
+const etiquetaPago = (pago: Pago) => {
+  if (pago.tipoPago === 'abono') return 'Abono'
+  if (pago.tipoPago === 'enganche') return 'Enganche'
+  return `Cuota ${pago.numeroCuota}/${pago.prestamo.cuotas}`
+}
 
 const calcularResumenVenta = (prestamo: Prestamo) => {
   const cobrado = calcularCobrado(prestamo)
@@ -298,7 +306,7 @@ export default class ReportesController {
             fechaCorta(pago.fechaPago),
             `${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos}`,
             pago.prestamo.numeroLote || 'N/A',
-            `${pago.numeroCuota}/${pago.prestamo.cuotas}`,
+            etiquetaPago(pago),
             monto,
             pago.usuario?.username || 'N/A',
           ])
@@ -509,9 +517,7 @@ export default class ReportesController {
           doc
             .font('Helvetica-Bold')
             .fontSize(11)
-            .text(
-              `Lote ${pago.prestamo.numeroLote || 'N/A'} - cuota ${pago.numeroCuota}/${pago.prestamo.cuotas}`
-            )
+            .text(`Lote ${pago.prestamo.numeroLote || 'N/A'} - ${etiquetaPago(pago)}`)
           doc
             .font('Helvetica')
             .text(`${pago.prestamo.cliente.nombres} ${pago.prestamo.cliente.apellidos}`)

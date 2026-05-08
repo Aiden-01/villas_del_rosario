@@ -75,6 +75,7 @@ router
     router.get('/prestamo/:prestamoId', [PagosController, 'byPrestamo'])
     router.get('/venta/:prestamoId', [PagosController, 'byPrestamo'])
     router.post('/', [PagosController, 'store'])
+    router.post('/abonos', [PagosController, 'abonar'])
     router.post('/programaciones', [PagosController, 'programar'])
     router.delete('/:id', [PagosController, 'destroy']).use(middleware.admin())
   })

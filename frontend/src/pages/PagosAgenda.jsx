@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
 import {
@@ -89,7 +89,7 @@ export default function PagosAgenda() {
     [token]
   );
 
-  const cargarCalendario = async (mes = mesSeleccionado) => {
+  const cargarCalendario = useCallback(async (mes = mesSeleccionado) => {
     setLoading(true);
     setError("");
     try {
@@ -105,11 +105,11 @@ export default function PagosAgenda() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [headers, mesSeleccionado]);
 
   useEffect(() => {
     cargarCalendario(mesSeleccionado);
-  }, [mesSeleccionado]);
+  }, [cargarCalendario, mesSeleccionado]);
 
   useEffect(() => {
     document.body.style.overflow = modalItem ? "hidden" : "";

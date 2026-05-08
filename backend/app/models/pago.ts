@@ -22,6 +22,9 @@ export default class Pago extends BaseModel {
   @column()
   declare montoPagado: number
 
+  @column()
+  declare tipoPago: string
+
   @column.date()
   declare fechaPago: DateTime
 

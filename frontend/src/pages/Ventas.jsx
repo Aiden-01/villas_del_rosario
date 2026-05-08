@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
@@ -14,6 +14,7 @@ import {
   Inbox,
   ClipboardList,
   Filter,
+  Wallet,
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
@@ -42,8 +43,12 @@ const calcularCuotaMensual = (monto, cuotas) => Number(monto) / Number(cuotas ||
 const resumirCuotas = (prestamo, pagos = prestamo?.pagos || []) => {
   const cuotaMensual = calcularCuotaMensual(prestamo?.monto, prestamo?.cuotas);
   const pagosPorCuota = new Map();
+  const totalPagado = pagos.reduce((sum, pago) => sum + Number(pago.montoPagado || 0), 0);
+  const saldoPendiente = Number(Math.max(Number(prestamo?.monto || 0) - totalPagado, 0).toFixed(2));
 
   pagos.forEach((pago) => {
+    if (Number(pago.numeroCuota) <= 0 || (pago.tipoPago && pago.tipoPago !== "cuota")) return;
+
     const actual = pagosPorCuota.get(pago.numeroCuota) || 0;
     pagosPorCuota.set(
       pago.numeroCuota,
@@ -57,14 +62,24 @@ const resumirCuotas = (prestamo, pagos = prestamo?.pagos || []) => {
 
   for (let cuota = 1; cuota <= Number(prestamo?.cuotas || 0); cuota++) {
     const pagado = pagosPorCuota.get(cuota) || 0;
-    if (pagado + 0.01 >= cuotaMensual) {
+    const pendiente = Number(Math.max(cuotaMensual - pagado, 0).toFixed(2));
+    if (pendiente <= 0.01) {
       cuotasPagadas += 1;
       continue;
     }
 
-    siguienteCuota = cuota;
-    montoPendienteCuota = Number(Math.max(cuotaMensual - pagado, 0).toFixed(2));
-    break;
+    if (!siguienteCuota) {
+      siguienteCuota = cuota;
+      montoPendienteCuota = Number(Math.min(pendiente, saldoPendiente).toFixed(2));
+    }
+  }
+
+  if (saldoPendiente <= 0.01) {
+    siguienteCuota = null;
+    montoPendienteCuota = 0;
+  } else if (!siguienteCuota && Number(prestamo?.cuotas || 0) > 0) {
+    siguienteCuota = Number(prestamo.cuotas);
+    montoPendienteCuota = saldoPendiente;
   }
 
   return {
@@ -72,8 +87,15 @@ const resumirCuotas = (prestamo, pagos = prestamo?.pagos || []) => {
     cuotasPagadas,
     siguienteCuota,
     montoPendienteCuota,
+    saldoPendiente,
     todasPagadas: !siguienteCuota,
   };
+};
+
+const etiquetaPago = (pago, totalCuotas) => {
+  if (pago.tipoPago === "abono") return "Abono";
+  if (pago.tipoPago === "enganche") return "Enganche";
+  return `Cuota #${pago.numeroCuota}${totalCuotas ? `/${totalCuotas}` : ""}`;
 };
 
 const formatearFecha = (fecha) => {
@@ -88,7 +110,7 @@ const mesesDesdeFinalizacion = (prestamo) => {
   return (hoy.getFullYear() - fin.getFullYear()) * 12 + (hoy.getMonth() - fin.getMonth());
 };
 
-export default function Prestamos() {
+export default function Ventas() {
   const user = JSON.parse(localStorage.getItem("user"));
   const [prestamos, setPrestamos] = useState([]);
   const [clienteNombre, setClienteNombre] = useState("");
@@ -98,6 +120,8 @@ export default function Prestamos() {
   const [pagos, setPagos] = useState([]);
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [registrandoPago, setRegistrandoPago] = useState(false);
+  const [registrandoAbono, setRegistrandoAbono] = useState(false);
+  const [montoAbono, setMontoAbono] = useState("");
   const [pestana, setPestana] = useState("activos");
   const [mostrarAntiguos, setMostrarAntiguos] = useState(false);
   const [busquedaFinalizado, setBusquedaFinalizado] = useState("");
@@ -107,7 +131,7 @@ export default function Prestamos() {
   const [searchParams] = useSearchParams();
   const clienteId = searchParams.get("clienteId");
 
-  const fetchPrestamos = async () => {
+  const fetchPrestamos = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
       const url = clienteId ? `${ROUTES.PRESTAMOS}/cliente/${clienteId}` : ROUTES.PRESTAMOS;
@@ -135,7 +159,7 @@ export default function Prestamos() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clienteId]);
 
   const fetchPagos = async (prestamoId) => {
     setLoadingPagos(true);
@@ -155,17 +179,19 @@ export default function Prestamos() {
 
   useEffect(() => {
     fetchPrestamos();
-  }, [clienteId]);
+  }, [fetchPrestamos]);
 
   const abrirModal = (prestamo) => {
     setSelectedPrestamo(prestamo);
     setPagos([]);
+    setMontoAbono("");
     fetchPagos(prestamo.id);
   };
 
   const cerrarModal = () => {
     setSelectedPrestamo(null);
     setPagos([]);
+    setMontoAbono("");
   };
 
   const handleDelete = async (id) => {
@@ -251,6 +277,73 @@ export default function Prestamos() {
       showToast("Error al registrar pago", "error");
     } finally {
       setRegistrandoPago(false);
+    }
+  };
+
+  const handleRegistrarAbono = async () => {
+    if (!selectedPrestamo || !resumenSeleccionado || resumenSeleccionado.todasPagadas) return;
+
+    const monto = Number(montoAbono || 0);
+    if (monto <= 0) {
+      showToast("Ingresa un monto de abono mayor a 0", "error");
+      return;
+    }
+
+    if (monto - Number(resumenSeleccionado.saldoPendiente || 0) > 0.01) {
+      showToast("El abono no puede exceder el saldo pendiente", "error");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Registrar abono de Q${monto.toLocaleString("es-GT", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}?`
+      )
+    ) {
+      return;
+    }
+
+    setRegistrandoAbono(true);
+    try {
+      const token = localStorage.getItem("token");
+      const hoy = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Guatemala" });
+
+      const res = await fetch(`${ROUTES.PAGOS}/abonos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ventaId: selectedPrestamo.id,
+          monto,
+          fechaPago: hoy,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.message || "Error al registrar abono", "error");
+        return;
+      }
+
+      setMontoAbono("");
+      await fetchPagos(selectedPrestamo.id);
+      await fetchPrestamos();
+
+      if (data.ventaPagada) {
+        cerrarModal();
+        setPestana("finalizados");
+      }
+
+      showToast(data.message || "Abono registrado correctamente", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Error al registrar abono", "error");
+    } finally {
+      setRegistrandoAbono(false);
     }
   };
 
@@ -431,46 +524,60 @@ export default function Prestamos() {
 
       {selectedPrestamo && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-6"
           onClick={cerrarModal}
         >
           <div
-            className="rounded-3xl shadow-2xl p-6 w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto"
+            className="rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "var(--card)",
               border: esPagado ? "2px solid #3b82f6" : esMora(selectedPrestamo) ? "2px solid #ef4444" : "none",
             }}
           >
-            <div className="flex justify-center mb-4">
-              <span
-                className={`flex items-center gap-1 text-sm px-4 py-1 rounded-full font-semibold ${esPagado ? "bg-blue-100 text-blue-700" : esMora(selectedPrestamo) ? "bg-red-100 text-red-700" : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"}`}
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span
+                    className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full font-semibold ${esPagado ? "bg-blue-100 text-blue-700" : esMora(selectedPrestamo) ? "bg-red-100 text-red-700" : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"}`}
+                  >
+                    {esPagado ? (
+                      <>
+                        <CheckCircle2 size={12} /> Pagada
+                      </>
+                    ) : esMora(selectedPrestamo) ? (
+                      <>
+                        <AlertTriangle size={12} /> En mora
+                      </>
+                    ) : (
+                      selectedPrestamo.estado
+                    )}
+                  </span>
+                  <span className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: "var(--bg)" }}>
+                    Lote {selectedPrestamo.numeroLote || "N/A"}
+                  </span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-bold leading-tight">
+                  {selectedPrestamo.cliente?.nombres} {selectedPrestamo.cliente?.apellidos}
+                </h2>
+                <p className="text-xs sm:text-sm opacity-60 mt-1">
+                  {selectedPrestamo.medidaLote || "Medida N/A"} · {selectedPrestamo.areaLote || "Área N/A"}
+                </p>
+                <p className="text-2xl font-bold mt-3" style={{ color: "var(--primary)" }}>
+                  Q{Number(selectedPrestamo.monto).toLocaleString("es-GT")}
+                </p>
+              </div>
+              <button
+                onClick={cerrarModal}
+                className="shrink-0 w-9 h-9 rounded-full grid place-items-center hover:opacity-80"
+                style={{ backgroundColor: "var(--bg)" }}
+                aria-label="Cerrar"
               >
-                {esPagado ? (
-                  <>
-                    <CheckCircle2 size={13} /> Pagada
-                  </>
-                ) : esMora(selectedPrestamo) ? (
-                  <>
-                    <AlertTriangle size={13} /> En mora
-                  </>
-                ) : (
-                  selectedPrestamo.estado
-                )}
-              </span>
+                <X size={17} />
+              </button>
             </div>
 
-            <h2 className="text-xl font-bold text-center mb-1">
-              {selectedPrestamo.cliente?.nombres} {selectedPrestamo.cliente?.apellidos}
-            </h2>
-
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
-                Q{Number(selectedPrestamo.monto).toLocaleString()}
-              </p>
-            </div>
-
-            <div className="space-y-2 text-sm mb-4 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
+            <div className="grid sm:grid-cols-2 gap-x-5 gap-y-2 text-sm mb-4 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
               <p><span className="font-semibold">Lote:</span> {selectedPrestamo.numeroLote || "N/A"}</p>
               <p><span className="font-semibold">Medida:</span> {selectedPrestamo.medidaLote || "N/A"}</p>
               <p><span className="font-semibold">Área:</span> {selectedPrestamo.areaLote || "N/A"}</p>
@@ -500,6 +607,13 @@ export default function Prestamos() {
                   })} de la cuota #{resumenSeleccionado?.siguienteCuota}
                 </p>
               )}
+              <p>
+                <span className="font-semibold">Saldo pendiente:</span> Q
+                {Number(resumenSeleccionado?.saldoPendiente || 0).toLocaleString("es-GT", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
             </div>
 
             {esPagado && (
@@ -520,18 +634,18 @@ export default function Prestamos() {
               ) : pagos.length === 0 ? (
                 <p className="text-xs opacity-50">Sin pagos registrados aún.</p>
               ) : (
-                <div className="space-y-2 max-h-36 overflow-y-auto">
+                <div className="space-y-2 max-h-44 overflow-y-auto rounded-xl p-2" style={{ backgroundColor: "var(--bg)" }}>
                   {pagos.map((pago) => (
                     <div
                       key={pago.id}
-                      className="flex items-center justify-between text-xs rounded-lg px-3 py-2"
+                      className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs rounded-lg px-3 py-2"
                       style={{
-                        backgroundColor: "var(--bg)",
+                        backgroundColor: "var(--card)",
                         border: "1px solid var(--card-border)",
                       }}
                     >
-                      <span className="font-semibold" style={{ color: "var(--primary)" }}>
-                        Cuota #{pago.numeroCuota}
+                      <span className="font-semibold truncate" style={{ color: "var(--primary)" }}>
+                        {etiquetaPago(pago, selectedPrestamo.cuotas)}
                       </span>
                       <span>Q{Number(pago.montoPagado).toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span>
                       <span className="opacity-60">{formatearFecha(pago.fechaPago)}</span>
@@ -541,7 +655,41 @@ export default function Prestamos() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="grid sm:grid-cols-2 gap-3">
+              {!esPagado && selectedPrestamo.estado === "activo" && !resumenSeleccionado?.todasPagadas && (
+                <div
+                  className="rounded-xl p-3 space-y-2 sm:col-span-2"
+                  style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}
+                >
+                  <label className="text-xs font-semibold opacity-70">Abonar al saldo</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Monto"
+                      value={montoAbono}
+                      onChange={(e) => setMontoAbono(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={{
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--card-border)",
+                        color: "var(--text)",
+                      }}
+                    />
+                    <button
+                      onClick={handleRegistrarAbono}
+                      disabled={registrandoAbono}
+                      className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
+                      style={{ backgroundColor: "#16a34a" }}
+                    >
+                      <Wallet size={15} />
+                      {registrandoAbono ? "..." : "Abonar"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {!esPagado && selectedPrestamo.estado === "activo" && !resumenSeleccionado?.todasPagadas && (
                 <button
                   onClick={handleRegistrarPago}
@@ -578,7 +726,7 @@ export default function Prestamos() {
 
               <button
                 onClick={cerrarModal}
-                className="w-full flex items-center justify-center gap-2 py-2 bg-gray-300 text-gray-800 rounded-xl font-semibold hover:opacity-90 mt-1"
+                className="w-full flex items-center justify-center gap-2 py-2 bg-gray-300 text-gray-800 rounded-xl font-semibold hover:opacity-90"
               >
                 <X size={15} />
                 Cerrar

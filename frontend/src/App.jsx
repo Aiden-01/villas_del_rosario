@@ -5,8 +5,8 @@ import Dashboard from "./pages/Dashboard";
 import CrearUsuario from "./pages/CrearUsuario";
 import CrearCliente from "./pages/CrearCliente";
 import Clientes from "./pages/Clientes";
-import Prestamos from "./pages/Prestamos";
-import CrearPrestamo from "./pages/CrearPrestamo";
+import Ventas from "./pages/Ventas";
+import CrearVenta from "./pages/CrearVenta";
 import GestionUsuarios from "./pages/GestionUsuarios";
 import Reportes from "./pages/Reportes";
 import Historial from "./pages/Historial";
@@ -34,13 +34,13 @@ function App() {
           <Route path="/clientes/crear" element={<CrearCliente />} />
           <Route path="/clientes/editar/:clienteId" element={<CrearCliente />} />
 
-          <Route path="/ventas" element={<Prestamos />} />
-          <Route path="/ventas/crear" element={<CrearPrestamo />} />
-          <Route path="/ventas/editar/:ventaId" element={<CrearPrestamo />} />
+          <Route path="/ventas" element={<Ventas />} />
+          <Route path="/ventas/crear" element={<CrearVenta />} />
+          <Route path="/ventas/editar/:ventaId" element={<CrearVenta />} />
           <Route path="/pagos" element={<PagosAgenda />} />
           <Route path="/prestamos" element={<Navigate to="/ventas" replace />} />
           <Route path="/prestamos/crear" element={<Navigate to="/ventas/crear" replace />} />
-          <Route path="/prestamos/editar/:prestamoId" element={<CrearPrestamo />} />
+          <Route path="/prestamos/editar/:prestamoId" element={<CrearVenta />} />
         </Route>
 
         <Route

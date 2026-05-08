@@ -4,6 +4,7 @@ import Lote from '#models/lote'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { DateTime } from 'luxon'
+import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
 
 export default class PrestamosController {
   private async verifyToken(token: string) {
@@ -133,6 +134,7 @@ export default class PrestamosController {
         'medidaLote',
         'areaLote',
         'fechaCobro',
+        'enganche',
       ])
 
       if (
@@ -149,6 +151,15 @@ export default class PrestamosController {
       }
 
       const lote = await this.resolverLote(data)
+      const enganche = Number(data.enganche || 0)
+
+      if (enganche < 0) {
+        return response.badRequest({ message: 'El enganche no puede ser negativo' })
+      }
+
+      if (enganche - Number(data.monto) > 0.01) {
+        return response.badRequest({ message: 'El enganche no puede exceder el precio del lote' })
+      }
 
       const prestamo = await Prestamo.create({
         clienteId: data.clienteId,
@@ -164,20 +175,40 @@ export default class PrestamosController {
       await prestamo.load('cliente')
       await prestamo.load('lote')
 
+      let resultadoEnganche = null
+      if (enganche > 0) {
+        resultadoEnganche = await aplicarAbonoAVenta({
+          ventaId: prestamo.id,
+          monto: enganche,
+          fechaPago: data.fechaInicio,
+          usuarioId: user.id,
+          tipoPago: 'enganche',
+        })
+        await prestamo.load('pagos')
+      }
+
       await registrarActividad({
         usuarioId: user.id,
         tipo: 'crear',
         entidad: 'prestamo',
         entidadId: prestamo.id,
-        descripcion: `Creo venta del lote ${prestamo.numeroLote || 'N/A'} por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`,
+        descripcion: `Creo venta del lote ${prestamo.numeroLote || 'N/A'} por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}${enganche > 0 ? ` con enganche de Q${enganche}` : ''}`,
         detalle: {
           monto: prestamo.monto,
           cuotas: prestamo.cuotas,
           numeroLote: prestamo.numeroLote,
+          enganche,
         },
       })
 
-      return response.created({ message: 'Venta creada exitosamente', prestamo })
+      return response.created({
+        message:
+          enganche > 0
+            ? 'Venta creada exitosamente con enganche registrado'
+            : 'Venta creada exitosamente',
+        prestamo,
+        enganche: resultadoEnganche,
+      })
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al crear venta' })
