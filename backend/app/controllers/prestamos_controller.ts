@@ -5,6 +5,8 @@ import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { DateTime } from 'luxon'
 import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
+import { createVentaValidator, updateVentaValidator } from '#validators/ventas_validator'
+import { cleanEmptyStrings, isValidationError, validationMessages } from '#validators/helpers'
 
 export default class PrestamosController {
   private async verifyToken(token: string) {
@@ -14,6 +16,10 @@ export default class PrestamosController {
       .preload('user')
       .first()
     return apiToken?.user || null
+  }
+
+  private fechaDesdeIso(fecha?: string | null) {
+    return fecha ? DateTime.fromISO(fecha, { zone: 'America/Guatemala' }) : null
   }
 
   private async resolverLote(data: {
@@ -123,32 +129,9 @@ export default class PrestamosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only([
-        'clienteId',
-        'monto',
-        'cuotas',
-        'fechaInicio',
-        'fechaFin',
-        'frecuenciaPago',
-        'numeroLote',
-        'medidaLote',
-        'areaLote',
-        'fechaCobro',
-        'enganche',
-      ])
-
-      if (
-        !data.clienteId ||
-        !data.monto ||
-        !data.cuotas ||
-        !data.fechaInicio ||
-        !data.fechaFin ||
-        !data.numeroLote
-      ) {
-        return response.badRequest({
-          message: 'Cliente, lote, precio, cuotas y fechas son obligatorios',
-        })
-      }
+      const data = await createVentaValidator.validate(
+        cleanEmptyStrings(request.all(), ['medidaLote', 'areaLote', 'fechaCobro', 'enganche'])
+      )
 
       const lote = await this.resolverLote(data)
       const enganche = Number(data.enganche || 0)
@@ -166,10 +149,10 @@ export default class PrestamosController {
         loteId: lote?.id || null,
         monto: data.monto,
         cuotas: data.cuotas,
-        fechaInicio: data.fechaInicio,
-        fechaFin: data.fechaFin,
+        fechaInicio: this.fechaDesdeIso(data.fechaInicio)!,
+        fechaFin: this.fechaDesdeIso(data.fechaFin)!,
         frecuenciaPago: data.frecuenciaPago || 'mensual',
-        fechaCobro: data.fechaCobro || null,
+        fechaCobro: this.fechaDesdeIso(data.fechaCobro),
         estado: 'activo',
       })
       await prestamo.load('cliente')
@@ -210,6 +193,13 @@ export default class PrestamosController {
         enganche: resultadoEnganche,
       })
     } catch (error) {
+      if (isValidationError(error)) {
+        return response.badRequest({
+          message: 'Datos invalidos para crear venta',
+          errors: validationMessages(error),
+        })
+      }
+
       console.error(error)
       return response.internalServerError({ message: 'Error al crear venta' })
     }
@@ -236,16 +226,19 @@ export default class PrestamosController {
       ]
       if (user.role === 'admin') camposPermitidos.push('estado')
 
-      const data = request.only(camposPermitidos)
+      const data = await updateVentaValidator.validate(
+        cleanEmptyStrings(request.only(camposPermitidos), ['medidaLote', 'areaLote', 'fechaCobro'])
+      )
       const lote = await this.resolverLote(data)
 
       prestamo.merge({
         monto: data.monto ?? prestamo.monto,
         cuotas: data.cuotas ?? prestamo.cuotas,
-        fechaInicio: data.fechaInicio ?? prestamo.fechaInicio,
-        fechaFin: data.fechaFin ?? prestamo.fechaFin,
+        fechaInicio: this.fechaDesdeIso(data.fechaInicio) ?? prestamo.fechaInicio,
+        fechaFin: this.fechaDesdeIso(data.fechaFin) ?? prestamo.fechaFin,
         frecuenciaPago: data.frecuenciaPago ?? prestamo.frecuenciaPago,
-        fechaCobro: data.fechaCobro ?? prestamo.fechaCobro,
+        fechaCobro:
+          data.fechaCobro === undefined ? prestamo.fechaCobro : this.fechaDesdeIso(data.fechaCobro),
         estado: data.estado ?? prestamo.estado,
         loteId: lote?.id ?? prestamo.loteId,
       })
@@ -263,6 +256,13 @@ export default class PrestamosController {
 
       return response.ok({ message: 'Venta actualizada exitosamente', prestamo })
     } catch (error) {
+      if (isValidationError(error)) {
+        return response.badRequest({
+          message: 'Datos invalidos para actualizar venta',
+          errors: validationMessages(error),
+        })
+      }
+
       console.error(error)
       return response.internalServerError({ message: 'Error al actualizar venta' })
     }

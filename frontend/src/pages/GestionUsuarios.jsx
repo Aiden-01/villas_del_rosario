@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -27,10 +28,7 @@ export default function GestionUsuarios() {
 
   const fetchUsuarios = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(ROUTES.USERS, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await authFetch(ROUTES.USERS);
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Error cargando usuarios");
@@ -52,10 +50,8 @@ export default function GestionUsuarios() {
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas dar de baja este usuario?")) return;
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${ROUTES.USERS}/${id}`, {
+      const res = await authFetch(`${ROUTES.USERS}/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {

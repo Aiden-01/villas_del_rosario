@@ -1,10 +1,9 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
 import { User, Search, CalendarDays } from "lucide-react";
+import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const FRECUENCIAS = ["mensual"];
@@ -68,14 +67,12 @@ export default function VentaForm({ mode, ventaId }) {
 
   const obtenerClientes = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/clientes`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setClientes(res.data);
-      setClientesFiltrados(res.data);
+      const res = await authFetch(`${API_URL}/api/clientes`);
+      const data = await res.json();
+      setClientes(data);
+      setClientesFiltrados(data);
       if (clienteIdFromUrl) {
-        const encontrado = res.data.find((cliente) => cliente.id === parseInt(clienteIdFromUrl));
+        const encontrado = data.find((cliente) => cliente.id === parseInt(clienteIdFromUrl));
         if (encontrado) setClientePreseleccionado(encontrado);
       }
     } catch (error) {
@@ -85,11 +82,8 @@ export default function VentaForm({ mode, ventaId }) {
 
   const obtenerVenta = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/ventas/${ventaId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const venta = res.data;
+      const res = await authFetch(`${API_URL}/api/ventas/${ventaId}`);
+      const venta = await res.json();
       setFormData({
         clienteId: venta.clienteId || "",
         monto: venta.monto || "",
@@ -117,22 +111,25 @@ export default function VentaForm({ mode, ventaId }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
       if (isEdit) {
-        await axios.put(`${API_URL}/api/ventas/${ventaId}`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/api/ventas/${ventaId}`, {
+          method: "PUT",
+          body: JSON.stringify(formData),
         });
+        if (!res.ok) throw new Error((await res.json()).message);
         showToast("Venta actualizada correctamente", "success");
       } else {
-        await axios.post(`${API_URL}/api/ventas`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/api/ventas`, {
+          method: "POST",
+          body: JSON.stringify(formData),
         });
+        if (!res.ok) throw new Error((await res.json()).message);
         showToast("Venta creada correctamente", "success");
       }
       setTimeout(() => navigate("/ventas"), 1500);
     } catch (error) {
       console.error(error);
-      const mensaje = error?.response?.data?.message || "Error al guardar la venta";
+      const mensaje = error?.message || "Error al guardar la venta";
       showToast(mensaje, "error");
     }
   };

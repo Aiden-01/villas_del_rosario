@@ -6,6 +6,12 @@ import ApiToken from '#models/api_token'
 import ProgramacionPago from '#models/programacion_pago'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
+import {
+  abonoValidator,
+  createPagoValidator,
+  programacionPagoValidator,
+} from '#validators/pagos_validator'
+import { cleanEmptyStrings, isValidationError, validationMessages } from '#validators/helpers'
 
 const TZ = 'America/Guatemala'
 const EPSILON = 0.01
@@ -117,6 +123,54 @@ export default class PagosController {
     }
 
     return dt.plus({ months: Math.max(numeroCuota - 1, 0) }).toISODate()
+  }
+
+  private voucherPago(params: {
+    venta: Prestamo
+    pagoId?: number
+    tipo: 'cuota' | 'abono' | 'enganche' | 'pago_parcial'
+    montoPagado: number
+    fechaPago: string | null
+    numeroCuota?: number | null
+    pendienteCuotaRestante?: number | null
+    resumen: ReturnType<PagosController['resumenCuotas']>
+    nota?: string | null
+    fechaProgramada?: string | null
+  }) {
+    const cliente = params.venta.cliente
+
+    return {
+      id: params.pagoId || null,
+      generadoEn: DateTime.now().setZone(TZ).toISO(),
+      tipo: params.tipo,
+      montoPagado: Number(params.montoPagado || 0),
+      fechaPago: params.fechaPago,
+      numeroCuota: params.numeroCuota || null,
+      nota: params.nota || null,
+      fechaProgramada: params.fechaProgramada || null,
+      cliente: {
+        nombres: cliente.nombres,
+        apellidos: cliente.apellidos,
+        telefono: cliente.telefono,
+        direccion: cliente.direccion,
+        zona: cliente.zona,
+      },
+      venta: {
+        id: params.venta.id,
+        lote: params.venta.numeroLote || 'N/A',
+        precio: Number(params.venta.monto),
+        cuotas: Number(params.venta.cuotas || 0),
+        cuotaMonto: params.resumen.cuotaMonto,
+        cuotasPagadas: params.resumen.cuotasPagadas,
+        saldoRestante: params.resumen.saldoPendiente,
+        proximaCuota: params.resumen.proximaCuota,
+        pendienteCuotaActual:
+          params.pendienteCuotaRestante === undefined
+            ? params.resumen.montoPendienteCuota
+            : params.pendienteCuotaRestante,
+        estado: params.venta.estado,
+      },
+    }
   }
 
   private async resolverProgramaciones(ventaId: number, numeroCuota: number) {
@@ -399,13 +453,7 @@ export default class PagosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only([
-        'prestamoId',
-        'ventaId',
-        'numeroCuota',
-        'montoPagado',
-        'fechaPago',
-      ])
+      const data = await createPagoValidator.validate(request.all())
       const ventaId = data.ventaId || data.prestamoId
 
       if (!ventaId || !data.numeroCuota || !data.montoPagado || !data.fechaPago) {
@@ -445,7 +493,7 @@ export default class PagosController {
         prestamoId: ventaId,
         numeroCuota: data.numeroCuota,
         montoPagado: monto,
-        fechaPago: data.fechaPago,
+        fechaPago: DateTime.fromISO(data.fechaPago, { zone: TZ }),
         usuarioId: user.id,
         tipoPago: 'cuota',
       })
@@ -470,6 +518,9 @@ export default class PagosController {
         await this.resolverProgramaciones(ventaId, Number(data.numeroCuota))
       }
 
+      await ventaActualizada.load('cliente')
+      await ventaActualizada.load('lote')
+
       await registrarActividad({
         usuarioId: user.id,
         tipo: 'pago',
@@ -479,8 +530,30 @@ export default class PagosController {
         detalle: { numeroCuota: pago.numeroCuota, montoPagado: pago.montoPagado },
       })
 
-      return response.created({ message: 'Pago registrado exitosamente', pago })
+      return response.created({
+        message: 'Pago registrado exitosamente',
+        pago,
+        voucher: this.voucherPago({
+          venta: ventaActualizada,
+          pagoId: pago.id,
+          tipo: 'cuota',
+          montoPagado: monto,
+          fechaPago: data.fechaPago,
+          numeroCuota: data.numeroCuota,
+          pendienteCuotaRestante: Number(
+            Math.max(resumenAntes.montoPendienteCuota - monto, 0).toFixed(2)
+          ),
+          resumen: resumenDespues,
+        }),
+      })
     } catch (error) {
+      if (isValidationError(error)) {
+        return response.badRequest({
+          message: 'Datos invalidos para registrar pago',
+          errors: validationMessages(error),
+        })
+      }
+
       console.error(error)
       return response.internalServerError({ message: 'Error al registrar pago' })
     }
@@ -492,7 +565,7 @@ export default class PagosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only(['prestamoId', 'ventaId', 'monto', 'fechaPago'])
+      const data = await abonoValidator.validate(cleanEmptyStrings(request.all(), ['fechaPago']))
       const ventaId = data.ventaId || data.prestamoId
       const fechaPago = data.fechaPago || DateTime.now().setZone(TZ).toISODate()
 
@@ -509,12 +582,15 @@ export default class PagosController {
 
       await resultado.venta.load('cliente')
       await resultado.venta.load('lote')
+      await resultado.venta.load('pagos')
+      const resumen = this.resumenCuotas(resultado.venta)
+      const pago = resultado.pagos[0]?.pago
 
       await registrarActividad({
         usuarioId: user.id,
         tipo: 'pago',
         entidad: 'pago',
-        entidadId: resultado.pagos[0]?.pago.id || resultado.venta.id,
+        entidadId: pago?.id || resultado.venta.id,
         descripcion: `Registro abono de Q${resultado.totalAplicado} - lote ${resultado.venta.numeroLote || 'N/A'} / ${resultado.venta.cliente.nombres} ${resultado.venta.cliente.apellidos}`,
         detalle: {
           ventaId: resultado.venta.id,
@@ -532,8 +608,24 @@ export default class PagosController {
           ? 'Abono registrado. La venta quedo saldada.'
           : 'Abono registrado correctamente',
         ...resultado,
+        voucher: this.voucherPago({
+          venta: resultado.venta,
+          pagoId: pago?.id,
+          tipo: pago?.tipoPago === 'enganche' ? 'enganche' : 'abono',
+          montoPagado: resultado.totalAplicado,
+          fechaPago,
+          numeroCuota: null,
+          resumen,
+        }),
       })
     } catch (error) {
+      if (isValidationError(error)) {
+        return response.badRequest({
+          message: 'Datos invalidos para registrar abono',
+          errors: validationMessages(error),
+        })
+      }
+
       console.error(error)
       const message = error instanceof Error ? error.message : 'Error al registrar abono'
       return response.badRequest({ message })
@@ -546,14 +638,9 @@ export default class PagosController {
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
-      const data = request.only([
-        'prestamoId',
-        'ventaId',
-        'tipoGestion',
-        'montoPagado',
-        'nota',
-        'fechaProgramada',
-      ])
+      const data = await programacionPagoValidator.validate(
+        cleanEmptyStrings(request.all(), ['montoPagado'])
+      )
 
       const ventaId = data.ventaId || data.prestamoId
       if (!ventaId || !data.tipoGestion || !data.fechaProgramada) {
@@ -585,6 +672,7 @@ export default class PagosController {
       }
 
       let montoParcial = 0
+      let pagoParcial: Pago | null = null
       if (data.tipoGestion === 'pago_parcial') {
         montoParcial = Number(data.montoPagado || 0)
         if (montoParcial <= 0) {
@@ -603,7 +691,7 @@ export default class PagosController {
           })
         }
 
-        await Pago.create({
+        pagoParcial = await Pago.create({
           prestamoId: ventaId,
           numeroCuota: resumen.proximaCuota,
           montoPagado: montoParcial,
@@ -643,8 +731,38 @@ export default class PagosController {
         },
       })
 
-      return response.created({ message: 'Programacion guardada correctamente', programacion })
+      await prestamo.load('pagos')
+      const resumenFinal = this.resumenCuotas(prestamo)
+
+      return response.created({
+        message: 'Programacion guardada correctamente',
+        programacion,
+        voucher:
+          data.tipoGestion === 'pago_parcial' && pagoParcial
+            ? this.voucherPago({
+                venta: prestamo,
+                pagoId: pagoParcial.id,
+                tipo: 'pago_parcial',
+                montoPagado: montoParcial,
+                fechaPago: this.fechaIso(pagoParcial.fechaPago),
+                numeroCuota: resumen.proximaCuota,
+                pendienteCuotaRestante: Number(
+                  Math.max(resumen.montoPendienteCuota - montoParcial, 0).toFixed(2)
+                ),
+                resumen: resumenFinal,
+                nota: data.nota || null,
+                fechaProgramada: data.fechaProgramada,
+              })
+            : null,
+      })
     } catch (error) {
+      if (isValidationError(error)) {
+        return response.badRequest({
+          message: 'Datos invalidos para guardar programacion',
+          errors: validationMessages(error),
+        })
+      }
+
       console.error(error)
       return response.internalServerError({ message: 'Error al guardar programacion de pago' })
     }

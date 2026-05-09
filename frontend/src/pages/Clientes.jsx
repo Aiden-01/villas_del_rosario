@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -23,10 +24,7 @@ export default function Clientes() {
 
   const fetchClientes = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(ROUTES.CLIENTS, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await authFetch(ROUTES.CLIENTS);
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Error cargando clientes");
@@ -69,10 +67,8 @@ export default function Clientes() {
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar este cliente?")) return;
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${ROUTES.CLIENTS}/${id}`, {
+      const res = await authFetch(`${ROUTES.CLIENTS}/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {
@@ -185,6 +181,12 @@ export default function Clientes() {
                 className="w-full py-2 bg-[var(--secondary)] text-white rounded-xl font-semibold hover:opacity-90"
               >
                 Ver Ventas
+              </button>
+              <button
+                onClick={() => navigate(`/clientes/${selectedCliente.id}/estado-cuenta`)}
+                className="w-full py-2 bg-slate-700 text-white rounded-xl font-semibold hover:opacity-90"
+              >
+                Estado de Cuenta
               </button>
               <button
                 onClick={() => navigate(`/clientes/editar/${selectedCliente.id}`)}

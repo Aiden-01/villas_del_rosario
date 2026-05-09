@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
+import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -29,13 +29,9 @@ export default function ClienteForm({ mode, clienteId }) {
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        const token = localStorage.getItem("token");
-
         if (isEdit && clienteId) {
-          const resCliente = await axios.get(`${API_URL}/api/clientes/${clienteId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const cliente = resCliente.data;
+          const resCliente = await authFetch(`${API_URL}/api/clientes/${clienteId}`);
+          const cliente = await resCliente.json();
           setFormData({
             nombres: cliente.nombres || "",
             apellidos: cliente.apellidos || "",
@@ -55,22 +51,24 @@ export default function ClienteForm({ mode, clienteId }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-
       if (isEdit) {
-        await axios.put(`${API_URL}/api/clientes/${clienteId}`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/api/clientes/${clienteId}`, {
+          method: "PUT",
+          body: JSON.stringify(formData),
         });
+        if (!res.ok) throw new Error((await res.json()).message);
         showToast("Cliente actualizado correctamente", "success");
       } else {
-        await axios.post(`${API_URL}/api/clientes`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/api/clientes`, {
+          method: "POST",
+          body: JSON.stringify(formData),
         });
+        if (!res.ok) throw new Error((await res.json()).message);
         showToast("Cliente creado correctamente", "success");
       }
       setTimeout(() => navigate("/clientes"), 1500);
     } catch (error) {
-      const mensaje = error?.response?.data?.message || "Error al guardar el cliente";
+      const mensaje = error?.message || "Error al guardar el cliente";
       showToast(mensaje, "error");
     }
   };

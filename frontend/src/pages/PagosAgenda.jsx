@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
+import { authFetch } from "../services/api";
+import PagoVoucher from "../components/PagoVoucher";
 import {
   AlertTriangle,
   Ban,
@@ -81,19 +83,14 @@ export default function PagosAgenda() {
   const [notaSeguimiento, setNotaSeguimiento] = useState("");
   const [fechaProgramada, setFechaProgramada] = useState(hoyISO());
   const [guardandoSeguimiento, setGuardandoSeguimiento] = useState(false);
+  const [voucher, setVoucher] = useState(null);
 
   const { toast, showToast, closeToast } = useToast();
-  const token = localStorage.getItem("token");
-  const headers = useMemo(
-    () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
-    [token]
-  );
-
   const cargarCalendario = useCallback(async (mes = mesSeleccionado) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_URL}/api/pagos/calendario?mes=${mes}`, { headers });
+      const res = await authFetch(`${API_URL}/api/pagos/calendario?mes=${mes}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Error al cargar calendario de pagos");
@@ -105,7 +102,7 @@ export default function PagosAgenda() {
     } finally {
       setLoading(false);
     }
-  }, [headers, mesSeleccionado]);
+  }, [mesSeleccionado]);
 
   useEffect(() => {
     cargarCalendario(mesSeleccionado);
@@ -150,9 +147,8 @@ export default function PagosAgenda() {
 
     setRegistrando(item.prestamoId);
     try {
-      const res = await fetch(`${API_URL}/api/pagos`, {
+      const res = await authFetch(`${API_URL}/api/pagos`, {
         method: "POST",
-        headers,
         body: JSON.stringify({
           prestamoId: item.prestamoId,
           numeroCuota: item.proximaCuota,
@@ -165,6 +161,7 @@ export default function PagosAgenda() {
         showToast(data.message || "Error al registrar pago", "error");
         return;
       }
+      if (data.voucher) setVoucher(data.voucher);
       showToast(`Cuota #${item.proximaCuota} registrada correctamente`, "success");
       await cargarCalendario(mesSeleccionado);
     } catch {
@@ -199,9 +196,8 @@ export default function PagosAgenda() {
 
     setGuardandoSeguimiento(true);
     try {
-      const res = await fetch(`${API_URL}/api/pagos/programaciones`, {
+      const res = await authFetch(`${API_URL}/api/pagos/programaciones`, {
         method: "POST",
-        headers,
         body: JSON.stringify({
           prestamoId: modalItem.prestamoId,
           tipoGestion: modalTipo,
@@ -222,6 +218,7 @@ export default function PagosAgenda() {
           : `Pago parcial registrado y seguimiento para ${formatearFechaCorta(fechaProgramada)}`,
         "success"
       );
+      if (data.voucher) setVoucher(data.voucher);
       cerrarModal();
       await cargarCalendario(mesSeleccionado);
     } catch {
@@ -712,6 +709,7 @@ export default function PagosAgenda() {
       `}</style>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+      <PagoVoucher voucher={voucher} onClose={() => setVoucher(null)} />
     </div>
   );
 }

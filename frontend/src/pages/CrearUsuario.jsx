@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -28,13 +29,8 @@ export default function CrearUsuario() {
     e.preventDefault();
     setError("");
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(ROUTES.USERS, {
+      const res = await authFetch(ROUTES.USERS, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(form),
       });
       const data = await res.json();

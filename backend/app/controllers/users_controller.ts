@@ -2,6 +2,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
+import { createUserValidator } from '#validators/users_validator'
+import { isValidationError, validationMessages } from '#validators/helpers'
 
 export default class UsersController {
   private async verifyToken(token: string) {
@@ -44,7 +46,7 @@ export default class UsersController {
         return response.forbidden({ message: 'No tienes permisos' })
       }
 
-      const data = request.only(['name', 'email', 'username', 'password', 'role'])
+      const data = await createUserValidator.validate(request.all())
 
       if (!['admin', 'trabajador'].includes(data.role)) {
         return response.badRequest({ message: 'Rol inválido' })
@@ -77,6 +79,13 @@ export default class UsersController {
         },
       })
     } catch (error) {
+      if (isValidationError(error)) {
+        return response.badRequest({
+          message: 'Datos invalidos para crear usuario',
+          errors: validationMessages(error),
+        })
+      }
+
       console.error('Error:', error)
       return response.internalServerError({ message: 'Error al crear usuario' })
     }

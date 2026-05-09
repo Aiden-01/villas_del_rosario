@@ -18,6 +18,8 @@ router.get('/', async () => {
 })
 
 router.post('/api/login', [AuthController, 'login'])
+router.post('/api/refresh', [AuthController, 'refresh'])
+router.post('/api/logout', [AuthController, 'logout']).use(middleware.auth())
 
 router.get('/api/test', async () => {
   return { test: 'ok', timestamp: new Date().toISOString() }
@@ -35,6 +37,7 @@ router
 router
   .group(() => {
     router.get('/', [ClientsController, 'index'])
+    router.get('/:id/estado-cuenta', [ClientsController, 'estadoCuenta'])
     router.get('/:id', [ClientsController, 'show'])
     router.post('/', [ClientsController, 'store'])
     router.put('/:id', [ClientsController, 'update'])

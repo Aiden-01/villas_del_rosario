@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
+import { authFetch } from "../services/api";
 import {
   ClipboardList, RefreshCw, Plus, Pencil, X,
   HandCoins, KeyRound, User, DollarSign,
@@ -43,9 +44,7 @@ export default function Historial() {
       if (filtroTipo !== "todos") url += `&tipo=${filtroTipo}`;
       if (filtroEntidad !== "todos") url += `&entidad=${filtroEntidad}`;
 
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-      const res = await fetch(url, { headers });
+      const res = await authFetch(url);
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Error al cargar historial");

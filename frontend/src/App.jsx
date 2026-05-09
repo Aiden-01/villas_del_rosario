@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import CrearUsuario from "./pages/CrearUsuario";
 import CrearCliente from "./pages/CrearCliente";
 import Clientes from "./pages/Clientes";
+import EstadoCuentaCliente from "./pages/EstadoCuentaCliente";
 import Ventas from "./pages/Ventas";
 import CrearVenta from "./pages/CrearVenta";
 import GestionUsuarios from "./pages/GestionUsuarios";
@@ -33,6 +34,7 @@ function App() {
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/clientes/crear" element={<CrearCliente />} />
           <Route path="/clientes/editar/:clienteId" element={<CrearCliente />} />
+          <Route path="/clientes/:clienteId/estado-cuenta" element={<EstadoCuentaCliente />} />
 
           <Route path="/ventas" element={<Ventas />} />
           <Route path="/ventas/crear" element={<CrearVenta />} />

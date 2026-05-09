@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Moon, Sun, AlertCircle } from "lucide-react";
-import { ROUTES } from "../services/api";
+import { ROUTES, saveAuthData } from "../services/api";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -51,8 +51,7 @@ export default function Login() {
         setError(data.message || "Credenciales incorrectas");
         return;
       }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      saveAuthData(data);
       window.location.href = "/dashboard";
     } catch {
       setError("No se pudo conectar con el servidor");

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import { authFetch } from "../services/api";
+import PagoVoucher from "../components/PagoVoucher";
 import {
   HandCoins,
   CheckCircle2,
@@ -125,6 +127,7 @@ export default function Ventas() {
   const [pestana, setPestana] = useState("activos");
   const [mostrarAntiguos, setMostrarAntiguos] = useState(false);
   const [busquedaFinalizado, setBusquedaFinalizado] = useState("");
+  const [voucher, setVoucher] = useState(null);
   const { toast, showToast, closeToast } = useToast();
 
   const navigate = useNavigate();
@@ -133,12 +136,9 @@ export default function Ventas() {
 
   const fetchPrestamos = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
       const url = clienteId ? `${ROUTES.PRESTAMOS}/cliente/${clienteId}` : ROUTES.PRESTAMOS;
 
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await authFetch(url);
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Error cargando ventas");
@@ -147,9 +147,7 @@ export default function Ventas() {
       setPrestamos(data);
 
       if (clienteId) {
-        const resCliente = await fetch(`${ROUTES.CLIENTES}/${clienteId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const resCliente = await authFetch(`${ROUTES.CLIENTES}/${clienteId}`);
         const dataCliente = await resCliente.json();
         setClienteNombre(`${dataCliente.nombres} ${dataCliente.apellidos}`);
       }
@@ -164,10 +162,7 @@ export default function Ventas() {
   const fetchPagos = async (prestamoId) => {
     setLoadingPagos(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${ROUTES.PAGOS}/venta/${prestamoId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await authFetch(`${ROUTES.PAGOS}/venta/${prestamoId}`);
       const data = await res.json();
       if (res.ok) setPagos(data);
     } catch (err) {
@@ -197,10 +192,8 @@ export default function Ventas() {
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar esta venta?")) return;
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${ROUTES.PRESTAMOS}/${id}`, {
+      const res = await authFetch(`${ROUTES.PRESTAMOS}/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {
@@ -239,15 +232,10 @@ export default function Ventas() {
 
     setRegistrandoPago(true);
     try {
-      const token = localStorage.getItem("token");
       const hoy = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Guatemala" });
 
-      const res = await fetch(ROUTES.PAGOS, {
+      const res = await authFetch(ROUTES.PAGOS, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           prestamoId: selectedPrestamo.id,
           numeroCuota: resumenSeleccionado.siguienteCuota,
@@ -272,6 +260,7 @@ export default function Ventas() {
       } else {
         showToast(`Cuota #${resumenSeleccionado.siguienteCuota} registrada correctamente`, "success");
       }
+      if (data.voucher) setVoucher(data.voucher);
     } catch (err) {
       console.error(err);
       showToast("Error al registrar pago", "error");
@@ -307,15 +296,10 @@ export default function Ventas() {
 
     setRegistrandoAbono(true);
     try {
-      const token = localStorage.getItem("token");
       const hoy = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Guatemala" });
 
-      const res = await fetch(`${ROUTES.PAGOS}/abonos`, {
+      const res = await authFetch(`${ROUTES.PAGOS}/abonos`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           ventaId: selectedPrestamo.id,
           monto,
@@ -339,6 +323,7 @@ export default function Ventas() {
       }
 
       showToast(data.message || "Abono registrado correctamente", "success");
+      if (data.voucher) setVoucher(data.voucher);
     } catch (err) {
       console.error(err);
       showToast("Error al registrar abono", "error");
@@ -737,6 +722,7 @@ export default function Ventas() {
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+      <PagoVoucher voucher={voucher} onClose={() => setVoucher(null)} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
+import { authFetch, clearAuthData, getRefreshToken, ROUTES } from "../services/api";
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -29,9 +30,24 @@ export default function Layout() {
     };
   }, [isMobile, menuOpen]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    const token = localStorage.getItem("token");
+
+    try {
+      if (token) {
+        await authFetch(ROUTES.LOGOUT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken: getRefreshToken() }),
+        });
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
+    clearAuthData();
     navigate("/");
   };
 

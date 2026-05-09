@@ -8,6 +8,7 @@ import {
   FileSpreadsheet,
   FileText,
 } from "lucide-react";
+import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const API = `${API_URL}/api/reportes`;
@@ -64,8 +65,6 @@ export default function Reportes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const token = localStorage.getItem("token");
-
   const resetFiltros = (nextTab) => {
     setTab(nextTab);
     setDatos(null);
@@ -108,7 +107,7 @@ export default function Reportes() {
         url = `${API}/cartera${params.toString() ? `?${params}` : ""}`;
       }
 
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await authFetch(url);
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Error al obtener reporte");
@@ -131,7 +130,7 @@ export default function Reportes() {
       if (fechaFin) url += `&fechaFin=${fechaFin}`;
       if (estado) url += `&estado=${estado}`;
 
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await authFetch(url);
       if (!res.ok) {
         alert("Error al exportar");
         return;
