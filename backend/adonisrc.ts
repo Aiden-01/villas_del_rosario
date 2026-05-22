@@ -18,6 +18,25 @@ export default defineConfig({
 
   /*
   |--------------------------------------------------------------------------
+  | Meta Files
+  |--------------------------------------------------------------------------
+  |
+  | List of files to copy to the build directory.
+  |
+  */
+  metaFiles: [
+    {
+      pattern: 'database/migrations/**',
+      reloadServer: false,
+    },
+    {
+      pattern: 'database/seeders/**',
+      reloadServer: false,
+    },
+  ],
+
+  /*
+  |--------------------------------------------------------------------------
   | Commands
   |--------------------------------------------------------------------------
   |
