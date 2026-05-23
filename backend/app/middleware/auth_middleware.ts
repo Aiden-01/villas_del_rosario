@@ -2,7 +2,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 import ApiToken from '#models/api_token'
 import User from '#models/user'
-import { DateTime } from 'luxon'
 
 declare module '@adonisjs/core/http' {
   interface HttpContext {
@@ -27,11 +26,6 @@ export default class AuthMiddleware {
 
     if (!apiToken?.user) {
       return ctx.response.unauthorized({ message: 'No autorizado' })
-    }
-
-    if (apiToken.expiresAt && apiToken.expiresAt <= DateTime.utc()) {
-      await apiToken.delete()
-      return ctx.response.unauthorized({ message: 'Sesion expirada' })
     }
 
     ctx.currentUser = apiToken.user

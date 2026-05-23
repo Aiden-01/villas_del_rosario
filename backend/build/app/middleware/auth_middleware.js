@@ -1,5 +1,4 @@
 import ApiToken from '#models/api_token';
-import { DateTime } from 'luxon';
 export default class AuthMiddleware {
     async handle(ctx, next) {
         const authHeader = ctx.request.header('authorization');
@@ -14,10 +13,6 @@ export default class AuthMiddleware {
             .first();
         if (!apiToken?.user) {
             return ctx.response.unauthorized({ message: 'No autorizado' });
-        }
-        if (apiToken.expiresAt && apiToken.expiresAt <= DateTime.utc()) {
-            await apiToken.delete();
-            return ctx.response.unauthorized({ message: 'Sesion expirada' });
         }
         ctx.currentUser = apiToken.user;
         return next();
