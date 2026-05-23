@@ -1,0 +1,105 @@
+import User from '#models/user';
+import ApiToken from '#models/api_token';
+import { registrarActividad } from '../helpers/registrar_actividad.js';
+import { createUserValidator } from '#validators/users_validator';
+import { isValidationError, validationMessages } from '#validators/helpers';
+export default class UsersController {
+    async verifyToken(token) {
+        if (!token)
+            return null;
+        const apiToken = await ApiToken.query()
+            .where('token', token.replace('Bearer ', ''))
+            .preload('user')
+            .first();
+        return apiToken?.user || null;
+    }
+    async index({ request, response }) {
+        try {
+            const authHeader = request.header('authorization');
+            const user = await this.verifyToken(authHeader || '');
+            if (!user || user.role !== 'admin') {
+                return response.forbidden({ message: 'No tienes permisos' });
+            }
+            const users = await User.query().select('id', 'name', 'username', 'email', 'role', 'createdAt');
+            return response.ok(users);
+        }
+        catch (error) {
+            console.error('Error:', error);
+            return response.internalServerError({ message: 'Error al obtener usuarios' });
+        }
+    }
+    async store({ request, response }) {
+        try {
+            const authHeader = request.header('authorization');
+            const user = await this.verifyToken(authHeader || '');
+            if (!user || user.role !== 'admin') {
+                return response.forbidden({ message: 'No tienes permisos' });
+            }
+            const data = await createUserValidator.validate(request.all());
+            if (!['admin', 'trabajador'].includes(data.role)) {
+                return response.badRequest({ message: 'Rol inválido' });
+            }
+            const existingUser = await User.findBy('username', data.username);
+            if (existingUser) {
+                return response.conflict({ message: 'El usuario ya existe' });
+            }
+            const newUser = await User.create(data);
+            await registrarActividad({
+                usuarioId: user.id,
+                tipo: 'crear',
+                entidad: 'usuario',
+                entidadId: newUser.id,
+                descripcion: `Creó el usuario @${newUser.username} con rol ${newUser.role}`,
+            });
+            return response.created({
+                message: 'Usuario creado exitosamente',
+                user: {
+                    id: newUser.id,
+                    name: newUser.name,
+                    username: newUser.username,
+                    email: newUser.email,
+                    role: newUser.role,
+                    createdAt: newUser.createdAt,
+                },
+            });
+        }
+        catch (error) {
+            if (isValidationError(error)) {
+                return response.badRequest({
+                    message: 'Datos invalidos para crear usuario',
+                    errors: validationMessages(error),
+                });
+            }
+            console.error('Error:', error);
+            return response.internalServerError({ message: 'Error al crear usuario' });
+        }
+    }
+    async destroy({ request, params, response }) {
+        try {
+            const authHeader = request.header('authorization');
+            const user = await this.verifyToken(authHeader || '');
+            if (!user || user.role !== 'admin') {
+                return response.forbidden({ message: 'No tienes permisos' });
+            }
+            const userToDelete = await User.findOrFail(params.id);
+            if (userToDelete.id === user.id) {
+                return response.badRequest({ message: 'No puedes eliminarte a ti mismo' });
+            }
+            const username = userToDelete.username;
+            await userToDelete.delete();
+            await registrarActividad({
+                usuarioId: user.id,
+                tipo: 'eliminar',
+                entidad: 'usuario',
+                entidadId: Number(params.id),
+                descripcion: `Eliminó el usuario @${username}`,
+            });
+            return response.ok({ message: 'Usuario eliminado exitosamente' });
+        }
+        catch (error) {
+            console.error('Error:', error);
+            return response.internalServerError({ message: 'Error al eliminar usuario' });
+        }
+    }
+}
+//# sourceMappingURL=users_controller.js.map
