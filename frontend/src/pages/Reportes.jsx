@@ -44,6 +44,14 @@ const calcularCuotasPagadas = (venta) => {
   return completas;
 };
 
+const lotesVenta = (venta) => {
+  if (venta.predios?.length) {
+    return venta.predios.map((predio) => predio.numeroLote).filter(Boolean).join(", ");
+  }
+
+  return venta.numeroLote || "N/A";
+};
+
 const etiquetaPago = (pago) => {
   if (pago.tipoPago === "abono") return "Abono";
   if (pago.tipoPago === "enganche") return "Enganche";
@@ -373,7 +381,7 @@ export default function Reportes() {
                           <td className="p-3">
                             {venta.cliente?.nombres} {venta.cliente?.apellidos}
                           </td>
-                          <td className="p-3">{venta.numeroLote || "N/A"}</td>
+                          <td className="p-3">{lotesVenta(venta)}</td>
                           <td className="p-3 font-semibold" style={{ color: "var(--primary)" }}>
                             Q{formatearMoneda(venta.monto)}
                           </td>

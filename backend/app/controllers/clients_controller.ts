@@ -156,6 +156,7 @@ export default class ClientsController {
       const ventas = await Prestamo.query()
         .where('cliente_id', params.id)
         .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
         .preload('pagos', (query) =>
           query.orderBy('fecha_pago', 'asc').orderBy('created_at', 'asc')
         )
@@ -217,6 +218,12 @@ export default class ClientsController {
           lote: venta.numeroLote || 'N/A',
           medidaLote: venta.medidaLote,
           areaLote: venta.areaLote,
+          predios: (venta.predios || []).map((predio) => ({
+            numeroLote: predio.numeroLote,
+            medidaLote: predio.medidaLote,
+            areaLote: predio.areaLote,
+            precio: predio.precio === null ? null : Number(predio.precio),
+          })),
           estado: venta.estado,
           precio: Number(venta.monto),
           totalPagado,

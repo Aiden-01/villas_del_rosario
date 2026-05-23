@@ -170,7 +170,9 @@ export default class ReportesController {
       const pagos = await Pago.query()
         .where('fecha_pago', '>=', fechaInicio)
         .where('fecha_pago', '<', fechaMasUnDia(fechaFin)!)
-        .preload('prestamo', (query) => query.preload('cliente').preload('lote'))
+        .preload('prestamo', (query) =>
+          query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+        )
         .preload('usuario')
         .orderBy('fecha_pago', 'asc')
 
@@ -187,7 +189,11 @@ export default class ReportesController {
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { estado, fechaInicio, fechaFin } = request.qs()
-      const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+      const query = Prestamo.query()
+        .preload('cliente')
+        .preload('pagos')
+        .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
 
       if (estado) query.where('estado', estado)
       if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
@@ -212,7 +218,11 @@ export default class ReportesController {
 
       const { estado, fechaInicio, fechaFin } = request.qs()
 
-      const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+      const query = Prestamo.query()
+        .preload('cliente')
+        .preload('pagos')
+        .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
       if (estado) query.where('estado', estado)
       if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
       if (fechaFin) query.where('fecha_inicio', '<', fechaMasUnDia(fechaFin)!)
@@ -268,7 +278,9 @@ export default class ReportesController {
         const pagos = await Pago.query()
           .where('fecha_pago', '>=', fechaInicio)
           .where('fecha_pago', '<', fechaFinStr!)
-          .preload('prestamo', (query) => query.preload('cliente').preload('lote'))
+          .preload('prestamo', (query) =>
+            query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+          )
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
 
@@ -324,7 +336,11 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Ventas')
         sheet.properties.defaultRowHeight = 20
 
-        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+        const query = Prestamo.query()
+          .preload('cliente')
+          .preload('pagos')
+          .preload('lote')
+          .preload('predios', (predios) => predios.preload('lote'))
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
@@ -399,7 +415,11 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Cartera')
         sheet.properties.defaultRowHeight = 20
 
-        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+        const query = Prestamo.query()
+          .preload('cliente')
+          .preload('pagos')
+          .preload('lote')
+          .preload('predios', (predios) => predios.preload('lote'))
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
@@ -509,7 +529,9 @@ export default class ReportesController {
         const pagos = await Pago.query()
           .where('fecha_pago', '>=', fechaInicio)
           .where('fecha_pago', '<', fechaFinStr!)
-          .preload('prestamo', (query) => query.preload('cliente').preload('lote'))
+          .preload('prestamo', (query) =>
+            query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+          )
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
 
@@ -532,7 +554,11 @@ export default class ReportesController {
       }
 
       if (tipo === 'ventas') {
-        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+        const query = Prestamo.query()
+          .preload('cliente')
+          .preload('pagos')
+          .preload('lote')
+          .preload('predios', (predios) => predios.preload('lote'))
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
@@ -556,7 +582,11 @@ export default class ReportesController {
       }
 
       if (tipo === 'cartera') {
-        const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+        const query = Prestamo.query()
+          .preload('cliente')
+          .preload('pagos')
+          .preload('lote')
+          .preload('predios', (predios) => predios.preload('lote'))
         if (estado) query.where('estado', estado)
         if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
         if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)

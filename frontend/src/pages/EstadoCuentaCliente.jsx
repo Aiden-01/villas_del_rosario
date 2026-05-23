@@ -23,6 +23,19 @@ const etiquetaPago = (pago) => {
   return `Cuota #${pago.numeroCuota}`;
 };
 
+const prediosVenta = (venta) =>
+  venta?.predios?.length
+    ? venta.predios
+    : [{ numeroLote: venta?.lote, medidaLote: venta?.medidaLote, areaLote: venta?.areaLote }].filter(
+        (predio) => predio.numeroLote
+      );
+
+const etiquetaLotes = (venta) => {
+  const predios = prediosVenta(venta);
+  const lotes = predios.map((predio) => predio.numeroLote).filter(Boolean).join(", ");
+  return `${predios.length > 1 ? "Lotes" : "Lote"} ${lotes || "N/A"}`;
+};
+
 const cargarImagen = (src) =>
   new Promise((resolve) => {
     const img = new Image();
@@ -149,7 +162,7 @@ async function descargarEstadoJpg(estado, nombreCliente, movimientos) {
     ctx.fillStyle = "#f8fafc";
     rectRedondeado(ctx, 92, y, 896, 118, 22);
     ctx.fill();
-    dibujarTexto(ctx, `Lote ${venta.lote}`, 120, y + 38, { size: 27, weight: "700" });
+    dibujarTexto(ctx, truncar(etiquetaLotes(venta), 32), 120, y + 38, { size: 27, weight: "700" });
     dibujarTexto(ctx, `${venta.cuotasPagadas}/${venta.totalCuotas} cuotas`, 120, y + 76, {
       size: 22,
       color: "#64748b",
@@ -261,7 +274,7 @@ export default function EstadoCuentaCliente() {
       .flatMap((venta) =>
         venta.pagos.map((pago) => ({
           ...pago,
-          lote: venta.lote,
+          lote: etiquetaLotes(venta),
         }))
       )
       .sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago)));
@@ -377,7 +390,7 @@ export default function EstadoCuentaCliente() {
                   <div key={venta.id} className="rounded-2xl bg-slate-50 px-3 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-bold">Lote {venta.lote}</p>
+                        <p className="font-bold">{etiquetaLotes(venta)}</p>
                         <p className="text-xs text-slate-500">
                           {venta.cuotasPagadas}/{venta.totalCuotas} cuotas · {venta.estado}
                         </p>
@@ -406,7 +419,7 @@ export default function EstadoCuentaCliente() {
                     <div>
                       <p className="text-sm font-semibold">{etiquetaPago(pago)}</p>
                       <p className="text-xs text-slate-500">
-                        {fecha(pago.fechaPago)} · Lote {pago.lote}
+                        {fecha(pago.fechaPago)} · {pago.lote}
                       </p>
                     </div>
                     <p className="font-bold text-emerald-700">Q{moneda(pago.montoPagado)}</p>

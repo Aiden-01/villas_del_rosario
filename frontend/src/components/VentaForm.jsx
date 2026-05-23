@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
-import { User, Search, CalendarDays, CheckCircle2, Pencil } from "lucide-react";
+import { User, Search, CalendarDays, CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react";
 import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const FRECUENCIAS = ["mensual"];
+const predioVacio = () => ({ numeroLote: "", medidaLote: "", areaLote: "", precio: "" });
 
 export default function VentaForm({ mode, ventaId }) {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function VentaForm({ mode, ventaId }) {
     numeroLote: "",
     medidaLote: "",
     areaLote: "",
+    predios: [predioVacio()],
     fechaCobro: "",
     enganche: "",
     interes: 0,
@@ -85,6 +87,22 @@ export default function VentaForm({ mode, ventaId }) {
     try {
       const res = await authFetch(`${API_URL}/api/ventas/${ventaId}`);
       const venta = await res.json();
+      const predios =
+        venta.predios?.length > 0
+          ? venta.predios.map((predio) => ({
+              numeroLote: predio.numeroLote || "",
+              medidaLote: predio.medidaLote || "",
+              areaLote: predio.areaLote || "",
+              precio: predio.precio || "",
+            }))
+          : [
+              {
+                numeroLote: venta.numeroLote || "",
+                medidaLote: venta.medidaLote || "",
+                areaLote: venta.areaLote || "",
+                precio: "",
+              },
+            ];
       setFormData({
         clienteId: venta.clienteId || "",
         monto: venta.monto || "",
@@ -95,6 +113,7 @@ export default function VentaForm({ mode, ventaId }) {
         numeroLote: venta.numeroLote || "",
         medidaLote: venta.medidaLote || "",
         areaLote: venta.areaLote || "",
+        predios,
         fechaCobro: venta.fechaCobro?.split("T")[0] || "",
         enganche: "",
         interes: 0,
@@ -111,18 +130,40 @@ export default function VentaForm({ mode, ventaId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const predios = formData.predios
+      .map((predio) => ({
+        numeroLote: predio.numeroLote.trim(),
+        medidaLote: predio.medidaLote.trim() || undefined,
+        areaLote: predio.areaLote.trim() || undefined,
+        precio: predio.precio === "" ? undefined : Number(predio.precio),
+      }))
+      .filter((predio) => predio.numeroLote);
+
+    if (predios.length === 0) {
+      showToast("Agrega al menos un predio a la venta", "error");
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      numeroLote: predios[0].numeroLote,
+      medidaLote: predios[0].medidaLote,
+      areaLote: predios[0].areaLote,
+      predios,
+    };
+
     try {
       if (isEdit) {
         const res = await authFetch(`${API_URL}/api/ventas/${ventaId}`, {
           method: "PUT",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error((await res.json()).message);
         showToast("Venta actualizada correctamente", "success");
       } else {
         const res = await authFetch(`${API_URL}/api/ventas`, {
           method: "POST",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error((await res.json()).message);
         showToast("Venta creada correctamente", "success");
@@ -155,6 +196,43 @@ export default function VentaForm({ mode, ventaId }) {
   const cambiarCliente = () => {
     setBusquedaCliente("");
     setSelectorAbierto(true);
+  };
+
+  const actualizarPredio = (index, campo, valor) => {
+    setFormData((prev) => {
+      const predios = prev.predios.map((predio, predioIndex) =>
+        predioIndex === index ? { ...predio, [campo]: valor } : predio
+      );
+      const principal = predios[0] || predioVacio();
+
+      return {
+        ...prev,
+        predios,
+        numeroLote: principal.numeroLote,
+        medidaLote: principal.medidaLote,
+        areaLote: principal.areaLote,
+      };
+    });
+  };
+
+  const agregarPredio = () => {
+    setFormData((prev) => ({ ...prev, predios: [...prev.predios, predioVacio()] }));
+  };
+
+  const quitarPredio = (index) => {
+    setFormData((prev) => {
+      const predios = prev.predios.filter((_, predioIndex) => predioIndex !== index);
+      const normalizados = predios.length > 0 ? predios : [predioVacio()];
+      const principal = normalizados[0];
+
+      return {
+        ...prev,
+        predios: normalizados,
+        numeroLote: principal.numeroLote,
+        medidaLote: principal.medidaLote,
+        areaLote: principal.areaLote,
+      };
+    });
   };
 
   const precio = Number(formData.monto || 0);
@@ -255,36 +333,83 @@ export default function VentaForm({ mode, ventaId }) {
           </div>
         )}
 
-        <input
-          type="text"
-          placeholder="Número de lote"
-          value={formData.numeroLote}
-          onChange={(e) => setFormData({ ...formData, numeroLote: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
-        />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+              Predios de la venta
+            </label>
+            <button
+              type="button"
+              onClick={agregarPredio}
+              className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:scale-105"
+              style={{ backgroundColor: "var(--secondary)" }}
+            >
+              <Plus size={14} />
+              Agregar
+            </button>
+          </div>
 
-        <input
-          type="text"
-          placeholder="Medida lineal del lote (ej. 24x15)"
-          value={formData.medidaLote}
-          onChange={(e) => setFormData({ ...formData, medidaLote: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
-        />
-
-        <input
-          type="text"
-          placeholder="Área del lote (ej. 400 m2)"
-          value={formData.areaLote}
-          onChange={(e) => setFormData({ ...formData, areaLote: e.target.value })}
-          className="w-full p-2 rounded"
-          style={inputStyle}
-        />
+          {formData.predios.map((predio, index) => (
+            <div
+              key={index}
+              className="space-y-2 rounded-xl p-3 transition-all duration-300 animate-[clienteOptions_0.22s_ease-out]"
+              style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold opacity-70">Predio {index + 1}</p>
+                {formData.predios.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => quitarPredio(index)}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-red-500 transition hover:scale-105"
+                    style={{ backgroundColor: "var(--card)" }}
+                    aria-label="Quitar predio"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                placeholder="Numero de lote"
+                value={predio.numeroLote}
+                onChange={(e) => actualizarPredio(index, "numeroLote", e.target.value)}
+                className="w-full p-2 rounded"
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                placeholder="Medida lineal (ej. 24x15)"
+                value={predio.medidaLote}
+                onChange={(e) => actualizarPredio(index, "medidaLote", e.target.value)}
+                className="w-full p-2 rounded"
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                placeholder="Area (ej. 400 m2)"
+                value={predio.areaLote}
+                onChange={(e) => actualizarPredio(index, "areaLote", e.target.value)}
+                className="w-full p-2 rounded"
+                style={inputStyle}
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Precio de este predio (opcional)"
+                value={predio.precio}
+                onChange={(e) => actualizarPredio(index, "precio", e.target.value)}
+                className="w-full p-2 rounded"
+                style={inputStyle}
+              />
+            </div>
+          ))}
+        </div>
 
         <input
           type="number"
-          placeholder="Precio del lote"
+          placeholder="Precio total de la venta"
           value={formData.monto}
           onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
           className="w-full p-2 rounded"

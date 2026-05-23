@@ -145,6 +145,7 @@ async function obtenerCobrosDeLaFecha(fecha: string) {
     .whereIn('estado', ['activo', 'vencido'])
     .preload('cliente')
     .preload('lote')
+    .preload('predios', (predios) => predios.preload('lote'))
     .preload('pagos')
     .preload('programaciones')
 

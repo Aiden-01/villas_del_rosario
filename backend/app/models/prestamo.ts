@@ -5,6 +5,7 @@ import Client from '#models/client'
 import Pago from '#models/pago'
 import Lote from '#models/lote'
 import ProgramacionPago from '#models/programacion_pago'
+import VentaPredio from '#models/venta_predio'
 
 export default class Prestamo extends BaseModel {
   public static table = 'ventas'
@@ -65,18 +66,47 @@ export default class Prestamo extends BaseModel {
   })
   declare programaciones: HasMany<typeof ProgramacionPago>
 
+  @hasMany(() => VentaPredio, {
+    foreignKey: 'ventaId',
+  })
+  declare predios: HasMany<typeof VentaPredio>
+
   @computed({ serializeAs: 'numeroLote' })
   get numeroLote() {
+    const predios = (this.$preloaded.predios as VentaPredio[] | undefined) || []
+    if (predios.length > 0) {
+      return predios
+        .map((predio) => predio.numeroLote)
+        .filter(Boolean)
+        .join(', ')
+    }
+
     return this.lote?.numero ?? null
   }
 
   @computed({ serializeAs: 'medidaLote' })
   get medidaLote() {
+    const predios = (this.$preloaded.predios as VentaPredio[] | undefined) || []
+    if (predios.length > 0) {
+      return predios
+        .map((predio) => predio.medidaLote)
+        .filter(Boolean)
+        .join(', ')
+    }
+
     return this.lote?.medida ?? null
   }
 
   @computed({ serializeAs: 'areaLote' })
   get areaLote() {
+    const predios = (this.$preloaded.predios as VentaPredio[] | undefined) || []
+    if (predios.length > 0) {
+      return predios
+        .map((predio) => predio.areaLote)
+        .filter(Boolean)
+        .join(', ')
+    }
+
     return this.lote?.area ?? null
   }
 }

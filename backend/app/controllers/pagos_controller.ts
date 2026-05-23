@@ -158,6 +158,12 @@ export default class PagosController {
       venta: {
         id: params.venta.id,
         lote: params.venta.numeroLote || 'N/A',
+        predios: (params.venta.predios || []).map((predio) => ({
+          numeroLote: predio.numeroLote,
+          medidaLote: predio.medidaLote,
+          areaLote: predio.areaLote,
+          precio: predio.precio === null ? null : Number(predio.precio),
+        })),
         precio: Number(params.venta.monto),
         cuotas: Number(params.venta.cuotas || 0),
         cuotaMonto: params.resumen.cuotaMonto,
@@ -227,7 +233,9 @@ export default class PagosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const pagos = await Pago.query()
-        .preload('prestamo', (q) => q.preload('cliente').preload('lote'))
+        .preload('prestamo', (q) =>
+          q.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+        )
         .preload('usuario')
       return response.ok(pagos)
     } catch (error) {
@@ -247,18 +255,31 @@ export default class PagosController {
         .whereIn('estado', ['activo', 'vencido'])
         .preload('cliente')
         .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
         .preload('pagos')
         .preload('programaciones')
 
       const programacionesDelDia = await ProgramacionPago.query()
         .whereRaw(`DATE(created_at AT TIME ZONE '${TZ}') = ?`, [fecha])
-        .preload('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
+        .preload('prestamo', (q) =>
+          q
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
+            .preload('pagos')
+        )
 
       const pagosDelDia = await Pago.query()
         .where('fecha_pago', fecha)
         .where('tipo_pago', 'cuota')
         .where('numero_cuota', '>', 0)
-        .preload('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
+        .preload('prestamo', (q) =>
+          q
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
+            .preload('pagos')
+        )
 
       const gestionadosKeys = new Set(
         programacionesDelDia.map(
@@ -436,7 +457,9 @@ export default class PagosController {
 
       const pagos = await Pago.query()
         .where('venta_id', params.prestamoId)
-        .preload('prestamo', (q) => q.preload('cliente').preload('lote'))
+        .preload('prestamo', (q) =>
+          q.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+        )
         .preload('usuario')
         .orderBy('numero_cuota', 'asc')
         .orderBy('created_at', 'asc')
@@ -464,6 +487,7 @@ export default class PagosController {
         .where('id', ventaId)
         .preload('cliente')
         .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
         .preload('pagos')
         .firstOrFail()
 
@@ -497,7 +521,13 @@ export default class PagosController {
         usuarioId: user.id,
         tipoPago: 'cuota',
       })
-      await pago.load('prestamo', (q) => q.preload('cliente').preload('lote').preload('pagos'))
+      await pago.load('prestamo', (q) =>
+        q
+          .preload('cliente')
+          .preload('lote')
+          .preload('predios', (predios) => predios.preload('lote'))
+          .preload('pagos')
+      )
       await pago.load('usuario')
 
       const ventaActualizada = await Prestamo.query()
@@ -520,6 +550,7 @@ export default class PagosController {
 
       await ventaActualizada.load('cliente')
       await ventaActualizada.load('lote')
+      await ventaActualizada.load('predios', (predios) => predios.preload('lote'))
 
       await registrarActividad({
         usuarioId: user.id,
@@ -582,6 +613,7 @@ export default class PagosController {
 
       await resultado.venta.load('cliente')
       await resultado.venta.load('lote')
+      await resultado.venta.load('predios', (predios) => predios.preload('lote'))
       await resultado.venta.load('pagos')
       const resumen = this.resumenCuotas(resultado.venta)
       const pago = resultado.pagos[0]?.pago
@@ -663,6 +695,7 @@ export default class PagosController {
         .where('id', ventaId)
         .preload('cliente')
         .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
         .preload('pagos')
         .firstOrFail()
 

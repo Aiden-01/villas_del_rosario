@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Prestamo from '#models/prestamo'
 import Lote from '#models/lote'
+import VentaPredio from '#models/venta_predio'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { DateTime } from 'luxon'
@@ -50,6 +51,73 @@ export default class PrestamosController {
     return lote
   }
 
+  private normalizarPredios(data: {
+    numeroLote?: string
+    medidaLote?: string
+    areaLote?: string
+    predios?: Array<{
+      numeroLote?: string
+      medidaLote?: string
+      areaLote?: string
+      precio?: number
+    }>
+  }) {
+    const predios = data.predios?.length
+      ? data.predios
+      : [
+          {
+            numeroLote: data.numeroLote,
+            medidaLote: data.medidaLote,
+            areaLote: data.areaLote,
+          },
+        ]
+
+    return predios
+      .map((predio) => ({
+        numeroLote: predio.numeroLote?.trim() || '',
+        medidaLote: predio.medidaLote?.trim() || undefined,
+        areaLote: predio.areaLote?.trim() || undefined,
+        precio: predio.precio,
+      }))
+      .filter((predio) => predio.numeroLote)
+  }
+
+  private async resolverLotesPredios(
+    predios: Array<{
+      numeroLote: string
+      medidaLote?: string
+      areaLote?: string
+      precio?: number
+    }>
+  ) {
+    return Promise.all(
+      predios.map(async (predio) => ({
+        predio,
+        lote: await this.resolverLote(predio),
+      }))
+    )
+  }
+
+  private async crearPrediosVenta(
+    ventaId: number,
+    lotesPredios: Array<{
+      predio: {
+        precio?: number
+      }
+      lote: Lote | null
+    }>
+  ) {
+    for (const item of lotesPredios) {
+      if (!item.lote) continue
+
+      await VentaPredio.create({
+        ventaId,
+        loteId: item.lote.id,
+        precio: item.predio.precio ?? null,
+      })
+    }
+  }
+
   async index({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -57,7 +125,11 @@ export default class PrestamosController {
       if (!user) return response.forbidden({ message: 'No autorizado' })
 
       const { clienteId, mostrarAntiguos } = request.qs()
-      const query = Prestamo.query().preload('cliente').preload('pagos').preload('lote')
+      const query = Prestamo.query()
+        .preload('cliente')
+        .preload('pagos')
+        .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
 
       if (clienteId) {
         query.where('cliente_id', clienteId)
@@ -95,6 +167,7 @@ export default class PrestamosController {
         .preload('cliente')
         .preload('pagos')
         .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
         .first()
 
       if (!prestamo) return response.notFound({ message: 'Venta no encontrada' })
@@ -116,6 +189,7 @@ export default class PrestamosController {
         .preload('cliente')
         .preload('pagos')
         .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
       return response.ok(prestamos)
     } catch (error) {
       console.error(error)
@@ -133,7 +207,13 @@ export default class PrestamosController {
         cleanEmptyStrings(request.all(), ['medidaLote', 'areaLote', 'fechaCobro', 'enganche'])
       )
 
-      const lote = await this.resolverLote(data)
+      const predios = this.normalizarPredios(data)
+      if (predios.length === 0) {
+        return response.badRequest({ message: 'Debe agregar al menos un predio a la venta' })
+      }
+
+      const lotesPredios = await this.resolverLotesPredios(predios)
+      const lote = lotesPredios[0]?.lote || null
       const enganche = Number(data.enganche || 0)
 
       if (enganche < 0) {
@@ -155,8 +235,10 @@ export default class PrestamosController {
         fechaCobro: this.fechaDesdeIso(data.fechaCobro),
         estado: 'activo',
       })
+      await this.crearPrediosVenta(prestamo.id, lotesPredios)
       await prestamo.load('cliente')
       await prestamo.load('lote')
+      await prestamo.load('predios', (prediosQuery) => prediosQuery.preload('lote'))
 
       let resultadoEnganche = null
       if (enganche > 0) {
@@ -175,11 +257,12 @@ export default class PrestamosController {
         tipo: 'crear',
         entidad: 'prestamo',
         entidadId: prestamo.id,
-        descripcion: `Creo venta del lote ${prestamo.numeroLote || 'N/A'} por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}${enganche > 0 ? ` con enganche de Q${enganche}` : ''}`,
+        descripcion: `Creo venta de ${predios.length} predio(s) (${prestamo.numeroLote || 'N/A'}) por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}${enganche > 0 ? ` con enganche de Q${enganche}` : ''}`,
         detalle: {
           monto: prestamo.monto,
           cuotas: prestamo.cuotas,
           numeroLote: prestamo.numeroLote,
+          predios,
           enganche,
         },
       })
@@ -222,6 +305,7 @@ export default class PrestamosController {
         'numeroLote',
         'medidaLote',
         'areaLote',
+        'predios',
         'fechaCobro',
       ]
       if (user.role === 'admin') camposPermitidos.push('estado')
@@ -229,7 +313,11 @@ export default class PrestamosController {
       const data = await updateVentaValidator.validate(
         cleanEmptyStrings(request.only(camposPermitidos), ['medidaLote', 'areaLote', 'fechaCobro'])
       )
-      const lote = await this.resolverLote(data)
+      const predios = data.predios ? this.normalizarPredios(data) : []
+      const lotesPredios = data.predios
+        ? await this.resolverLotesPredios(predios)
+        : []
+      const lote = data.predios ? lotesPredios[0]?.lote || null : await this.resolverLote(data)
 
       prestamo.merge({
         monto: data.monto ?? prestamo.monto,
@@ -243,8 +331,15 @@ export default class PrestamosController {
         loteId: lote?.id ?? prestamo.loteId,
       })
       await prestamo.save()
+
+      if (data.predios) {
+        await VentaPredio.query().where('venta_id', prestamo.id).delete()
+        await this.crearPrediosVenta(prestamo.id, lotesPredios)
+      }
+
       await prestamo.load('cliente')
       await prestamo.load('lote')
+      await prestamo.load('predios', (prediosQuery) => prediosQuery.preload('lote'))
 
       await registrarActividad({
         usuarioId: user.id,
@@ -281,9 +376,16 @@ export default class PrestamosController {
       const prestamo = await Prestamo.findOrFail(params.id)
       await prestamo.load('cliente')
       await prestamo.load('lote')
+      await prestamo.load('predios', (prediosQuery) => prediosQuery.preload('lote'))
 
-      if (prestamo.loteId) {
-        const lote = await Lote.find(prestamo.loteId)
+      const lotesIds = new Set<number>()
+      if (prestamo.loteId) lotesIds.add(prestamo.loteId)
+      for (const predio of prestamo.predios || []) {
+        if (predio.loteId) lotesIds.add(predio.loteId)
+      }
+
+      for (const loteId of lotesIds) {
+        const lote = await Lote.find(loteId)
         if (lote) {
           lote.estado = 'disponible'
           await lote.save()

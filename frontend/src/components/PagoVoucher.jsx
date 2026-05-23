@@ -22,6 +22,17 @@ const tituloTipo = {
 const pendienteCuotaLabel = (voucher) =>
   voucher.numeroCuota ? `Q${moneda(voucher.venta.pendienteCuotaActual)}` : "N/A";
 
+const prediosVoucher = (voucher) =>
+  voucher?.venta?.predios?.length
+    ? voucher.venta.predios
+    : [{ numeroLote: voucher?.venta?.lote }].filter((predio) => predio.numeroLote);
+
+const etiquetaLotes = (voucher) => {
+  const predios = prediosVoucher(voucher);
+  const lotes = predios.map((predio) => predio.numeroLote).filter(Boolean).join(", ");
+  return `${predios.length > 1 ? "Lotes" : "Lote"} ${lotes || "N/A"}`;
+};
+
 const cargarImagen = (src) =>
   new Promise((resolve) => {
     const img = new Image();
@@ -86,7 +97,7 @@ async function descargarJpg(voucher) {
   const nombre = `${voucher.cliente.nombres} ${voucher.cliente.apellidos}`;
   texto(ctx, nombre, 96, 316, { size: 39, weight: "700" });
   texto(ctx, `Tel. ${voucher.cliente.telefono || "N/A"}`, 96, 356, { size: 24, color: "#475569" });
-  texto(ctx, `Lote ${voucher.venta.lote}`, 96, 396, { size: 27, weight: "700", color: "#1d4ed8" });
+  texto(ctx, etiquetaLotes(voucher), 96, 396, { size: 27, weight: "700", color: "#1d4ed8" });
 
   ctx.fillStyle = "#ecfdf5";
   roundedRect(ctx, 96, 452, 888, 180, 28);
@@ -182,7 +193,7 @@ export default function PagoVoucher({ voucher, onClose }) {
           <div>
             <p className="text-xs text-slate-500">Cliente</p>
             <p className="text-lg font-bold">{nombre}</p>
-            <p className="text-sm text-slate-500">Lote {voucher.venta.lote}</p>
+            <p className="text-sm text-slate-500">{etiquetaLotes(voucher)}</p>
           </div>
 
           <div className="rounded-2xl bg-emerald-50 p-4">

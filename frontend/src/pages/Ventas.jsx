@@ -42,6 +42,23 @@ const esMora = (prestamo) => {
 
 const calcularCuotaMensual = (monto, cuotas) => Number(monto) / Number(cuotas || 1);
 
+const prediosVenta = (venta) =>
+  venta?.predios?.length
+    ? venta.predios
+    : [
+        {
+          numeroLote: venta?.numeroLote,
+          medidaLote: venta?.medidaLote,
+          areaLote: venta?.areaLote,
+        },
+      ].filter((predio) => predio.numeroLote || predio.medidaLote || predio.areaLote);
+
+const etiquetaLotes = (venta) => {
+  const predios = prediosVenta(venta);
+  if (predios.length === 0) return "N/A";
+  return predios.map((predio) => predio.numeroLote).filter(Boolean).join(", ");
+};
+
 const resumirCuotas = (prestamo, pagos = prestamo?.pagos || []) => {
   const cuotaMensual = calcularCuotaMensual(prestamo?.monto, prestamo?.cuotas);
   const pagosPorCuota = new Map();
@@ -486,7 +503,10 @@ export default function Ventas() {
                 <div className="space-y-1 text-sm text-gray-500">
                   <div className="flex items-center justify-between">
                     <p>
-                      <span className="font-medium text-[var(--text)]">Lote:</span> {prestamo.numeroLote || "N/A"}
+                      <span className="font-medium text-[var(--text)]">
+                        {prediosVenta(prestamo).length > 1 ? "Lotes:" : "Lote:"}
+                      </span>{" "}
+                      {etiquetaLotes(prestamo)}
                     </p>
                     <p className="font-bold" style={{ color: pagado ? "#6b7280" : "var(--primary)" }}>
                       Q{resumen.cuotaMensual.toLocaleString("es-GT", {
@@ -539,14 +559,14 @@ export default function Ventas() {
                     )}
                   </span>
                   <span className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: "var(--bg)" }}>
-                    Lote {selectedPrestamo.numeroLote || "N/A"}
+                    {prediosVenta(selectedPrestamo).length > 1 ? "Lotes" : "Lote"} {etiquetaLotes(selectedPrestamo)}
                   </span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-bold leading-tight">
                   {selectedPrestamo.cliente?.nombres} {selectedPrestamo.cliente?.apellidos}
                 </h2>
                 <p className="text-xs sm:text-sm opacity-60 mt-1">
-                  {selectedPrestamo.medidaLote || "Medida N/A"} · {selectedPrestamo.areaLote || "Área N/A"}
+                  {prediosVenta(selectedPrestamo).length} predio(s) en esta venta
                 </p>
                 <p className="text-2xl font-bold mt-3" style={{ color: "var(--primary)" }}>
                   Q{Number(selectedPrestamo.monto).toLocaleString("es-GT")}
@@ -563,9 +583,22 @@ export default function Ventas() {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-x-5 gap-y-2 text-sm mb-4 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
-              <p><span className="font-semibold">Lote:</span> {selectedPrestamo.numeroLote || "N/A"}</p>
-              <p><span className="font-semibold">Medida:</span> {selectedPrestamo.medidaLote || "N/A"}</p>
-              <p><span className="font-semibold">Área:</span> {selectedPrestamo.areaLote || "N/A"}</p>
+              <div className="sm:col-span-2 space-y-2">
+                <p className="font-semibold">Predios:</p>
+                {prediosVenta(selectedPrestamo).map((predio, index) => (
+                  <div
+                    key={`${predio.numeroLote || "predio"}-${index}`}
+                    className="rounded-lg px-3 py-2 text-xs"
+                    style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
+                  >
+                    <p className="font-semibold">Lote {predio.numeroLote || "N/A"}</p>
+                    <p className="opacity-70">
+                      {predio.medidaLote || "Medida N/A"} · {predio.areaLote || "Area N/A"}
+                      {predio.precio ? ` · Q${Number(predio.precio).toLocaleString("es-GT")}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
               <p><span className="font-semibold">Cuotas:</span> {resumenSeleccionado?.cuotasPagadas || 0}/{selectedPrestamo.cuotas}</p>
               <p><span className="font-semibold">Fracción:</span> {`${resumenSeleccionado?.cuotasPagadas || 0}/${selectedPrestamo.cuotas}`}</p>
               <p><span className="font-semibold">Porcentaje:</span> {Math.round((((resumenSeleccionado?.cuotasPagadas || 0) / selectedPrestamo.cuotas) || 0) * 100)}%</p>

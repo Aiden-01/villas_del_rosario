@@ -1,6 +1,12 @@
 import vine from '@vinejs/vine'
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/
+const ventaPredioValidator = vine.object({
+  numeroLote: vine.string().trim().minLength(1).maxLength(50),
+  medidaLote: vine.string().trim().maxLength(100).optional(),
+  areaLote: vine.string().trim().maxLength(100).optional(),
+  precio: vine.number().positive().optional(),
+})
 
 export const createVentaValidator = vine.compile(
   vine.object({
@@ -13,6 +19,7 @@ export const createVentaValidator = vine.compile(
     numeroLote: vine.string().trim().minLength(1).maxLength(50),
     medidaLote: vine.string().trim().maxLength(100).optional(),
     areaLote: vine.string().trim().maxLength(100).optional(),
+    predios: vine.array(ventaPredioValidator).optional(),
     fechaCobro: vine.string().trim().regex(isoDate).optional(),
     enganche: vine.number().min(0).optional(),
   })
@@ -28,6 +35,7 @@ export const updateVentaValidator = vine.compile(
     numeroLote: vine.string().trim().minLength(1).maxLength(50).optional(),
     medidaLote: vine.string().trim().maxLength(100).optional(),
     areaLote: vine.string().trim().maxLength(100).optional(),
+    predios: vine.array(ventaPredioValidator).optional(),
     fechaCobro: vine.string().trim().regex(isoDate).optional(),
     estado: vine.enum(['activo', 'pagado', 'vencido', 'cancelado']).optional(),
   })
