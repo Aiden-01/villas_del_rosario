@@ -1,10 +1,9 @@
 import { DateTime } from 'luxon'
 import Pago from '#models/pago'
 import Prestamo from '#models/prestamo'
+import { resumenCuotasVenta } from '#services/cuotas_ventas_service'
 
 const EPSILON = 0.01
-
-type PagoLike = { numeroCuota: number; montoPagado: number; tipoPago?: string | null }
 
 export type PagoAplicado = {
   pago: Pago
@@ -18,68 +17,6 @@ export type ResultadoAbono = {
   totalAplicado: number
   saldoRestante: number
   ventaPagada: boolean
-}
-
-function cuotaMonto(venta: Prestamo) {
-  return Number((Number(venta.monto) / Number(venta.cuotas || 1)).toFixed(2))
-}
-
-function agruparPagos(pagos: PagoLike[]) {
-  const resumen = new Map<number, number>()
-  for (const pago of pagos) {
-    if (pago.numeroCuota <= 0 || (pago.tipoPago && pago.tipoPago !== 'cuota')) continue
-
-    const actual = resumen.get(pago.numeroCuota) || 0
-    resumen.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)))
-  }
-  return resumen
-}
-
-export function resumenCuotasVenta(venta: Prestamo) {
-  const montoCuota = cuotaMonto(venta)
-  const pagosPorCuota = agruparPagos((venta.pagos || []) as PagoLike[])
-  const totalPagado = Number(
-    ((venta.pagos || []) as PagoLike[])
-      .reduce((sum, pago) => sum + Number(pago.montoPagado || 0), 0)
-      .toFixed(2)
-  )
-  const saldoPendiente = Number(Math.max(Number(venta.monto) - totalPagado, 0).toFixed(2))
-
-  let cuotasPagadas = 0
-  let proximaCuota: number | null = null
-  let montoPendienteCuota = 0
-
-  for (let cuota = 1; cuota <= Number(venta.cuotas || 0); cuota++) {
-    const pagado = pagosPorCuota.get(cuota) || 0
-    const pendiente = Number(Math.max(montoCuota - pagado, 0).toFixed(2))
-    if (pendiente <= EPSILON) {
-      cuotasPagadas++
-      continue
-    }
-
-    if (!proximaCuota) {
-      proximaCuota = cuota
-      montoPendienteCuota = Number(Math.min(pendiente, saldoPendiente).toFixed(2))
-    }
-  }
-
-  if (saldoPendiente <= EPSILON) {
-    proximaCuota = null
-    montoPendienteCuota = 0
-  } else if (!proximaCuota && Number(venta.cuotas || 0) > 0) {
-    proximaCuota = Number(venta.cuotas)
-    montoPendienteCuota = saldoPendiente
-  }
-
-  return {
-    cuotaMonto: montoCuota,
-    cuotasPagadas,
-    proximaCuota,
-    montoPendienteCuota,
-    saldoPendiente,
-    totalPagado,
-    pagosPorCuota,
-  }
 }
 
 async function actualizarEstadoVenta(venta: Prestamo) {

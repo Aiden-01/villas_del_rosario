@@ -2,8 +2,8 @@ import nodemailer from 'nodemailer';
 import { DateTime } from 'luxon';
 import Prestamo from '#models/prestamo';
 import NotificacionCobro from '#models/notificacion_cobro';
+import { resumenCuotasVenta } from '#services/cuotas_ventas_service';
 const TZ = 'America/Guatemala';
-const EPSILON = 0.01;
 function money(value) {
     return `Q${Number(value || 0).toLocaleString('es-GT', {
         minimumFractionDigits: 2,
@@ -15,46 +15,6 @@ function boolEnv(name, defaultValue = false) {
     if (value === undefined)
         return defaultValue;
     return ['true', '1', 'yes', 'si'].includes(value.toLowerCase());
-}
-function cuotaMonto(venta) {
-    return Number((Number(venta.monto) / Number(venta.cuotas || 1)).toFixed(2));
-}
-function agruparPagos(pagos) {
-    const resumen = new Map();
-    for (const pago of pagos) {
-        if (pago.numeroCuota <= 0 || (pago.tipoPago && pago.tipoPago !== 'cuota'))
-            continue;
-        const actual = resumen.get(pago.numeroCuota) || 0;
-        resumen.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)));
-    }
-    return resumen;
-}
-function resumenCuotas(venta) {
-    const montoCuota = cuotaMonto(venta);
-    const pagosPorCuota = agruparPagos((venta.pagos || []));
-    const totalPagado = Number((venta.pagos || [])
-        .reduce((sum, pago) => sum + Number(pago.montoPagado), 0)
-        .toFixed(2));
-    const saldoPendiente = Number(Math.max(Number(venta.monto) - totalPagado, 0).toFixed(2));
-    if (saldoPendiente <= 0.01) {
-        return {
-            proximaCuota: null,
-            montoPendienteCuota: 0,
-        };
-    }
-    for (let cuota = 1; cuota <= Number(venta.cuotas || 0); cuota++) {
-        const pagado = pagosPorCuota.get(cuota) || 0;
-        if (pagado + EPSILON >= montoCuota)
-            continue;
-        return {
-            proximaCuota: cuota,
-            montoPendienteCuota: Number(Math.min(montoCuota - pagado, saldoPendiente).toFixed(2)),
-        };
-    }
-    return {
-        proximaCuota: Number(venta.cuotas || 0) || null,
-        montoPendienteCuota: Number(venta.cuotas || 0) ? saldoPendiente : 0,
-    };
 }
 function fechaIso(fecha) {
     if (!fecha)
@@ -77,7 +37,7 @@ function fechaProgramadaVenta(venta, numeroCuota) {
     return baseDate.plus({ months: Math.max(numeroCuota - 1, 0) }).toISODate();
 }
 function construirPendiente(venta) {
-    const resumen = resumenCuotas(venta);
+    const resumen = resumenCuotasVenta(venta);
     if (!resumen.proximaCuota)
         return null;
     const abierta = (venta.programaciones || [])

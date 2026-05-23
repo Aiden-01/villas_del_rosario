@@ -1,6 +1,7 @@
 import ApiToken from '#models/api_token';
 import Pago from '#models/pago';
 import Prestamo from '#models/prestamo';
+import { resumenCuotasVenta } from '#services/cuotas_ventas_service';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 const COLOR_PRIMARY = 'FF2563EB';
@@ -23,23 +24,8 @@ const fechaMasUnDia = (fecha) => {
     return date.toISOString().split('T')[0];
 };
 const formatearMoneda = (valor) => `Q${Number(valor || 0).toFixed(2)}`;
-const calcularCuotaMonto = (prestamo) => Number((Number(prestamo.monto) / Number(prestamo.cuotas || 1)).toFixed(2));
 const calcularCuotasPagadas = (prestamo) => {
-    const cuotaMonto = calcularCuotaMonto(prestamo);
-    const pagosPorCuota = new Map();
-    for (const pago of prestamo.pagos || []) {
-        if (pago.numeroCuota <= 0 || pago.tipoPago !== 'cuota')
-            continue;
-        const actual = pagosPorCuota.get(pago.numeroCuota) || 0;
-        pagosPorCuota.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)));
-    }
-    let completas = 0;
-    for (let cuota = 1; cuota <= Number(prestamo.cuotas || 0); cuota++) {
-        if ((pagosPorCuota.get(cuota) || 0) + 0.01 >= cuotaMonto) {
-            completas++;
-        }
-    }
-    return completas;
+    return resumenCuotasVenta(prestamo).cuotasPagadas;
 };
 const normalizarTipoReporte = (tipo) => {
     if (tipo === 'prestamos')

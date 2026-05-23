@@ -3,6 +3,7 @@ import Client from '#models/client'
 import Prestamo from '#models/prestamo'
 import ApiToken from '#models/api_token'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
+import { resumenCuotasVenta } from '#services/cuotas_ventas_service'
 import { clientValidator } from '#validators/clients_validator'
 import { cleanEmptyStrings, isValidationError, validationMessages } from '#validators/helpers'
 import { DateTime } from 'luxon'
@@ -164,23 +165,11 @@ export default class ClientsController {
       const hoy = DateTime.now().setZone(TZ).startOf('day')
 
       const detalleVentas = ventas.map((venta) => {
-        const cuotaMonto = Number((Number(venta.monto) / Number(venta.cuotas || 1)).toFixed(2))
-        const totalPagado = Number(
-          (venta.pagos || [])
-            .reduce((suma, pago) => suma + Number(pago.montoPagado || 0), 0)
-            .toFixed(2)
-        )
-        const saldoPendiente = Number(Math.max(Number(venta.monto) - totalPagado, 0).toFixed(2))
-        const pagosPorCuota = new Map<number, number>()
-
-        for (const pago of venta.pagos || []) {
-          if (pago.numeroCuota <= 0 || (pago.tipoPago && pago.tipoPago !== 'cuota')) continue
-          const actual = pagosPorCuota.get(pago.numeroCuota) || 0
-          pagosPorCuota.set(
-            pago.numeroCuota,
-            Number((actual + Number(pago.montoPagado)).toFixed(2))
-          )
-        }
+        const resumenCuotas = resumenCuotasVenta(venta)
+        const cuotaMonto = resumenCuotas.cuotaMonto
+        const totalPagado = resumenCuotas.totalPagado
+        const saldoPendiente = resumenCuotas.saldoPendiente
+        const pagosPorCuota = resumenCuotas.pagosPorCuota
 
         const cuotas = []
         let cuotasPagadas = 0

@@ -237,7 +237,9 @@ export default function VentaForm({ mode, ventaId }) {
 
   const precio = Number(formData.monto || 0);
   const enganche = Number(formData.enganche || 0);
+  const cuotas = Number(formData.cuotas || 0);
   const saldoDespuesEnganche = Math.max(precio - enganche, 0);
+  const cuotaMensual = cuotas > 0 ? saldoDespuesEnganche / cuotas : 0;
 
   return (
     <>
@@ -448,6 +450,15 @@ export default function VentaForm({ mode, ventaId }) {
           className="w-full p-2 rounded"
           style={inputStyle}
         />
+        {precio > 0 && cuotas > 0 && (
+          <p className="text-xs -mt-2 opacity-60">
+            Cuota mensual estimada: Q
+            {cuotaMensual.toLocaleString("es-GT", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        )}
 
         <input
           type="date"

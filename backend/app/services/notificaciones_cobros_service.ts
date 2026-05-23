@@ -2,11 +2,9 @@ import nodemailer from 'nodemailer'
 import { DateTime } from 'luxon'
 import Prestamo from '#models/prestamo'
 import NotificacionCobro from '#models/notificacion_cobro'
+import { resumenCuotasVenta } from '#services/cuotas_ventas_service'
 
 const TZ = 'America/Guatemala'
-const EPSILON = 0.01
-
-type PagoLike = { numeroCuota: number; montoPagado: number; tipoPago?: string | null }
 
 type CobroPendiente = {
   prestamoId: number
@@ -42,54 +40,6 @@ function boolEnv(name: string, defaultValue = false) {
   return ['true', '1', 'yes', 'si'].includes(value.toLowerCase())
 }
 
-function cuotaMonto(venta: Prestamo) {
-  return Number((Number(venta.monto) / Number(venta.cuotas || 1)).toFixed(2))
-}
-
-function agruparPagos(pagos: PagoLike[]) {
-  const resumen = new Map<number, number>()
-  for (const pago of pagos) {
-    if (pago.numeroCuota <= 0 || (pago.tipoPago && pago.tipoPago !== 'cuota')) continue
-
-    const actual = resumen.get(pago.numeroCuota) || 0
-    resumen.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)))
-  }
-  return resumen
-}
-
-function resumenCuotas(venta: Prestamo) {
-  const montoCuota = cuotaMonto(venta)
-  const pagosPorCuota = agruparPagos((venta.pagos || []) as PagoLike[])
-  const totalPagado = Number(
-    ((venta.pagos || []) as PagoLike[])
-      .reduce((sum, pago) => sum + Number(pago.montoPagado), 0)
-      .toFixed(2)
-  )
-  const saldoPendiente = Number(Math.max(Number(venta.monto) - totalPagado, 0).toFixed(2))
-
-  if (saldoPendiente <= 0.01) {
-    return {
-      proximaCuota: null,
-      montoPendienteCuota: 0,
-    }
-  }
-
-  for (let cuota = 1; cuota <= Number(venta.cuotas || 0); cuota++) {
-    const pagado = pagosPorCuota.get(cuota) || 0
-    if (pagado + EPSILON >= montoCuota) continue
-
-    return {
-      proximaCuota: cuota,
-      montoPendienteCuota: Number(Math.min(montoCuota - pagado, saldoPendiente).toFixed(2)),
-    }
-  }
-
-  return {
-    proximaCuota: Number(venta.cuotas || 0) || null,
-    montoPendienteCuota: Number(venta.cuotas || 0) ? saldoPendiente : 0,
-  }
-}
-
 function fechaIso(fecha: any) {
   if (!fecha) return null
   if (typeof fecha.toISODate === 'function') return fecha.toISODate()
@@ -116,7 +66,7 @@ function fechaProgramadaVenta(venta: Prestamo, numeroCuota: number) {
 }
 
 function construirPendiente(venta: Prestamo): CobroPendiente | null {
-  const resumen = resumenCuotas(venta)
+  const resumen = resumenCuotasVenta(venta)
   if (!resumen.proximaCuota) return null
 
   const abierta = (venta.programaciones || [])

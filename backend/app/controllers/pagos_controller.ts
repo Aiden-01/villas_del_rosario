@@ -6,6 +6,7 @@ import ApiToken from '#models/api_token'
 import ProgramacionPago from '#models/programacion_pago'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
+import { resumenCuotasVenta } from '#services/cuotas_ventas_service'
 import {
   abonoValidator,
   createPagoValidator,
@@ -15,13 +16,6 @@ import { cleanEmptyStrings, isValidationError, validationMessages } from '#valid
 
 const TZ = 'America/Guatemala'
 const EPSILON = 0.01
-
-type PagoLike = {
-  numeroCuota: number
-  montoPagado: number
-  fechaPago: any
-  tipoPago?: string | null
-}
 
 export default class PagosController {
   private async verifyToken(token: string) {
@@ -33,64 +27,8 @@ export default class PagosController {
     return apiToken?.user || null
   }
 
-  private cuotaMonto(venta: Prestamo) {
-    return Number((Number(venta.monto) / Number(venta.cuotas || 1)).toFixed(2))
-  }
-
-  private agruparPagos(pagos: PagoLike[]) {
-    const resumen = new Map<number, number>()
-    for (const pago of pagos) {
-      if (pago.numeroCuota <= 0 || (pago.tipoPago && pago.tipoPago !== 'cuota')) continue
-
-      const actual = resumen.get(pago.numeroCuota) || 0
-      resumen.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)))
-    }
-    return resumen
-  }
-
   private resumenCuotas(venta: Prestamo) {
-    const cuotaMonto = this.cuotaMonto(venta)
-    const pagosPorCuota = this.agruparPagos((venta.pagos || []) as PagoLike[])
-    const totalPagado = Number(
-      ((venta.pagos || []) as PagoLike[])
-        .reduce((sum, current) => sum + Number(current.montoPagado), 0)
-        .toFixed(2)
-    )
-    const saldoPendiente = Number(Math.max(Number(venta.monto) - totalPagado, 0).toFixed(2))
-
-    let cuotasPagadas = 0
-    let proximaCuota: number | null = null
-    let montoPendienteCuota = 0
-
-    for (let cuota = 1; cuota <= Number(venta.cuotas || 0); cuota++) {
-      const pagado = pagosPorCuota.get(cuota) || 0
-      if (pagado + EPSILON >= cuotaMonto) {
-        cuotasPagadas++
-        continue
-      }
-
-      proximaCuota = cuota
-      montoPendienteCuota = Number(Math.min(cuotaMonto - pagado, saldoPendiente).toFixed(2))
-      break
-    }
-
-    if (saldoPendiente <= EPSILON) {
-      proximaCuota = null
-      montoPendienteCuota = 0
-    } else if (!proximaCuota && Number(venta.cuotas || 0) > 0) {
-      proximaCuota = Number(venta.cuotas)
-      montoPendienteCuota = saldoPendiente
-    }
-
-    return {
-      cuotaMonto,
-      cuotasPagadas,
-      proximaCuota,
-      montoPendienteCuota,
-      pagosPorCuota,
-      totalPagado,
-      saldoPendiente,
-    }
+    return resumenCuotasVenta(venta)
   }
 
   private fechaIso(fecha: any) {

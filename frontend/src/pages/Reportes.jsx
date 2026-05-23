@@ -26,7 +26,10 @@ const formatearMoneda = (monto) =>
   Number(monto || 0).toLocaleString("es-GT", { minimumFractionDigits: 2 });
 
 const calcularCuotasPagadas = (venta) => {
-  const cuotaMensual = Number(venta.monto) / Number(venta.cuotas || 1);
+  const enganche = (venta.pagos || [])
+    .filter((pago) => pago.tipoPago === "enganche")
+    .reduce((suma, pago) => suma + Number(pago.montoPagado || 0), 0);
+  const cuotaMensual = Math.max(Number(venta.monto) - enganche, 0) / Number(venta.cuotas || 1);
   const pagosPorCuota = new Map();
 
   (venta.pagos || []).forEach((pago) => {

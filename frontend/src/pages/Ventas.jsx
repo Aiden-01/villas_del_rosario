@@ -40,7 +40,13 @@ const esMora = (prestamo) => {
   return fin < hoy;
 };
 
-const calcularCuotaMensual = (monto, cuotas) => Number(monto) / Number(cuotas || 1);
+const calcularEnganche = (pagos = []) =>
+  pagos
+    .filter((pago) => pago.tipoPago === "enganche")
+    .reduce((sum, pago) => sum + Number(pago.montoPagado || 0), 0);
+
+const calcularCuotaMensual = (monto, cuotas, pagos = []) =>
+  Math.max(Number(monto || 0) - calcularEnganche(pagos), 0) / Number(cuotas || 1);
 
 const prediosVenta = (venta) =>
   venta?.predios?.length
@@ -60,7 +66,7 @@ const etiquetaLotes = (venta) => {
 };
 
 const resumirCuotas = (prestamo, pagos = prestamo?.pagos || []) => {
-  const cuotaMensual = calcularCuotaMensual(prestamo?.monto, prestamo?.cuotas);
+  const cuotaMensual = calcularCuotaMensual(prestamo?.monto, prestamo?.cuotas, pagos);
   const pagosPorCuota = new Map();
   const totalPagado = pagos.reduce((sum, pago) => sum + Number(pago.montoPagado || 0), 0);
   const saldoPendiente = Number(Math.max(Number(prestamo?.monto || 0) - totalPagado, 0).toFixed(2));
@@ -227,7 +233,7 @@ export default function Ventas() {
   };
 
   const resumenSeleccionado = useMemo(
-    () => (selectedPrestamo ? resumirCuotas(selectedPrestamo, pagos) : null),
+    () => (selectedPrestamo ? resumirCuotas(selectedPrestamo, pagos.length ? pagos : selectedPrestamo.pagos) : null),
     [selectedPrestamo, pagos]
   );
 
@@ -611,7 +617,7 @@ export default function Ventas() {
               <hr style={{ borderColor: "var(--card-border)" }} />
               <p>
                 <span className="font-semibold">Cuota mensual:</span>{" "}
-                Q{calcularCuotaMensual(selectedPrestamo.monto, selectedPrestamo.cuotas).toLocaleString("es-GT", {
+                Q{calcularCuotaMensual(selectedPrestamo.monto, selectedPrestamo.cuotas, pagos.length ? pagos : selectedPrestamo.pagos).toLocaleString("es-GT", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
