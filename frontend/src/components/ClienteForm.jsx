@@ -112,20 +112,6 @@ export default function ClienteForm({ mode, clienteId }) {
           style={inputStyle}
         />
 
-        <div>
-          <label className="text-sm font-semibold mb-1 block" style={{ color: "var(--text)" }}>
-            Zona / Sector
-          </label>
-          <input
-            type="text"
-            placeholder="Ej: El Chal - Barrio El Paraiso"
-            value={formData.zona}
-            onChange={(e) => setFormData({ ...formData, zona: e.target.value })}
-            className="w-full p-2 rounded"
-            style={inputStyle}
-          />
-        </div>
-
         <button
           type="submit"
           className="w-full p-2 rounded text-white font-semibold hover:opacity-90 transition"

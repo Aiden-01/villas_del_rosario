@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
-import { User, Search, CalendarDays } from "lucide-react";
+import { User, Search, CalendarDays, CheckCircle2, Pencil } from "lucide-react";
 import { authFetch } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
@@ -33,6 +33,7 @@ export default function VentaForm({ mode, ventaId }) {
   const [clientesFiltrados, setClientesFiltrados] = useState([]);
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [clientePreseleccionado, setClientePreseleccionado] = useState(null);
+  const [selectorAbierto, setSelectorAbierto] = useState(false);
   const isEdit = mode === "edit";
 
   useEffect(() => {
@@ -140,6 +141,22 @@ export default function VentaForm({ mode, ventaId }) {
     border: "1px solid var(--card-border)",
   };
 
+  const selectedCliente = useMemo(
+    () => clientes.find((cliente) => String(cliente.id) === String(formData.clienteId)),
+    [clientes, formData.clienteId]
+  );
+
+  const seleccionarCliente = (cliente) => {
+    setFormData((prev) => ({ ...prev, clienteId: String(cliente.id) }));
+    setBusquedaCliente(`${cliente.nombres} ${cliente.apellidos}`);
+    setSelectorAbierto(false);
+  };
+
+  const cambiarCliente = () => {
+    setBusquedaCliente("");
+    setSelectorAbierto(true);
+  };
+
   const precio = Number(formData.monto || 0);
   const enganche = Number(formData.enganche || 0);
   const saldoDespuesEnganche = Math.max(precio - enganche, 0);
@@ -160,31 +177,81 @@ export default function VentaForm({ mode, ventaId }) {
             <label className="text-sm font-semibold block" style={{ color: "var(--text)" }}>
               Cliente
             </label>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre, teléfono o dirección..."
-                value={busquedaCliente}
-                onChange={(e) => setBusquedaCliente(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none"
-                style={inputStyle}
-              />
-            </div>
-            <select
-              value={formData.clienteId}
-              onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
-              className="w-full p-2 rounded-lg text-sm"
-              style={inputStyle}
-              size={clientesFiltrados.length > 0 && busquedaCliente ? Math.min(clientesFiltrados.length + 1, 6) : 1}
-            >
-              <option value="">- Seleccionar cliente -</option>
-              {clientesFiltrados.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nombres} {cliente.apellidos} - {cliente.telefono}
-                </option>
-              ))}
-            </select>
+            {selectedCliente && !selectorAbierto ? (
+              <div
+                className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-sm transition-all duration-300 ease-out animate-[clienteSelected_0.28s_ease-out]"
+                style={{ ...inputStyle, borderColor: "#22c55e", boxShadow: "0 10px 24px rgba(34,197,94,0.12)" }}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <CheckCircle2 size={18} className="shrink-0 text-green-500" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">
+                      {selectedCliente.nombres} {selectedCliente.apellidos}
+                    </p>
+                    <p className="truncate text-xs opacity-60">
+                      {selectedCliente.telefono || "Sin telefono"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={cambiarCliente}
+                  className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition hover:scale-105"
+                  style={{ color: "var(--secondary)" }}
+                >
+                  <Pencil size={13} />
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, telefono o direccion..."
+                    value={busquedaCliente}
+                    onChange={(e) => {
+                      setBusquedaCliente(e.target.value);
+                      setSelectorAbierto(true);
+                    }}
+                    onFocus={() => setSelectorAbierto(true)}
+                    className="w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none transition-all duration-200 focus:scale-[1.01]"
+                    style={inputStyle}
+                  />
+                </div>
+                <div
+                  className="max-h-48 overflow-y-auto rounded-xl text-sm transition-all duration-300 ease-out animate-[clienteOptions_0.22s_ease-out]"
+                  style={{ ...inputStyle, backgroundColor: "var(--card)" }}
+                >
+                  {clientesFiltrados.length === 0 ? (
+                    <p className="px-3 py-3 text-xs opacity-60">No hay clientes con esa busqueda.</p>
+                  ) : (
+                    clientesFiltrados.slice(0, 8).map((cliente) => (
+                      <button
+                        key={cliente.id}
+                        type="button"
+                        onClick={() => seleccionarCliente(cliente)}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition hover:scale-[1.01]"
+                        style={{ borderBottom: "1px solid var(--card-border)" }}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">
+                            {cliente.nombres} {cliente.apellidos}
+                          </span>
+                          <span className="block truncate text-xs opacity-60">
+                            {cliente.telefono || "Sin telefono"}
+                          </span>
+                        </span>
+                        {String(formData.clienteId) === String(cliente.id) && (
+                          <CheckCircle2 size={16} className="shrink-0 text-green-500" />
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -336,6 +403,19 @@ export default function VentaForm({ mode, ventaId }) {
       </form>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+      <style>
+        {`
+          @keyframes clienteSelected {
+            from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+
+          @keyframes clienteOptions {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}
+      </style>
     </>
   );
 }
