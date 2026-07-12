@@ -80,7 +80,7 @@ router
     router.post('/', [PagosController, 'store'])
     router.post('/abonos', [PagosController, 'abonar'])
     router.post('/programaciones', [PagosController, 'programar'])
-    router.delete('/:id', [PagosController, 'destroy']).use(middleware.admin())
+    router.delete('/:id', [PagosController, 'destroy'])
   })
   .prefix('api/pagos')
   .use(middleware.auth())

@@ -146,6 +146,7 @@ export default function Ventas() {
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [registrandoPago, setRegistrandoPago] = useState(false);
   const [registrandoAbono, setRegistrandoAbono] = useState(false);
+  const [eliminandoPago, setEliminandoPago] = useState(null);
   const [montoAbono, setMontoAbono] = useState("");
   const [pestana, setPestana] = useState("activos");
   const [mostrarAntiguos, setMostrarAntiguos] = useState(false);
@@ -195,6 +196,16 @@ export default function Ventas() {
     }
   };
 
+  const fetchVentaDetalle = async (prestamoId) => {
+    try {
+      const res = await authFetch(`${ROUTES.PRESTAMOS}/${prestamoId}`);
+      const data = await res.json();
+      if (res.ok) setSelectedPrestamo(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchPrestamos();
   }, [fetchPrestamos]);
@@ -229,6 +240,46 @@ export default function Ventas() {
     } catch (err) {
       console.error(err);
       showToast("Error eliminando venta", "error");
+    }
+  };
+
+  const handleDeletePago = async (pago) => {
+    if (!selectedPrestamo) return;
+
+    const monto = Number(pago.montoPagado || 0).toLocaleString("es-GT", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    if (
+      !window.confirm(
+        `Eliminar ${etiquetaPago(pago, selectedPrestamo.cuotas)} por Q${monto}? Esta accion corregira el saldo de la venta.`
+      )
+    ) {
+      return;
+    }
+
+    setEliminandoPago(pago.id);
+    try {
+      const res = await authFetch(`${ROUTES.PAGOS}/${pago.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.message || "No se pudo eliminar el pago", "error");
+        return;
+      }
+
+      await fetchPagos(selectedPrestamo.id);
+      await fetchVentaDetalle(selectedPrestamo.id);
+      await fetchPrestamos();
+      showToast("Pago eliminado y saldo actualizado", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Error eliminando pago", "error");
+    } finally {
+      setEliminandoPago(null);
     }
   };
 
@@ -662,7 +713,7 @@ export default function Ventas() {
                   {pagos.map((pago) => (
                     <div
                       key={pago.id}
-                      className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs rounded-lg px-3 py-2"
+                      className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 text-xs rounded-lg px-3 py-2"
                       style={{
                         backgroundColor: "var(--card)",
                         border: "1px solid var(--card-border)",
@@ -673,6 +724,15 @@ export default function Ventas() {
                       </span>
                       <span>Q{Number(pago.montoPagado).toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span>
                       <span className="opacity-60">{formatearFecha(pago.fechaPago)}</span>
+                      <button
+                        onClick={() => handleDeletePago(pago)}
+                        disabled={eliminandoPago === pago.id}
+                        className="w-7 h-7 grid place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
+                        title="Eliminar pago"
+                        aria-label="Eliminar pago"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>

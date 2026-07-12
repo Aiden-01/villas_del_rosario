@@ -103,6 +103,19 @@ export default class PagosController {
             await programacion.save();
         }
     }
+    async actualizarEstadoVenta(venta) {
+        await venta.load('pagos');
+        const resumen = this.resumenCuotas(venta);
+        if (resumen.saldoPendiente <= EPSILON) {
+            venta.estado = 'pagado';
+        }
+        else if (venta.estado !== 'cancelado') {
+            const hoy = DateTime.now().setZone(TZ).startOf('day');
+            venta.estado = venta.fechaFin < hoy ? 'vencido' : 'activo';
+        }
+        await venta.save();
+        return resumen;
+    }
     construirPendiente(venta) {
         const resumen = this.resumenCuotas(venta);
         if (!resumen.proximaCuota)
@@ -640,19 +653,38 @@ export default class PagosController {
             const user = await this.verifyToken(authHeader || '');
             if (!user)
                 return response.forbidden({ message: 'No autorizado' });
-            if (user.role !== 'admin') {
-                return response.forbidden({ message: 'Solo el administrador puede eliminar pagos' });
-            }
-            const pago = await Pago.findOrFail(params.id);
+            const pago = await Pago.query()
+                .where('id', params.id)
+                .preload('prestamo', (q) => q.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote')))
+                .firstOrFail();
+            const venta = pago.prestamo;
+            const detallePago = {
+                numeroCuota: pago.numeroCuota,
+                montoPagado: Number(pago.montoPagado),
+                fechaPago: this.fechaIso(pago.fechaPago),
+                tipoPago: pago.tipoPago,
+                ventaId: pago.prestamoId,
+            };
             await pago.delete();
+            const resumen = await this.actualizarEstadoVenta(venta);
             await registrarActividad({
                 usuarioId: user.id,
                 tipo: 'eliminar',
                 entidad: 'pago',
                 entidadId: Number(params.id),
-                descripcion: `Elimino el pago #${params.id}`,
+                descripcion: `Elimino pago de Q${detallePago.montoPagado} - lote ${venta.numeroLote || 'N/A'} / ${venta.cliente.nombres} ${venta.cliente.apellidos}`,
+                detalle: detallePago,
             });
-            return response.ok({ message: 'Pago eliminado exitosamente' });
+            return response.ok({
+                message: 'Pago eliminado exitosamente',
+                venta: {
+                    id: venta.id,
+                    estado: venta.estado,
+                    saldoPendiente: resumen.saldoPendiente,
+                    proximaCuota: resumen.proximaCuota,
+                    montoPendienteCuota: resumen.montoPendienteCuota,
+                },
+            });
         }
         catch (error) {
             console.error(error);
