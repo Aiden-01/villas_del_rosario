@@ -21,6 +21,7 @@ export const createVentaValidator = vine.compile(vine.object({
     enganche: vine.number().min(0).optional(),
 }));
 export const updateVentaValidator = vine.compile(vine.object({
+    clienteId: vine.number().positive().withoutDecimals().optional(),
     monto: vine.number().positive().optional(),
     cuotas: vine.number().positive().withoutDecimals().max(600).optional(),
     fechaInicio: vine.string().trim().regex(isoDate).optional(),

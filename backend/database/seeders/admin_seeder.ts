@@ -3,7 +3,7 @@ import User from '#models/user'
 
 export default class AdminSeeder extends BaseSeeder {
   async run() {
-    await User.firstOrCreate(
+    await User.updateOrCreate(
       { username: 'admin' },
       {
         name: 'Administrador',

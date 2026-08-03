@@ -297,6 +297,7 @@ export default class PrestamosController {
       const prestamo = await Prestamo.findOrFail(params.id)
 
       const camposPermitidos = [
+        'clienteId',
         'monto',
         'cuotas',
         'fechaInicio',
@@ -320,6 +321,7 @@ export default class PrestamosController {
       const lote = data.predios ? lotesPredios[0]?.lote || null : await this.resolverLote(data)
 
       prestamo.merge({
+        clienteId: data.clienteId ?? prestamo.clienteId,
         monto: data.monto ?? prestamo.monto,
         cuotas: data.cuotas ?? prestamo.cuotas,
         fechaInicio: this.fechaDesdeIso(data.fechaInicio) ?? prestamo.fechaInicio,
