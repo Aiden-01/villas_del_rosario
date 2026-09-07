@@ -37,6 +37,18 @@ __decorate([
     __metadata("design:type", Object)
 ], Client.prototype, "zona", void 0);
 __decorate([
+    column(),
+    __metadata("design:type", Boolean)
+], Client.prototype, "activo", void 0);
+__decorate([
+    column.dateTime(),
+    __metadata("design:type", Object)
+], Client.prototype, "desactivadoAt", void 0);
+__decorate([
+    column(),
+    __metadata("design:type", Object)
+], Client.prototype, "desactivadoPor", void 0);
+__decorate([
     hasMany(() => Prestamo, {
         foreignKey: 'clienteId',
     }),

@@ -90,7 +90,10 @@ const agregarInfoReporte = (
 
 const calcularCobrado = (prestamo: Prestamo) =>
   Number(
-    (prestamo.pagos || []).reduce((suma, pago) => suma + Number(pago.montoPagado), 0).toFixed(2)
+    (prestamo.pagos || [])
+      .filter((p) => !p.anulado) // Excluir pagos anulados
+      .reduce((suma, pago) => suma + Number(pago.montoPagado), 0)
+      .toFixed(2)
   )
 
 const etiquetaPago = (pago: Pago) => {
@@ -152,7 +155,10 @@ export default class ReportesController {
         .where('fecha_pago', '>=', fechaInicio)
         .where('fecha_pago', '<', fechaMasUnDia(fechaFin)!)
         .preload('prestamo', (query) =>
-          query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+          query
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
         )
         .preload('usuario')
         .orderBy('fecha_pago', 'asc')
@@ -260,7 +266,10 @@ export default class ReportesController {
           .where('fecha_pago', '>=', fechaInicio)
           .where('fecha_pago', '<', fechaFinStr!)
           .preload('prestamo', (query) =>
-            query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+            query
+              .preload('cliente')
+              .preload('lote')
+              .preload('predios', (predios) => predios.preload('lote'))
           )
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')
@@ -511,7 +520,10 @@ export default class ReportesController {
           .where('fecha_pago', '>=', fechaInicio)
           .where('fecha_pago', '<', fechaFinStr!)
           .preload('prestamo', (query) =>
-            query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+            query
+              .preload('cliente')
+              .preload('lote')
+              .preload('predios', (predios) => predios.preload('lote'))
           )
           .preload('usuario')
           .orderBy('fecha_pago', 'asc')

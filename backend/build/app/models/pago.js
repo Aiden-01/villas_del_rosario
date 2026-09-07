@@ -8,9 +8,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { DateTime } from 'luxon';
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm';
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm';
 import Prestamo from '#models/prestamo';
 import User from '#models/user';
+import PagoAplicacion from '#models/pago_aplicacion';
 export default class Pago extends BaseModel {
     static table = 'pagos';
 }
@@ -47,6 +48,22 @@ __decorate([
     __metadata("design:type", DateTime)
 ], Pago.prototype, "createdAt", void 0);
 __decorate([
+    column(),
+    __metadata("design:type", Boolean)
+], Pago.prototype, "anulado", void 0);
+__decorate([
+    column.dateTime(),
+    __metadata("design:type", Object)
+], Pago.prototype, "anuladoAt", void 0);
+__decorate([
+    column(),
+    __metadata("design:type", Object)
+], Pago.prototype, "anuladoPor", void 0);
+__decorate([
+    column(),
+    __metadata("design:type", Object)
+], Pago.prototype, "motivoAnulacion", void 0);
+__decorate([
     belongsTo(() => Prestamo, {
         foreignKey: 'prestamoId',
     }),
@@ -58,4 +75,16 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], Pago.prototype, "usuario", void 0);
+__decorate([
+    belongsTo(() => User, {
+        foreignKey: 'anuladoPor',
+    }),
+    __metadata("design:type", Object)
+], Pago.prototype, "anuladoPorUsuario", void 0);
+__decorate([
+    hasMany(() => PagoAplicacion, {
+        foreignKey: 'pagoId',
+    }),
+    __metadata("design:type", Object)
+], Pago.prototype, "aplicaciones", void 0);
 //# sourceMappingURL=pago.js.map

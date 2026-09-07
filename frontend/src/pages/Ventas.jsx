@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
 import { authFetch } from "../services/api";
+import {
+  crearSolicitudAnulacionPago,
+  crearSolicitudCancelacionVenta,
+} from "../services/financialActions";
 import PagoVoucher from "../components/PagoVoucher";
 import {
   HandCoins,
@@ -31,6 +35,7 @@ const ESTADO_COLORS = {
   activo: "bg-green-100 text-green-700",
   pagado: "bg-blue-100 text-blue-700",
   vencido: "bg-red-100 text-red-700",
+  cancelado: "bg-gray-200 text-gray-700",
 };
 
 const esMora = (prestamo) => {
@@ -130,7 +135,7 @@ const formatearFecha = (fecha) => {
 };
 
 const mesesDesdeFinalizacion = (prestamo) => {
-  const fin = new Date(prestamo.fechaFin);
+  const fin = new Date(prestamo.canceladoAt || prestamo.fechaFin);
   const hoy = new Date();
   return (hoy.getFullYear() - fin.getFullYear()) * 12 + (hoy.getMonth() - fin.getMonth());
 };
@@ -215,6 +220,7 @@ export default function Ventas() {
     setPagos([]);
     setMontoAbono("");
     fetchPagos(prestamo.id);
+    fetchVentaDetalle(prestamo.id);
   };
 
   const cerrarModal = () => {
@@ -224,22 +230,27 @@ export default function Ventas() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Seguro que deseas eliminar esta venta?")) return;
+    const motivo = window.prompt("Motivo de cancelación de la venta (mínimo 5 caracteres):")?.trim();
+    if (!motivo) return;
+    if (motivo.length < 5) {
+      showToast("El motivo debe tener al menos 5 caracteres", "error");
+      return;
+    }
+    if (!window.confirm("¿Seguro que deseas cancelar esta venta? El historial se conservará.")) return;
     try {
-      const res = await authFetch(`${ROUTES.PRESTAMOS}/${id}`, {
-        method: "DELETE",
-      });
+      const solicitud = crearSolicitudCancelacionVenta(ROUTES.PRESTAMOS, id, motivo);
+      const res = await authFetch(solicitud.url, solicitud.options);
       const data = await res.json();
       if (!res.ok) {
-        showToast(data.message || "No se pudo eliminar", "error");
+        showToast(data.message || "No se pudo cancelar", "error");
         return;
       }
       cerrarModal();
       fetchPrestamos();
-      showToast("Venta eliminada correctamente", "success");
+      showToast("Venta cancelada correctamente", "success");
     } catch (err) {
       console.error(err);
-      showToast("Error eliminando venta", "error");
+      showToast("Error cancelando venta", "error");
     }
   };
 
@@ -251,51 +262,50 @@ export default function Ventas() {
       maximumFractionDigits: 2,
     });
 
-    if (
-      !window.confirm(
-        `Eliminar ${etiquetaPago(pago, selectedPrestamo.cuotas)} por Q${monto}? Esta accion corregira el saldo de la venta.`
-      )
-    ) {
+    const motivo = window.prompt(
+      `Motivo para anular ${etiquetaPago(pago, selectedPrestamo.cuotas)} por Q${monto} (mínimo 5 caracteres):`
+    )?.trim();
+    if (!motivo) return;
+    if (motivo.length < 5) {
+      showToast("El motivo debe tener al menos 5 caracteres", "error");
       return;
     }
+    if (!window.confirm("¿Confirmas la anulación? El pago permanecerá en el historial.")) return;
 
     setEliminandoPago(pago.id);
     try {
-      const res = await authFetch(`${ROUTES.PAGOS}/${pago.id}`, {
-        method: "DELETE",
-      });
+      const solicitud = crearSolicitudAnulacionPago(ROUTES.PAGOS, pago.id, motivo);
+      const res = await authFetch(solicitud.url, solicitud.options);
       const data = await res.json();
 
       if (!res.ok) {
-        showToast(data.message || "No se pudo eliminar el pago", "error");
+        showToast(data.message || "No se pudo anular el pago", "error");
         return;
       }
 
       await fetchPagos(selectedPrestamo.id);
       await fetchVentaDetalle(selectedPrestamo.id);
       await fetchPrestamos();
-      showToast("Pago eliminado y saldo actualizado", "success");
+      showToast("Pago anulado y saldo actualizado", "success");
     } catch (err) {
       console.error(err);
-      showToast("Error eliminando pago", "error");
+      showToast("Error anulando pago", "error");
     } finally {
       setEliminandoPago(null);
     }
   };
 
-  const resumenSeleccionado = useMemo(
-    () => (selectedPrestamo ? resumirCuotas(selectedPrestamo, pagos.length ? pagos : selectedPrestamo.pagos) : null),
-    [selectedPrestamo, pagos]
-  );
+  const resumenSeleccionado = selectedPrestamo?.resumenFinanciero || null;
+  const todasCuotasPagadas = resumenSeleccionado?.cuotaActual === null;
 
   const handleRegistrarPago = async () => {
-    if (!selectedPrestamo || !resumenSeleccionado || resumenSeleccionado.todasPagadas) return;
+    if (!selectedPrestamo || !resumenSeleccionado || todasCuotasPagadas) return;
 
-    const monto = resumenSeleccionado.montoPendienteCuota.toFixed(2);
+    const monto = Number(resumenSeleccionado.pendienteCuotaActual).toFixed(2);
 
     if (
       !window.confirm(
-        `¿Registrar pago de cuota #${resumenSeleccionado.siguienteCuota} por Q${Number(monto).toLocaleString("es-GT", {
+        `¿Registrar pago de cuota #${resumenSeleccionado.cuotaActual} por Q${Number(monto).toLocaleString("es-GT", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}?`
@@ -312,7 +322,7 @@ export default function Ventas() {
         method: "POST",
         body: JSON.stringify({
           prestamoId: selectedPrestamo.id,
-          numeroCuota: resumenSeleccionado.siguienteCuota,
+          numeroCuota: resumenSeleccionado.cuotaActual,
           montoPagado: monto,
           fechaPago: hoy,
         }),
@@ -325,14 +335,15 @@ export default function Ventas() {
       }
 
       await fetchPagos(selectedPrestamo.id);
+      await fetchVentaDetalle(selectedPrestamo.id);
       await fetchPrestamos();
 
-      if (resumenSeleccionado.siguienteCuota >= selectedPrestamo.cuotas && Number(monto) >= Number(resumenSeleccionado.montoPendienteCuota)) {
+      if (Number(data.voucher?.venta?.saldoRestante || 0) <= 0.01) {
         cerrarModal();
         setPestana("finalizados");
         showToast("¡Venta pagada! Todas las cuotas quedaron saldadas", "success");
       } else {
-        showToast(`Cuota #${resumenSeleccionado.siguienteCuota} registrada correctamente`, "success");
+        showToast(`Cuota #${resumenSeleccionado.cuotaActual} registrada correctamente`, "success");
       }
       if (data.voucher) setVoucher(data.voucher);
     } catch (err) {
@@ -344,7 +355,7 @@ export default function Ventas() {
   };
 
   const handleRegistrarAbono = async () => {
-    if (!selectedPrestamo || !resumenSeleccionado || resumenSeleccionado.todasPagadas) return;
+    if (!selectedPrestamo || !resumenSeleccionado || todasCuotasPagadas) return;
 
     const monto = Number(montoAbono || 0);
     if (monto <= 0) {
@@ -389,6 +400,7 @@ export default function Ventas() {
 
       setMontoAbono("");
       await fetchPagos(selectedPrestamo.id);
+      await fetchVentaDetalle(selectedPrestamo.id);
       await fetchPrestamos();
 
       if (data.ventaPagada) {
@@ -406,8 +418,8 @@ export default function Ventas() {
     }
   };
 
-  const prestamosActivos = prestamos.filter((p) => p.estado !== "pagado");
-  const todosFinalizados = prestamos.filter((p) => p.estado === "pagado");
+  const prestamosActivos = prestamos.filter((p) => ["activo", "vencido"].includes(p.estado));
+  const todosFinalizados = prestamos.filter((p) => ["pagado", "cancelado"].includes(p.estado));
   const finalizadosRecientes = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) <= 6);
   const finalizadosAntiguos = todosFinalizados.filter((p) => mesesDesdeFinalizacion(p) > 6);
   const finalizadosBase = mostrarAntiguos ? todosFinalizados : finalizadosRecientes;
@@ -419,6 +431,7 @@ export default function Ventas() {
 
   const prestamosVisibles = pestana === "activos" ? prestamosActivos : prestamosFinalizados;
   const esPagado = selectedPrestamo?.estado === "pagado";
+  const esFinalizada = ["pagado", "cancelado"].includes(selectedPrestamo?.estado);
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -656,9 +669,9 @@ export default function Ventas() {
                   </div>
                 ))}
               </div>
-              <p><span className="font-semibold">Cuotas:</span> {resumenSeleccionado?.cuotasPagadas || 0}/{selectedPrestamo.cuotas}</p>
-              <p><span className="font-semibold">Fracción:</span> {`${resumenSeleccionado?.cuotasPagadas || 0}/${selectedPrestamo.cuotas}`}</p>
-              <p><span className="font-semibold">Porcentaje:</span> {Math.round((((resumenSeleccionado?.cuotasPagadas || 0) / selectedPrestamo.cuotas) || 0) * 100)}%</p>
+              <p><span className="font-semibold">Cuotas:</span> {resumenSeleccionado?.fraccion || "Cargando..."}</p>
+              <p><span className="font-semibold">Fracción:</span> {resumenSeleccionado?.fraccion || "Cargando..."}</p>
+              <p><span className="font-semibold">Porcentaje:</span> {resumenSeleccionado ? `${resumenSeleccionado.porcentaje}%` : "Cargando..."}</p>
               <p><span className="font-semibold">Cobro:</span> Manual</p>
               {selectedPrestamo.fechaCobro && (
                 <p><span className="font-semibold">Fecha pactada:</span> {formatearFecha(selectedPrestamo.fechaCobro)}</p>
@@ -668,26 +681,42 @@ export default function Ventas() {
               <hr style={{ borderColor: "var(--card-border)" }} />
               <p>
                 <span className="font-semibold">Cuota mensual:</span>{" "}
-                Q{calcularCuotaMensual(selectedPrestamo.monto, selectedPrestamo.cuotas, pagos.length ? pagos : selectedPrestamo.pagos).toLocaleString("es-GT", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {resumenSeleccionado
+                  ? `Q${Number(resumenSeleccionado.valorCuotaActual || 0).toLocaleString("es-GT", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+                  : "Cargando..."}
               </p>
-              {!resumenSeleccionado?.todasPagadas && (
+              {resumenSeleccionado?.cuotaActual && (
                 <p>
-                  <span className="font-semibold">Pendiente actual:</span> Q
-                  {Number(resumenSeleccionado?.montoPendienteCuota || 0).toLocaleString("es-GT", {
+                  <span className="font-semibold">Aplicado en cuota #{resumenSeleccionado.cuotaActual}:</span>{" "}
+                  Q{Number(resumenSeleccionado.pagadoCuotaActual || 0).toLocaleString("es-GT", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                  })} de la cuota #{resumenSeleccionado?.siguienteCuota}
+                  })} de Q{Number(resumenSeleccionado.valorCuotaActual || 0).toLocaleString("es-GT", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              )}
+              {resumenSeleccionado && !todasCuotasPagadas && (
+                <p>
+                  <span className="font-semibold">Pendiente actual:</span> Q
+                  {Number(resumenSeleccionado.pendienteCuotaActual || 0).toLocaleString("es-GT", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} de la cuota #{resumenSeleccionado.cuotaActual}
                 </p>
               )}
               <p>
                 <span className="font-semibold">Saldo pendiente:</span> Q
-                {Number(resumenSeleccionado?.saldoPendiente || 0).toLocaleString("es-GT", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {resumenSeleccionado
+                  ? Number(resumenSeleccionado.saldoPendiente || 0).toLocaleString("es-GT", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : "..."}
               </p>
             </div>
 
@@ -715,24 +744,44 @@ export default function Ventas() {
                       key={pago.id}
                       className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 text-xs rounded-lg px-3 py-2"
                       style={{
-                        backgroundColor: "var(--card)",
-                        border: "1px solid var(--card-border)",
+                        backgroundColor: pago.anulado ? "#fef2f2" : "var(--card)",
+                        border: pago.anulado ? "1px solid #fecaca" : "1px solid var(--card-border)",
                       }}
                     >
-                      <span className="font-semibold truncate" style={{ color: "var(--primary)" }}>
-                        {etiquetaPago(pago, selectedPrestamo.cuotas)}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold truncate" style={{ color: "var(--primary)" }}>
+                            {etiquetaPago(pago, selectedPrestamo.cuotas)}
+                          </span>
+                          {pago.anulado && (
+                            <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                              ANULADO
+                            </span>
+                          )}
+                        </div>
+                        {pago.anulado && pago.motivoAnulacion && (
+                          <p className="mt-1 text-[10px] text-red-700">
+                            Motivo: {pago.motivoAnulacion}
+                          </p>
+                        )}
+                      </div>
+                      <span className={pago.anulado ? "line-through opacity-60" : ""}>
+                        Q{Number(pago.montoPagado).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                       </span>
-                      <span>Q{Number(pago.montoPagado).toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span>
-                      <span className="opacity-60">{formatearFecha(pago.fechaPago)}</span>
-                      <button
-                        onClick={() => handleDeletePago(pago)}
-                        disabled={eliminandoPago === pago.id}
-                        className="w-7 h-7 grid place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
-                        title="Eliminar pago"
-                        aria-label="Eliminar pago"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <span className={pago.anulado ? "opacity-45" : "opacity-60"}>
+                        {formatearFecha(pago.fechaPago)}
+                      </span>
+                      {user?.role === "admin" && !pago.anulado && (
+                        <button
+                          onClick={() => handleDeletePago(pago)}
+                          disabled={eliminandoPago === pago.id}
+                          className="w-7 h-7 grid place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
+                          title="Anular pago"
+                          aria-label="Anular pago"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -740,7 +789,7 @@ export default function Ventas() {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3">
-              {!esPagado && selectedPrestamo.estado === "activo" && !resumenSeleccionado?.todasPagadas && (
+              {!esPagado && selectedPrestamo.estado === "activo" && resumenSeleccionado && !todasCuotasPagadas && (
                 <div
                   className="rounded-xl p-3 space-y-2 sm:col-span-2"
                   style={{ backgroundColor: "var(--bg)", border: "1px solid var(--card-border)" }}
@@ -774,7 +823,7 @@ export default function Ventas() {
                 </div>
               )}
 
-              {!esPagado && selectedPrestamo.estado === "activo" && !resumenSeleccionado?.todasPagadas && (
+              {!esPagado && selectedPrestamo.estado === "activo" && resumenSeleccionado && !todasCuotasPagadas && (
                 <button
                   onClick={handleRegistrarPago}
                   disabled={registrandoPago}
@@ -784,11 +833,11 @@ export default function Ventas() {
                   <HandCoins size={16} />
                   {registrandoPago
                     ? "Registrando..."
-                    : `Saldar cuota #${resumenSeleccionado?.siguienteCuota}`}
+                    : `Saldar cuota #${resumenSeleccionado?.cuotaActual}`}
                 </button>
               )}
 
-              {!esPagado && (
+              {!esFinalizada && (
                 <button
                   onClick={() => navigate(`/ventas/editar/${selectedPrestamo.id}`)}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:opacity-90"
@@ -798,13 +847,13 @@ export default function Ventas() {
                 </button>
               )}
 
-              {!esPagado && user?.role === "admin" && (
+              {!esFinalizada && user?.role === "admin" && (
                 <button
                   onClick={() => handleDelete(selectedPrestamo.id)}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
                 >
                   <Trash2 size={15} />
-                  Eliminar Venta
+                  Cancelar Venta
                 </button>
               )}
 

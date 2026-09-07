@@ -3,9 +3,13 @@ import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
 import { authFetch } from "../services/api";
 import PagoVoucher from "../components/PagoVoucher";
+import { construirSeccionesAgenda } from "../utils/agendaSections";
+import {
+  crearSolicitudAbonoVenta,
+  validarMontoPagoVenta,
+} from "../services/financialActions";
 import {
   AlertTriangle,
-  Ban,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -172,50 +176,59 @@ export default function PagosAgenda() {
   };
 
   const guardarGestion = async () => {
-    if (!fechaProgramada) {
-      showToast("Selecciona la fecha para volver a cobrar", "error");
-      return;
-    }
-
-    if (!notaSeguimiento.trim()) {
-      showToast("Agrega una nota explicando la gestion", "error");
-      return;
-    }
-
+    let solicitud;
     if (modalTipo === "pago_parcial") {
-      const monto = Number(montoParcial);
-      if (!monto || monto <= 0) {
-        showToast("Ingresa el monto parcial recibido", "error");
+      const errorMonto = validarMontoPagoVenta(montoParcial, modalItem.saldoPendiente);
+      if (errorMonto) {
+        showToast(errorMonto, "error");
         return;
       }
-      if (monto >= Number(modalItem.montoPendienteCuota)) {
-        showToast("Si cubre todo el pendiente, registra el pago como completo", "error");
+
+      solicitud = crearSolicitudAbonoVenta(
+        `${API_URL}/api/pagos`,
+        modalItem.prestamoId,
+        montoParcial,
+        hoyISO()
+      );
+    } else {
+      if (!fechaProgramada) {
+        showToast("Selecciona la fecha para volver a cobrar", "error");
         return;
       }
+
+      if (!notaSeguimiento.trim()) {
+        showToast("Agrega una nota explicando la gestion", "error");
+        return;
+      }
+
+      solicitud = {
+        url: `${API_URL}/api/pagos/programaciones`,
+        options: {
+          method: "POST",
+          body: JSON.stringify({
+            prestamoId: modalItem.prestamoId,
+            tipoGestion: modalTipo,
+            montoPagado: 0,
+            nota: notaSeguimiento.trim(),
+            fechaProgramada,
+          }),
+        },
+      };
     }
 
     setGuardandoSeguimiento(true);
     try {
-      const res = await authFetch(`${API_URL}/api/pagos/programaciones`, {
-        method: "POST",
-        body: JSON.stringify({
-          prestamoId: modalItem.prestamoId,
-          tipoGestion: modalTipo,
-          montoPagado: modalTipo === "pago_parcial" ? Number(montoParcial) : 0,
-          nota: notaSeguimiento.trim(),
-          fechaProgramada,
-        }),
-      });
+      const res = await authFetch(solicitud.url, solicitud.options);
       const data = await res.json();
       if (!res.ok) {
-        showToast(data.message || "Error al guardar gestion", "error");
+        showToast(data.message || "Error al registrar la operacion", "error");
         return;
       }
 
       showToast(
         modalTipo === "no_pago"
           ? `Cobro reprogramado para ${formatearFechaCorta(fechaProgramada)}`
-          : `Pago parcial registrado y seguimiento para ${formatearFechaCorta(fechaProgramada)}`,
+          : data.message || "Pago registrado correctamente",
         "success"
       );
       if (data.voucher) setVoucher(data.voucher);
@@ -233,6 +246,7 @@ export default function PagosAgenda() {
     color: "var(--text)",
     border: "1px solid var(--card-border)",
   };
+  const seccionesAgenda = construirSeccionesAgenda(datos);
 
   return (
     <div className="pt-16 text-[var(--text)]">
@@ -306,13 +320,13 @@ export default function PagosAgenda() {
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm opacity-60">Cobros del mes</p>
-                  <Clock3 size={18} className="opacity-40" />
+                  <p className="text-sm opacity-60">Atrasados</p>
+                  <AlertTriangle size={18} className="text-red-500 opacity-60" />
                 </div>
                 <p className="text-3xl font-bold" style={{ color: "var(--primary)" }}>
-                  {datos.totalPendientes}
+                  {datos.totalAtrasados}
                 </p>
-                <p className="text-xs opacity-60 mt-2">Cuotas pendientes en {datos.mesLabel}</p>
+                <p className="text-xs opacity-60 mt-2">Incluye meses anteriores</p>
               </div>
 
               <div
@@ -332,11 +346,11 @@ export default function PagosAgenda() {
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm opacity-60">Reprogramados</p>
-                  <Ban size={18} className="text-amber-500 opacity-60" />
+                  <p className="text-sm opacity-60">Próximos</p>
+                  <Clock3 size={18} className="text-blue-500 opacity-60" />
                 </div>
-                <p className="text-3xl font-bold text-amber-500">{datos.totalReprogramados}</p>
-                <p className="text-xs opacity-60 mt-2">Movidos de su fecha pactada</p>
+                <p className="text-3xl font-bold text-blue-500">{datos.totalProximos}</p>
+                <p className="text-xs opacity-60 mt-2">Dentro de {datos.mesLabel}</p>
               </div>
 
               <div
@@ -354,21 +368,23 @@ export default function PagosAgenda() {
               </div>
             </div>
 
-            {datos.grupos?.length > 0 ? (
+            {seccionesAgenda.length > 0 ? (
               <div className="space-y-8">
-                {datos.grupos.map((grupo) => (
-                  <section key={grupo.fecha}>
+                {seccionesAgenda.map((grupo) => (
+                  <section key={grupo.clave}>
                     <div className="flex items-center justify-between gap-3 mb-3">
                       <div>
                         <h2 className="text-xl font-bold capitalize">
-                          {formatearFecha(grupo.fecha)}
+                          {grupo.clave.startsWith("proximos-")
+                            ? `Próximos · ${formatearFecha(grupo.fecha)}`
+                            : grupo.titulo}
                         </h2>
                         <p className="text-sm opacity-60">
-                          {grupo.total} {grupo.total === 1 ? "cliente pendiente" : "clientes pendientes"}
+                          {grupo.descripcion}
                         </p>
                       </div>
 
-                      {grupo.fecha === datos.hoy && (
+                      {grupo.clave === "hoy" && (
                         <span
                           className="px-3 py-1 rounded-full text-xs font-semibold"
                           style={{ backgroundColor: "#dcfce7", color: "#166534" }}
@@ -565,9 +581,9 @@ export default function PagosAgenda() {
                 <div className="flex justify-center mb-4">
                   <CalendarDays size={52} className="opacity-35" />
                 </div>
-                <p className="text-2xl font-bold">No hay cobros en este mes</p>
+                <p className="text-2xl font-bold">No hay cobros pendientes</p>
                 <p className="text-sm opacity-60 mt-2">
-                  No existen cuotas pendientes ni reprogramaciones dentro de {datos.mesLabel}.
+                  No existen cobros atrasados, para hoy ni próximos dentro de {datos.mesLabel}.
                 </p>
               </div>
             )}
@@ -622,7 +638,7 @@ export default function PagosAgenda() {
                   <label className="text-sm font-semibold block mb-1" style={{ color: "var(--text)" }}>
                     Monto recibido
                     <span className="font-normal opacity-50 ml-1">
-                      (pendiente: Q{formatearMoneda(modalItem.montoPendienteCuota)})
+                      (saldo total: Q{formatearMoneda(modalItem.saldoPendiente)})
                     </span>
                   </label>
                   <input
@@ -633,47 +649,50 @@ export default function PagosAgenda() {
                     className="w-full px-3 py-2.5 rounded-xl outline-none"
                     style={inputStyle}
                     min="1"
-                    max={Math.max(Number(modalItem.montoPendienteCuota) - 0.01, 0)}
+                    max={Number(modalItem.saldoPendiente)}
                     step="0.01"
                   />
+                  <p className="text-xs opacity-55 mt-1.5">
+                    El sistema aplicara este pago automaticamente a las cuotas pendientes.
+                  </p>
                 </div>
               )}
 
-              <div>
-                <label className="text-sm font-semibold block mb-1" style={{ color: "var(--text)" }}>
-                  Nota
-                </label>
-                <textarea
-                  placeholder={
-                    modalTipo === "no_pago"
-                      ? "Ej: El cliente no estaba, pidio reprogramar..."
-                      : "Ej: Solo entrego una parte, queda pendiente el resto..."
-                  }
-                  value={notaSeguimiento}
-                  onChange={(e) => setNotaSeguimiento(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2.5 rounded-xl outline-none resize-none text-sm"
-                  style={inputStyle}
-                />
-              </div>
+              {modalTipo === "no_pago" && (
+                <>
+                  <div>
+                    <label className="text-sm font-semibold block mb-1" style={{ color: "var(--text)" }}>
+                      Nota
+                    </label>
+                    <textarea
+                      placeholder="Ej: El cliente no estaba, pidio reprogramar..."
+                      value={notaSeguimiento}
+                      onChange={(e) => setNotaSeguimiento(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2.5 rounded-xl outline-none resize-none text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
 
-              <div>
-                <label
-                  className="flex items-center gap-1 text-sm font-semibold mb-1"
-                  style={{ color: "var(--text)" }}
-                >
-                  <CalendarDays size={14} style={{ color: "var(--primary)" }} />
-                  Fecha para cobrar de nuevo
-                </label>
-                <input
-                  type="date"
-                  value={fechaProgramada}
-                  onChange={(e) => setFechaProgramada(e.target.value)}
-                  min={hoyISO()}
-                  className="w-full px-3 py-2.5 rounded-xl outline-none"
-                  style={inputStyle}
-                />
-              </div>
+                  <div>
+                    <label
+                      className="flex items-center gap-1 text-sm font-semibold mb-1"
+                      style={{ color: "var(--text)" }}
+                    >
+                      <CalendarDays size={14} style={{ color: "var(--primary)" }} />
+                      Fecha para cobrar de nuevo
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaProgramada}
+                      onChange={(e) => setFechaProgramada(e.target.value)}
+                      min={hoyISO()}
+                      className="w-full px-3 py-2.5 rounded-xl outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+                </>
+              )}
 
               <button
                 onClick={guardarGestion}
@@ -682,7 +701,11 @@ export default function PagosAgenda() {
                 style={{ backgroundColor: modalTipo === "no_pago" ? "#dc2626" : "#d97706" }}
               >
                 <Check size={16} />
-                {guardandoSeguimiento ? "Guardando..." : "Guardar gestion"}
+                {guardandoSeguimiento
+                  ? "Guardando..."
+                  : modalTipo === "no_pago"
+                    ? "Guardar reprogramacion"
+                    : "Registrar pago"}
               </button>
 
               <button

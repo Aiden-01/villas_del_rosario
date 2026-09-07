@@ -70,6 +70,7 @@ router
     router.post('/', [PagosController, 'store']);
     router.post('/abonos', [PagosController, 'abonar']);
     router.post('/programaciones', [PagosController, 'programar']);
+    router.post('/:id/anular', [PagosController, 'anular']);
     router.delete('/:id', [PagosController, 'destroy']);
 })
     .prefix('api/pagos')

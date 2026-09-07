@@ -24,7 +24,11 @@ export default class ClientsController {
             const user = await this.verifyToken(authHeader || '');
             if (!user)
                 return response.forbidden({ message: 'No autorizado' });
-            const clients = await Client.query().orderBy('nombres', 'asc').orderBy('apellidos', 'asc');
+            const incluirInactivos = user.role === 'admin' && String(request.input('incluirInactivos') || '') === 'true';
+            const query = Client.query();
+            if (!incluirInactivos)
+                query.where('activo', true);
+            const clients = await query.orderBy('nombres', 'asc').orderBy('apellidos', 'asc');
             return response.ok(clients);
         }
         catch (error) {
@@ -98,23 +102,29 @@ export default class ClientsController {
             if (!user)
                 return response.forbidden({ message: 'No autorizado' });
             if (user.role !== 'admin') {
-                return response.forbidden({ message: 'Solo el administrador puede eliminar clientes' });
+                return response.forbidden({ message: 'Solo el administrador puede desactivar clientes' });
             }
             const client = await Client.findOrFail(params.id);
             const nombre = `${client.nombres} ${client.apellidos}`;
-            await client.delete();
+            if (!client.activo) {
+                return response.conflict({ message: 'El cliente ya se encuentra desactivado' });
+            }
+            client.activo = false;
+            client.desactivadoAt = DateTime.now();
+            client.desactivadoPor = user.id;
+            await client.save();
             await registrarActividad({
                 usuarioId: user.id,
                 tipo: 'eliminar',
                 entidad: 'cliente',
                 entidadId: Number(params.id),
-                descripcion: `Elimino el cliente ${nombre}`,
+                descripcion: `Desactivo el cliente ${nombre}`,
             });
-            return response.ok({ message: 'Cliente eliminado exitosamente' });
+            return response.ok({ message: 'Cliente desactivado exitosamente. El historial se conserva.' });
         }
         catch (error) {
             console.error(error);
-            return response.internalServerError({ message: 'Error al eliminar cliente' });
+            return response.internalServerError({ message: 'Error al desactivar cliente' });
         }
     }
     async show({ request, params, response }) {
@@ -144,7 +154,10 @@ export default class ClientsController {
                 .where('cliente_id', params.id)
                 .preload('lote')
                 .preload('predios', (predios) => predios.preload('lote'))
-                .preload('pagos', (query) => query.orderBy('fecha_pago', 'asc').orderBy('created_at', 'asc'));
+                .preload('pagos', (query) => query
+                .where('anulado', false)
+                .orderBy('fecha_pago', 'asc')
+                .orderBy('created_at', 'asc'));
             const hoy = DateTime.now().setZone(TZ).startOf('day');
             const detalleVentas = ventas.map((venta) => {
                 const resumenCuotas = resumenCuotasVenta(venta);
@@ -166,6 +179,16 @@ export default class ClientsController {
                     const vencida = pendiente > EPSILON &&
                         Boolean(fechaProgramada) &&
                         DateTime.fromISO(fechaProgramada, { zone: TZ }) < hoy;
+                    const tienePagoParcial = pagado > EPSILON && pendiente > EPSILON;
+                    const estado = pendiente <= EPSILON
+                        ? 'pagada'
+                        : tienePagoParcial && vencida
+                            ? 'parcial_vencida'
+                            : tienePagoParcial
+                                ? 'parcial'
+                                : vencida
+                                    ? 'vencida'
+                                    : 'pendiente';
                     if (pendiente <= EPSILON)
                         cuotasPagadas++;
                     else
@@ -178,7 +201,7 @@ export default class ClientsController {
                         pagado,
                         pendiente,
                         fechaProgramada,
-                        estado: pendiente <= EPSILON ? 'pagada' : vencida ? 'mora' : 'pendiente',
+                        estado,
                     });
                 }
                 return {

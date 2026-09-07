@@ -1,3 +1,4 @@
+import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Actividad from '#models/actividad'
 
 export async function registrarActividad({
@@ -7,6 +8,7 @@ export async function registrarActividad({
   entidadId,
   descripcion,
   detalle,
+  trx,
 }: {
   usuarioId: number | null
   tipo: 'crear' | 'actualizar' | 'eliminar' | 'pago' | 'login'
@@ -14,17 +16,22 @@ export async function registrarActividad({
   entidadId?: number | null
   descripcion: string
   detalle?: object | null
+  trx?: TransactionClientContract
 }) {
   try {
-    await Actividad.create({
-      usuarioId,
-      tipo,
-      entidad,
-      entidadId: entidadId || null,
-      descripcion,
-      detalle: detalle || null,
-    })
+    await Actividad.create(
+      {
+        usuarioId,
+        tipo,
+        entidad,
+        entidadId: entidadId || null,
+        descripcion,
+        detalle: detalle || null,
+      },
+      trx ? { client: trx } : {}
+    )
   } catch (error) {
+    if (trx) throw error
     console.error('Error registrando actividad:', error)
   }
 }

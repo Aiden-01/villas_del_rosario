@@ -14,6 +14,7 @@ import Pago from '#models/pago';
 import Lote from '#models/lote';
 import ProgramacionPago from '#models/programacion_pago';
 import VentaPredio from '#models/venta_predio';
+import PagoAplicacion from '#models/pago_aplicacion';
 export default class Prestamo extends BaseModel {
     static table = 'ventas';
     get numeroLote() {
@@ -96,6 +97,18 @@ __decorate([
     __metadata("design:type", Object)
 ], Prestamo.prototype, "updatedAt", void 0);
 __decorate([
+    column.dateTime(),
+    __metadata("design:type", Object)
+], Prestamo.prototype, "canceladoAt", void 0);
+__decorate([
+    column(),
+    __metadata("design:type", Object)
+], Prestamo.prototype, "canceladoPor", void 0);
+__decorate([
+    column(),
+    __metadata("design:type", Object)
+], Prestamo.prototype, "motivoCancelacion", void 0);
+__decorate([
     belongsTo(() => Client, {
         foreignKey: 'clienteId',
     }),
@@ -125,6 +138,12 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], Prestamo.prototype, "predios", void 0);
+__decorate([
+    hasMany(() => PagoAplicacion, {
+        foreignKey: 'ventaId',
+    }),
+    __metadata("design:type", Object)
+], Prestamo.prototype, "pagoAplicaciones", void 0);
 __decorate([
     computed({ serializeAs: 'numeroLote' }),
     __metadata("design:type", Object),

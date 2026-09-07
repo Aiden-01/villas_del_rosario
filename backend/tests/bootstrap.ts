@@ -1,3 +1,4 @@
+import { verificarEntornoFinancieroLocal } from '#services/local_financiero_guard'
 import { assert } from '@japa/assert'
 import { apiClient } from '@japa/api-client'
 import app from '@adonisjs/core/services/app'
@@ -23,7 +24,11 @@ export const plugins: Config['plugins'] = [assert(), apiClient(), pluginAdonisJS
  * The teardown functions are executed after all the tests
  */
 export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
-  setup: [],
+  setup: [
+    () => {
+      console.log(verificarEntornoFinancieroLocal(true))
+    },
+  ],
   teardown: [],
 }
 

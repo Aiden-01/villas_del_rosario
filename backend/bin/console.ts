@@ -13,6 +13,10 @@
 
 import 'reflect-metadata'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'
+import {
+  esComandoConBloqueoDeProduccion,
+  verificarComandoSeguroEnProduccion,
+} from '#services/production_command_guard'
 
 /**
  * URL to the application root. AdonisJS need it to resolve
@@ -31,17 +35,29 @@ const IMPORTER = (filePath: string) => {
   return import(filePath)
 }
 
-new Ignitor(APP_ROOT, { importer: IMPORTER })
-  .tap((app) => {
-    app.booting(async () => {
-      await import('#start/env')
+const commandArgs = process.argv.slice(2)
+
+try {
+  if (esComandoConBloqueoDeProduccion(commandArgs)) {
+    const { default: env } = await import('#start/env')
+    verificarComandoSeguroEnProduccion(commandArgs, env.get('NODE_ENV'))
+  }
+
+  new Ignitor(APP_ROOT, { importer: IMPORTER })
+    .tap((app) => {
+      app.booting(async () => {
+        await import('#start/env')
+      })
+      app.listen('SIGTERM', () => app.terminate())
+      app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())
     })
-    app.listen('SIGTERM', () => app.terminate())
-    app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())
-  })
-  .ace()
-  .handle(process.argv.splice(2))
-  .catch((error) => {
-    process.exitCode = 1
-    prettyPrintError(error)
-  })
+    .ace()
+    .handle(commandArgs)
+    .catch((error) => {
+      process.exitCode = 1
+      prettyPrintError(error)
+    })
+} catch (error) {
+  process.exitCode = 1
+  prettyPrintError(error)
+}

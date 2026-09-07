@@ -74,7 +74,10 @@ const agregarInfoReporte = (sheet, titulo, filtros) => {
     });
     sheet.addRow([]);
 };
-const calcularCobrado = (prestamo) => Number((prestamo.pagos || []).reduce((suma, pago) => suma + Number(pago.montoPagado), 0).toFixed(2));
+const calcularCobrado = (prestamo) => Number((prestamo.pagos || [])
+    .filter((p) => !p.anulado)
+    .reduce((suma, pago) => suma + Number(pago.montoPagado), 0)
+    .toFixed(2));
 const etiquetaPago = (pago) => {
     if (pago.tipoPago === 'abono')
         return 'Abono';
@@ -128,7 +131,10 @@ export default class ReportesController {
             const pagos = await Pago.query()
                 .where('fecha_pago', '>=', fechaInicio)
                 .where('fecha_pago', '<', fechaMasUnDia(fechaFin))
-                .preload('prestamo', (query) => query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote')))
+                .preload('prestamo', (query) => query
+                .preload('cliente')
+                .preload('lote')
+                .preload('predios', (predios) => predios.preload('lote')))
                 .preload('usuario')
                 .orderBy('fecha_pago', 'asc');
             return response.ok(pagos);
@@ -227,7 +233,10 @@ export default class ReportesController {
                 const pagos = await Pago.query()
                     .where('fecha_pago', '>=', fechaInicio)
                     .where('fecha_pago', '<', fechaFinStr)
-                    .preload('prestamo', (query) => query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote')))
+                    .preload('prestamo', (query) => query
+                    .preload('cliente')
+                    .preload('lote')
+                    .preload('predios', (predios) => predios.preload('lote')))
                     .preload('usuario')
                     .orderBy('fecha_pago', 'asc');
                 agregarInfoReporte(sheet, 'Reporte de Pagos Manuales', [
@@ -447,7 +456,10 @@ export default class ReportesController {
                 const pagos = await Pago.query()
                     .where('fecha_pago', '>=', fechaInicio)
                     .where('fecha_pago', '<', fechaFinStr)
-                    .preload('prestamo', (query) => query.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote')))
+                    .preload('prestamo', (query) => query
+                    .preload('cliente')
+                    .preload('lote')
+                    .preload('predios', (predios) => predios.preload('lote')))
                     .preload('usuario')
                     .orderBy('fecha_pago', 'asc');
                 pagos.forEach((pago) => {

@@ -1,0 +1,11 @@
+
+.local_pgdata/
+.local_pg.log
+.env
+.env.test
+.env.*
+!.env.example
+node_modules/
+.audit/
+backend/build/tests/functional/
+backend/build/tests/unit/

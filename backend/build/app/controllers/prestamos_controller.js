@@ -1,4 +1,5 @@
 import Prestamo from '#models/prestamo';
+import Pago from '#models/pago';
 import Lote from '#models/lote';
 import VentaPredio from '#models/venta_predio';
 import ApiToken from '#models/api_token';
@@ -117,13 +118,17 @@ export default class PrestamosController {
             const prestamo = await Prestamo.query()
                 .where('id', params.id)
                 .preload('cliente')
-                .preload('pagos')
+                .preload('pagos', (q) => q.where('anulado', false))
+                .preload('pagoAplicaciones', (q) => q.orderBy('numero_cuota', 'asc'))
                 .preload('lote')
                 .preload('predios', (predios) => predios.preload('lote'))
                 .first();
             if (!prestamo)
                 return response.notFound({ message: 'Venta no encontrada' });
-            return response.ok(prestamo);
+            await prestamo.load('programaciones');
+            const { resumenFinancieroVenta } = await import('#services/mora_service');
+            const resumenFinanciero = resumenFinancieroVenta(prestamo, prestamo.programaciones || []);
+            return response.ok({ ...prestamo.serialize(), resumenFinanciero });
         }
         catch (error) {
             console.error(error);
@@ -251,10 +256,31 @@ export default class PrestamosController {
             if (user.role === 'admin')
                 camposPermitidos.push('estado');
             const data = await updateVentaValidator.validate(cleanEmptyStrings(request.only(camposPermitidos), ['medidaLote', 'areaLote', 'fechaCobro']));
+            const tienePagos = await Pago.query().where('venta_id', params.id).first();
+            const intentaCambiarFinanciero = (data.monto !== undefined && Number(data.monto) !== Number(prestamo.monto)) ||
+                (data.cuotas !== undefined && Number(data.cuotas) !== Number(prestamo.cuotas));
+            if (tienePagos && intentaCambiarFinanciero) {
+                return response.forbidden({
+                    message: 'No se pueden modificar las condiciones financieras (monto o cuotas) de una venta con movimientos financieros registrados. Requiere un proceso de reestructuracion financiera.',
+                });
+            }
+            if (data.clienteId !== undefined && Number(data.clienteId) !== Number(prestamo.clienteId)) {
+                await registrarActividad({
+                    usuarioId: user.id,
+                    tipo: 'actualizar',
+                    entidad: 'prestamo',
+                    entidadId: prestamo.id,
+                    descripcion: `Transfirio venta #${prestamo.id} del cliente anterior #${prestamo.clienteId} al nuevo cliente #${data.clienteId}`,
+                    detalle: {
+                        clienteAnteriorId: prestamo.clienteId,
+                        clienteNuevoId: data.clienteId,
+                        ventaId: prestamo.id,
+                        transferidoPor: user.id,
+                    },
+                });
+            }
             const predios = data.predios ? this.normalizarPredios(data) : [];
-            const lotesPredios = data.predios
-                ? await this.resolverLotesPredios(predios)
-                : [];
+            const lotesPredios = data.predios ? await this.resolverLotesPredios(predios) : [];
             const lote = data.predios ? lotesPredios[0]?.lote || null : await this.resolverLote(data);
             prestamo.merge({
                 clienteId: data.clienteId ?? prestamo.clienteId,
@@ -302,9 +328,18 @@ export default class PrestamosController {
             if (!user)
                 return response.forbidden({ message: 'No autorizado' });
             if (user.role !== 'admin') {
-                return response.forbidden({ message: 'Solo el administrador puede eliminar ventas' });
+                return response.forbidden({ message: 'Solo el administrador puede cancelar ventas' });
+            }
+            const motivo = String(request.input('motivo') || '').trim();
+            if (motivo.length < 5) {
+                return response.badRequest({
+                    message: 'El motivo de cancelacion debe tener al menos 5 caracteres',
+                });
             }
             const prestamo = await Prestamo.findOrFail(params.id);
+            if (prestamo.estado === 'cancelado') {
+                return response.conflict({ message: 'La venta ya esta cancelada' });
+            }
             await prestamo.load('cliente');
             await prestamo.load('lote');
             await prestamo.load('predios', (prediosQuery) => prediosQuery.preload('lote'));
@@ -316,26 +351,47 @@ export default class PrestamosController {
                     lotesIds.add(predio.loteId);
             }
             for (const loteId of lotesIds) {
-                const lote = await Lote.find(loteId);
-                if (lote) {
-                    lote.estado = 'disponible';
-                    await lote.save();
+                const otraVentaActiva = await Prestamo.query()
+                    .where('id', '!=', prestamo.id)
+                    .whereIn('estado', ['activo', 'vencido', 'pagado'])
+                    .whereHas('predios', (q) => q.where('lote_id', loteId))
+                    .first();
+                if (!otraVentaActiva) {
+                    const lote = await Lote.find(loteId);
+                    if (lote) {
+                        lote.estado = 'disponible';
+                        await lote.save();
+                    }
                 }
             }
-            const desc = `${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`;
-            await prestamo.delete();
+            const desc = prestamo.cliente
+                ? `${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`
+                : 'Cliente N/A';
+            const estadoAnterior = prestamo.estado;
+            prestamo.estado = 'cancelado';
+            prestamo.canceladoAt = DateTime.now();
+            prestamo.canceladoPor = user.id;
+            prestamo.motivoCancelacion = motivo;
+            await prestamo.save();
             await registrarActividad({
                 usuarioId: user.id,
                 tipo: 'eliminar',
                 entidad: 'prestamo',
                 entidadId: Number(params.id),
-                descripcion: `Elimino venta de ${desc}`,
+                descripcion: `Cancelo venta de ${desc} - Motivo: ${motivo}`,
+                detalle: {
+                    estadoAnterior,
+                    motivo,
+                    canceladoPor: user.id,
+                },
             });
-            return response.ok({ message: 'Venta eliminada exitosamente' });
+            return response.ok({
+                message: 'Venta cancelada exitosamente. Los pagos historicos se conservan.',
+            });
         }
         catch (error) {
             console.error(error);
-            return response.internalServerError({ message: 'Error al eliminar venta' });
+            return response.internalServerError({ message: 'Error al cancelar venta' });
         }
     }
 }

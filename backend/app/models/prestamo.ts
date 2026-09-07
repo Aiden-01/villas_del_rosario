@@ -6,6 +6,7 @@ import Pago from '#models/pago'
 import Lote from '#models/lote'
 import ProgramacionPago from '#models/programacion_pago'
 import VentaPredio from '#models/venta_predio'
+import PagoAplicacion from '#models/pago_aplicacion'
 
 export default class Prestamo extends BaseModel {
   public static table = 'ventas'
@@ -46,6 +47,16 @@ export default class Prestamo extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 
+  // Columnas de cancelación
+  @column.dateTime()
+  declare canceladoAt: DateTime | null
+
+  @column()
+  declare canceladoPor: number | null
+
+  @column()
+  declare motivoCancelacion: string | null
+
   @belongsTo(() => Client, {
     foreignKey: 'clienteId',
   })
@@ -70,6 +81,11 @@ export default class Prestamo extends BaseModel {
     foreignKey: 'ventaId',
   })
   declare predios: HasMany<typeof VentaPredio>
+
+  @hasMany(() => PagoAplicacion, {
+    foreignKey: 'ventaId',
+  })
+  declare pagoAplicaciones: HasMany<typeof PagoAplicacion>
 
   @computed({ serializeAs: 'numeroLote' })
   get numeroLote() {

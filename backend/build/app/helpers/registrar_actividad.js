@@ -1,5 +1,5 @@
 import Actividad from '#models/actividad';
-export async function registrarActividad({ usuarioId, tipo, entidad, entidadId, descripcion, detalle, }) {
+export async function registrarActividad({ usuarioId, tipo, entidad, entidadId, descripcion, detalle, trx, }) {
     try {
         await Actividad.create({
             usuarioId,
@@ -8,9 +8,11 @@ export async function registrarActividad({ usuarioId, tipo, entidad, entidadId, 
             entidadId: entidadId || null,
             descripcion,
             detalle: detalle || null,
-        });
+        }, trx ? { client: trx } : {});
     }
     catch (error) {
+        if (trx)
+            throw error;
         console.error('Error registrando actividad:', error);
     }
 }

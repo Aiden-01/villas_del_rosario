@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Prestamo from '#models/prestamo'
 import User from '#models/user'
+import PagoAplicacion from '#models/pago_aplicacion'
 
 export default class Pago extends BaseModel {
   public static table = 'pagos'
@@ -31,6 +32,19 @@ export default class Pago extends BaseModel {
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
+  // Columnas de anulación
+  @column()
+  declare anulado: boolean
+
+  @column.dateTime()
+  declare anuladoAt: DateTime | null
+
+  @column()
+  declare anuladoPor: number | null
+
+  @column()
+  declare motivoAnulacion: string | null
+
   @belongsTo(() => Prestamo, {
     foreignKey: 'prestamoId',
   })
@@ -40,4 +54,14 @@ export default class Pago extends BaseModel {
     foreignKey: 'usuarioId',
   })
   declare usuario: BelongsTo<typeof User>
+
+  @belongsTo(() => User, {
+    foreignKey: 'anuladoPor',
+  })
+  declare anuladoPorUsuario: BelongsTo<typeof User>
+
+  @hasMany(() => PagoAplicacion, {
+    foreignKey: 'pagoId',
+  })
+  declare aplicaciones: HasMany<typeof PagoAplicacion>
 }

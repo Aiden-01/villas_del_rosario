@@ -20,7 +20,9 @@ const tituloTipo = {
 };
 
 const pendienteCuotaLabel = (voucher) =>
-  voucher.numeroCuota ? `Q${moneda(voucher.venta.pendienteCuotaActual)}` : "N/A";
+  voucher?.venta?.proximaCuota
+    ? `Q${moneda(voucher.venta.pendienteCuotaActual)}`
+    : "Q0.00";
 
 const prediosVoucher = (voucher) =>
   voucher?.venta?.predios?.length
@@ -224,6 +226,23 @@ export default function PagoVoucher({ voucher, onClose }) {
               <p className="font-bold">{voucher.venta.cuotasPagadas}/{voucher.venta.cuotas}</p>
             </div>
           </div>
+
+          {voucher.aplicaciones?.length > 0 && (
+            <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+              <p className="font-semibold mb-2">Aplicacion del pago</p>
+              <div className="space-y-1">
+                {voucher.aplicaciones.map((aplicacion) => (
+                  <div
+                    key={aplicacion.numeroCuota}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span>Cuota #{aplicacion.numeroCuota}</span>
+                    <span className="font-bold">Q{moneda(aplicacion.montoAplicado)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {voucher.nota && (
             <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">

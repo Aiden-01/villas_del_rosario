@@ -65,22 +65,22 @@ export default function Clientes() {
   }, [search, clientes]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Seguro que deseas eliminar este cliente?")) return;
+    if (!window.confirm("¿Seguro que deseas desactivar este cliente? El historial se conservará.")) return;
     try {
       const res = await authFetch(`${ROUTES.CLIENTS}/${id}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (!res.ok) {
-        showToast(data.message || "No se pudo eliminar", "error");
+        showToast(data.message || "No se pudo desactivar", "error");
         return;
       }
       setSelectedCliente(null);
       fetchClientes();
-      showToast("Cliente eliminado correctamente", "success");
+      showToast("Cliente desactivado correctamente", "success");
     } catch (err) {
       console.error(err);
-      showToast("Error eliminando cliente", "error");
+      showToast("Error desactivando cliente", "error");
     }
   };
 
@@ -199,7 +199,7 @@ export default function Clientes() {
                   onClick={() => handleDelete(selectedCliente.id)}
                   className="w-full py-2 bg-red-500 text-white rounded-xl font-semibold hover:opacity-90"
                 >
-                  Eliminar Cliente
+                  Desactivar Cliente
                 </button>
               )}
               <button

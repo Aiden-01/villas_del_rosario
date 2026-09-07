@@ -1,11 +1,13 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import Pago from '#models/pago'
 import Prestamo from '#models/prestamo'
 import ApiToken from '#models/api_token'
 import ProgramacionPago from '#models/programacion_pago'
 import { registrarActividad } from '../helpers/registrar_actividad.js'
 import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
+import { aplicarPagoVenta } from '#services/aplicar_pago_service'
 import { resumenCuotasVenta } from '#services/cuotas_ventas_service'
 import {
   abonoValidator,
@@ -71,6 +73,7 @@ export default class PagosController {
     fechaPago: string | null
     numeroCuota?: number | null
     pendienteCuotaRestante?: number | null
+    aplicaciones?: Array<{ numeroCuota: number; montoAplicado: number }>
     resumen: ReturnType<PagosController['resumenCuotas']>
     nota?: string | null
     fechaProgramada?: string | null
@@ -86,6 +89,7 @@ export default class PagosController {
       numeroCuota: params.numeroCuota || null,
       nota: params.nota || null,
       fechaProgramada: params.fechaProgramada || null,
+      aplicaciones: params.aplicaciones || [],
       cliente: {
         nombres: cliente.nombres,
         apellidos: cliente.apellidos,
@@ -129,21 +133,6 @@ export default class PagosController {
     }
   }
 
-  private async actualizarEstadoVenta(venta: Prestamo) {
-    await venta.load('pagos')
-    const resumen = this.resumenCuotas(venta)
-
-    if (resumen.saldoPendiente <= EPSILON) {
-      venta.estado = 'pagado'
-    } else if (venta.estado !== 'cancelado') {
-      const hoy = DateTime.now().setZone(TZ).startOf('day')
-      venta.estado = venta.fechaFin < hoy ? 'vencido' : 'activo'
-    }
-
-    await venta.save()
-    return resumen
-  }
-
   private construirPendiente(venta: Prestamo) {
     const resumen = this.resumenCuotas(venta)
     if (!resumen.proximaCuota) return null
@@ -168,6 +157,7 @@ export default class PagosController {
       numeroLote: venta.numeroLote,
       montoCuota: resumen.cuotaMonto,
       montoPendienteCuota: resumen.montoPendienteCuota,
+      saldoPendiente: resumen.saldoPendiente,
       proximaCuota: resumen.proximaCuota,
       cuotasPagadas: resumen.cuotasPagadas,
       totalCuotas: venta.cuotas,
@@ -187,7 +177,10 @@ export default class PagosController {
 
       const pagos = await Pago.query()
         .preload('prestamo', (q) =>
-          q.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+          q
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
         )
         .preload('usuario')
       return response.ok(pagos)
@@ -326,6 +319,42 @@ export default class PagosController {
     }
   }
 
+  private construirPendienteConPagosActivos(venta: Prestamo, programaciones: any[]) {
+    const resumen = this.resumenCuotas(venta)
+    if (!resumen.proximaCuota) return null
+
+    const abierta = (programaciones || [])
+      .filter((item) => !item.resuelto && item.numeroCuota === resumen.proximaCuota)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]
+
+    const fechaPactada = this.fechaProgramadaVenta(venta, resumen.proximaCuota)
+    const fechaProgramada = abierta ? this.fechaIso(abierta.fechaProgramada) : fechaPactada
+
+    return {
+      prestamoId: venta.id,
+      cliente: {
+        id: venta.cliente.id,
+        nombres: venta.cliente.nombres,
+        apellidos: venta.cliente.apellidos,
+        telefono: venta.cliente.telefono,
+        direccion: venta.cliente.direccion,
+        zona: venta.cliente.zona,
+      },
+      numeroLote: venta.numeroLote,
+      montoCuota: resumen.cuotaMonto,
+      montoPendienteCuota: resumen.montoPendienteCuota,
+      saldoPendiente: resumen.saldoPendiente,
+      proximaCuota: resumen.proximaCuota,
+      cuotasPagadas: resumen.cuotasPagadas,
+      totalCuotas: venta.cuotas,
+      esReprogramado: Boolean(abierta),
+      notaReprogramacion: abierta?.nota || null,
+      tipoGestion: abierta?.tipoGestion || null,
+      fechaPactada,
+      fechaProgramada,
+    }
+  }
+
   async calendario({ request, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
@@ -336,51 +365,70 @@ export default class PagosController {
       const inicioMes = DateTime.fromFormat(String(mesInput), 'yyyy-MM', { zone: TZ }).startOf(
         'month'
       )
-
-      if (!inicioMes.isValid) {
-        return response.badRequest({ message: 'Mes invalido' })
-      }
+      if (!inicioMes.isValid) return response.badRequest({ message: 'Mes invalido' })
 
       const finMes = inicioMes.endOf('month')
-      const hoy = DateTime.now().setZone(TZ).toISODate() || ''
+      const hoy = DateTime.now().setZone(TZ).startOf('day')
+      const hoyISO = hoy.toISODate() || ''
 
+      // Cargar TODAS las ventas activas o vencidas
       const ventas = await Prestamo.query()
         .whereIn('estado', ['activo', 'vencido'])
         .preload('cliente')
         .preload('lote')
-        .preload('pagos')
-        .preload('programaciones')
+        .preload('predios', (predios) => predios.preload('lote'))
+        .preload('pagos', (q) => q.where('anulado', false))
+        .preload('programaciones', (q) => q.where('resuelto', false))
 
-      const pendientesMes: any[] = []
+      const atrasados: any[] = []
+      const hoyItems: any[] = []
+      const proximos: any[] = []
+
       for (const venta of ventas) {
-        const pendiente = this.construirPendiente(venta)
+        const pendiente = this.construirPendienteConPagosActivos(venta, venta.programaciones || [])
         if (!pendiente?.fechaProgramada) continue
 
-        const fechaPendiente = DateTime.fromISO(pendiente.fechaProgramada, { zone: TZ })
-        if (!fechaPendiente.isValid) continue
-        if (fechaPendiente < inicioMes || fechaPendiente > finMes) continue
+        const fechaDt = DateTime.fromISO(pendiente.fechaProgramada, { zone: TZ }).startOf('day')
+        if (!fechaDt.isValid) continue
 
-        pendientesMes.push({
+        const esHoy = pendiente.fechaProgramada === hoyISO
+        const estaVencido = fechaDt < hoy
+        const diasAtraso = estaVencido ? Math.floor(hoy.diff(fechaDt, 'days').days) : 0
+        const esFuturo = fechaDt > hoy
+
+        const item = {
           ...pendiente,
-          esHoy: pendiente.fechaProgramada === hoy,
-          estaVencido: pendiente.fechaProgramada < hoy,
-          vencePronto: pendiente.fechaProgramada > hoy,
-        })
+          esHoy,
+          estaVencido,
+          diasAtraso,
+          vencePronto: esFuturo,
+        }
+
+        if (esHoy) {
+          hoyItems.push(item)
+        } else if (estaVencido) {
+          // ATRASADO: aparece siempre, no importa el mes seleccionado
+          atrasados.push(item)
+        } else {
+          // Solo mostrar proximos que estén dentro del mes seleccionado
+          if (fechaDt >= inicioMes && fechaDt <= finMes) {
+            proximos.push(item)
+          }
+        }
       }
 
-      pendientesMes.sort((a, b) => {
-        const fecha = String(a.fechaProgramada).localeCompare(String(b.fechaProgramada))
-        if (fecha !== 0) return fecha
-        return String(a.cliente.nombres).localeCompare(String(b.cliente.nombres))
-      })
+      // Ordenar
+      atrasados.sort((a, b) => String(a.fechaProgramada).localeCompare(String(b.fechaProgramada)))
+      hoyItems.sort((a, b) => String(a.cliente.nombres).localeCompare(String(b.cliente.nombres)))
+      proximos.sort((a, b) => String(a.fechaProgramada).localeCompare(String(b.fechaProgramada)))
 
+      // Agrupar proximos por fecha
       const gruposMap = new Map<string, any[]>()
-      for (const item of pendientesMes) {
+      for (const item of proximos) {
         const current = gruposMap.get(item.fechaProgramada) || []
         current.push(item)
         gruposMap.set(item.fechaProgramada, current)
       }
-
       const grupos = [...gruposMap.entries()].map(([fecha, items]) => ({
         fecha,
         total: items.length,
@@ -390,11 +438,20 @@ export default class PagosController {
       return response.ok({
         mes: inicioMes.toFormat('yyyy-MM'),
         mesLabel: inicioMes.setLocale('es').toFormat('LLLL yyyy'),
-        hoy,
-        totalPendientes: pendientesMes.length,
-        totalReprogramados: pendientesMes.filter((item) => item.esReprogramado).length,
-        totalHoy: pendientesMes.filter((item) => item.esHoy).length,
+        hoy: hoyISO,
+        // Sección ATRASADOS: cobros vencidos de cualquier fecha anterior, siempre visibles
+        totalAtrasados: atrasados.length,
+        atrasados,
+        // Sección HOY
+        totalHoy: hoyItems.length,
+        hoyItems,
+        // Sección PRÓXIMOS del mes seleccionado
+        totalProximos: proximos.length,
         grupos,
+        // Compat legacy
+        totalPendientes: atrasados.length + hoyItems.length + proximos.length,
+        totalReprogramados: [...atrasados, ...hoyItems, ...proximos].filter((i) => i.esReprogramado)
+          .length,
       })
     } catch (error) {
       console.error(error)
@@ -410,8 +467,12 @@ export default class PagosController {
 
       const pagos = await Pago.query()
         .where('venta_id', params.prestamoId)
+        .preload('aplicaciones', (q) => q.orderBy('numero_cuota', 'asc'))
         .preload('prestamo', (q) =>
-          q.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+          q
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
         )
         .preload('usuario')
         .orderBy('numero_cuota', 'asc')
@@ -466,38 +527,34 @@ export default class PagosController {
         })
       }
 
-      const pago = await Pago.create({
-        prestamoId: ventaId,
-        numeroCuota: data.numeroCuota,
-        montoPagado: monto,
-        fechaPago: DateTime.fromISO(data.fechaPago, { zone: TZ }),
+      const resultado = await aplicarPagoVenta({
+        ventaId: Number(ventaId),
+        monto,
+        fechaPago: data.fechaPago,
         usuarioId: user.id,
         tipoPago: 'cuota',
+        numeroCuotaReferencia: Number(data.numeroCuota),
       })
-      await pago.load('prestamo', (q) =>
-        q
-          .preload('cliente')
-          .preload('lote')
-          .preload('predios', (predios) => predios.preload('lote'))
-          .preload('pagos')
-      )
-      await pago.load('usuario')
+
+      const pago = await Pago.query()
+        .where('id', resultado.pago.id)
+        .preload('prestamo', (q) =>
+          q
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
+            .preload('pagos')
+        )
+        .preload('usuario')
+        .firstOrFail()
 
       const ventaActualizada = await Prestamo.query()
         .where('id', ventaId)
         .preload('pagos')
         .firstOrFail()
-      const resumenDespues = this.resumenCuotas(ventaActualizada)
+      const resumenDespues = resultado.resumenFinal
 
-      if (resumenDespues.saldoPendiente <= EPSILON) {
-        ventaActualizada.estado = 'pagado'
-        await ventaActualizada.save()
-      } else if (ventaActualizada.estado === 'pagado') {
-        ventaActualizada.estado = 'activo'
-        await ventaActualizada.save()
-      }
-
-      if (resumenDespues.montoPendienteCuota <= EPSILON) {
+      if (monto + EPSILON >= resumenAntes.montoPendienteCuota) {
         await this.resolverProgramaciones(ventaId, Number(data.numeroCuota))
       }
 
@@ -517,6 +574,7 @@ export default class PagosController {
       return response.created({
         message: 'Pago registrado exitosamente',
         pago,
+        aplicaciones: resultado.aplicaciones,
         voucher: this.voucherPago({
           venta: ventaActualizada,
           pagoId: pago.id,
@@ -524,6 +582,7 @@ export default class PagosController {
           montoPagado: monto,
           fechaPago: data.fechaPago,
           numeroCuota: data.numeroCuota,
+          aplicaciones: resultado.aplicaciones,
           pendienteCuotaRestante: Number(
             Math.max(resumenAntes.montoPendienteCuota - monto, 0).toFixed(2)
           ),
@@ -536,6 +595,13 @@ export default class PagosController {
           message: 'Datos invalidos para registrar pago',
           errors: validationMessages(error),
         })
+      }
+
+      if (error instanceof Error && error.message.startsWith('La cuota pendiente actual es la #')) {
+        return response.conflict({ message: error.message })
+      }
+      if (error instanceof Error && error.message === 'La venta ya no tiene saldo pendiente') {
+        return response.conflict({ message: error.message })
       }
 
       console.error(error)
@@ -600,6 +666,7 @@ export default class PagosController {
           montoPagado: resultado.totalAplicado,
           fechaPago,
           numeroCuota: null,
+          aplicaciones: resultado.aplicaciones,
           resumen,
         }),
       })
@@ -754,52 +821,121 @@ export default class PagosController {
     }
   }
 
-  async destroy({ request, params, response }: HttpContext) {
+  /**
+   * Endpoint oficial para anular un pago: POST /api/pagos/:id/anular
+   * Exclusivo para administradores. Requiere motivo obligatorio (>= 5 chars).
+   * No borra físicamente el pago, preserva integridad y recalcula saldo via reconstruirAplicacionesVenta.
+   */
+  async anular({ request, params, response }: HttpContext) {
     try {
       const authHeader = request.header('authorization')
       const user = await this.verifyToken(authHeader || '')
       if (!user) return response.forbidden({ message: 'No autorizado' })
+      if (user.role !== 'admin') {
+        return response.forbidden({ message: 'Solo el administrador puede anular pagos' })
+      }
+
+      const motivo = String(request.input('motivo') || '').trim()
+      if (motivo.length < 5) {
+        return response.badRequest({
+          message: 'El motivo de anulacion debe tener al menos 5 caracteres',
+        })
+      }
 
       const pago = await Pago.query()
         .where('id', params.id)
         .preload('prestamo', (q) =>
-          q.preload('cliente').preload('lote').preload('predios', (predios) => predios.preload('lote'))
+          q
+            .preload('cliente')
+            .preload('lote')
+            .preload('predios', (predios) => predios.preload('lote'))
         )
         .firstOrFail()
-      const venta = pago.prestamo
-      const detallePago = {
-        numeroCuota: pago.numeroCuota,
-        montoPagado: Number(pago.montoPagado),
-        fechaPago: this.fechaIso(pago.fechaPago),
-        tipoPago: pago.tipoPago,
-        ventaId: pago.prestamoId,
+
+      if (pago.anulado) {
+        return response.conflict({ message: 'El pago ya se encuentra anulado' })
       }
 
-      await pago.delete()
-      const resumen = await this.actualizarEstadoVenta(venta)
+      const venta = pago.prestamo
+      const { reconstruirAplicacionesVenta } =
+        await import('#services/reconstruir_aplicaciones_service')
 
+      const resultadoAnulacion = await db.transaction(async (trx) => {
+        pago.anulado = true
+        pago.anuladoAt = DateTime.now()
+        pago.anuladoPor = user.id
+        pago.motivoAnulacion = motivo
+        await pago.useTransaction(trx).save()
+
+        await reconstruirAplicacionesVenta(venta.id, trx)
+
+        const ventaActualizada = await Prestamo.query({ client: trx })
+          .where('id', venta.id)
+          .forUpdate()
+          .preload('pagos', (q) => q.where('anulado', false))
+          .firstOrFail()
+        const resumen = this.resumenCuotas(ventaActualizada)
+
+        if (ventaActualizada.estado !== 'cancelado') {
+          const hoy = DateTime.now().setZone(TZ).startOf('day')
+          ventaActualizada.estado =
+            resumen.saldoPendiente <= EPSILON
+              ? 'pagado'
+              : ventaActualizada.fechaFin < hoy
+                ? 'vencido'
+                : 'activo'
+          await ventaActualizada.useTransaction(trx).save()
+        }
+
+        return { venta: ventaActualizada, resumen }
+      })
+
+      const descCliente = venta.cliente
+        ? `${venta.cliente.nombres} ${venta.cliente.apellidos}`
+        : 'Cliente N/A'
       await registrarActividad({
         usuarioId: user.id,
         tipo: 'eliminar',
         entidad: 'pago',
-        entidadId: Number(params.id),
-        descripcion: `Elimino pago de Q${detallePago.montoPagado} - lote ${venta.numeroLote || 'N/A'} / ${venta.cliente.nombres} ${venta.cliente.apellidos}`,
-        detalle: detallePago,
+        entidadId: pago.id,
+        descripcion: `Anulo pago #${pago.id} de Q${pago.montoPagado} - ${descCliente}`,
+        detalle: {
+          pagoId: pago.id,
+          montoOriginal: Number(pago.montoPagado),
+          motivo,
+          ventaId: venta.id,
+          anuladoPor: user.id,
+        },
       })
 
       return response.ok({
-        message: 'Pago eliminado exitosamente',
+        message: 'Pago anulado exitosamente. El saldo ha sido recalculado.',
+        pago: {
+          id: pago.id,
+          montoPagado: Number(pago.montoPagado),
+          anulado: true,
+          anuladoPor: user.id,
+          motivoAnulacion: motivo,
+        },
         venta: {
-          id: venta.id,
-          estado: venta.estado,
-          saldoPendiente: resumen.saldoPendiente,
-          proximaCuota: resumen.proximaCuota,
-          montoPendienteCuota: resumen.montoPendienteCuota,
+          id: resultadoAnulacion.venta.id,
+          estado: resultadoAnulacion.venta.estado,
+          saldoPendiente: resultadoAnulacion.resumen.saldoPendiente,
+          cuotasPagadas: resultadoAnulacion.resumen.cuotasPagadas,
+          proximaCuota: resultadoAnulacion.resumen.proximaCuota,
         },
       })
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Error al eliminar pago' })
+      return response.internalServerError({ message: 'Error al anular pago' })
     }
+  }
+
+  /**
+   * Endpoint legacy protegido: DELETE /api/pagos/:id
+   * Redirige al flujo de anulación lógica. Nunca borra físicamente.
+   */
+  async destroy(ctx: HttpContext) {
+    return this.anular(ctx)
   }
 }

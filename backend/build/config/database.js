@@ -1,5 +1,11 @@
 import env from '#start/env';
 import { defineConfig } from '@adonisjs/lucid';
+if (env.get('NODE_ENV') === 'test' &&
+    (env.get('DB_DATABASE') !== 'villas_del_rosario_test' ||
+        !['127.0.0.1', 'localhost', '::1'].includes(env.get('DB_HOST')) ||
+        Number(env.get('DB_PORT')) === 5432)) {
+    throw new Error('Tests bloqueados: se requiere PostgreSQL local villas_del_rosario_test (NO usar puerto 5432 de produccion)');
+}
 const dbConfig = defineConfig({
     connection: 'postgres',
     connections: {
