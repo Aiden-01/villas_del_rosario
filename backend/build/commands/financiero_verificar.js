@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { verificarEntornoFinancieroLocal } from '#services/local_financiero_guard';
+import { verificarPermisoVerificacion } from '#services/local_financiero_guard';
 import { BaseCommand, flags } from '@adonisjs/core/ace';
 import db from '@adonisjs/lucid/services/db';
 export default class FinancieroVerificar extends BaseCommand {
@@ -17,7 +17,7 @@ export default class FinancieroVerificar extends BaseCommand {
         startApp: true,
     };
     async run() {
-        this.logger.info(JSON.stringify(verificarEntornoFinancieroLocal()));
+        this.logger.info(JSON.stringify(verificarPermisoVerificacion(this.confirmProduction)));
         this.logger.info('====== VERIFICADOR FINANCIERO VILLAS DEL ROSARIO ======');
         let hayErroresGraves = false;
         const clientes = await db.rawQuery('SELECT COUNT(*) as total FROM clientes');
@@ -141,4 +141,10 @@ __decorate([
     flags.boolean({ description: 'Incluir verificacion de pago_aplicaciones (post-backfill)' }),
     __metadata("design:type", Boolean)
 ], FinancieroVerificar.prototype, "conAplicaciones", void 0);
+__decorate([
+    flags.boolean({
+        description: 'Confirma explicitamente la ejecucion cuando NODE_ENV=production',
+    }),
+    __metadata("design:type", Boolean)
+], FinancieroVerificar.prototype, "confirmProduction", void 0);
 //# sourceMappingURL=financiero_verificar.js.map

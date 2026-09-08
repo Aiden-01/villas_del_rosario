@@ -1,4 +1,4 @@
-import { verificarEntornoFinancieroLocal } from '#services/local_financiero_guard'
+import { verificarPermisoVerificacion } from '#services/local_financiero_guard'
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
@@ -14,8 +14,13 @@ export default class FinancieroVerificar extends BaseCommand {
   @flags.boolean({ description: 'Incluir verificacion de pago_aplicaciones (post-backfill)' })
   declare conAplicaciones: boolean
 
+  @flags.boolean({
+    description: 'Confirma explicitamente la ejecucion cuando NODE_ENV=production',
+  })
+  declare confirmProduction: boolean
+
   async run() {
-    this.logger.info(JSON.stringify(verificarEntornoFinancieroLocal()))
+    this.logger.info(JSON.stringify(verificarPermisoVerificacion(this.confirmProduction)))
     this.logger.info('====== VERIFICADOR FINANCIERO VILLAS DEL ROSARIO ======')
     let hayErroresGraves = false
 

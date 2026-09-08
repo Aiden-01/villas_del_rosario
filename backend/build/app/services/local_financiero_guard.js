@@ -13,6 +13,31 @@ export function verificarEntornoFinancieroLocal(testOnly = false) {
     }
     return { NODE_ENV: nodeEnv, DB_HOST: host, DB_PORT: port, DB_DATABASE: database };
 }
+export function verificarPermisoVerificacion(confirmProduction = false) {
+    return validarPermisoVerificacion({
+        NODE_ENV: env.get('NODE_ENV'),
+        DB_HOST: env.get('DB_HOST'),
+        DB_PORT: Number(env.get('DB_PORT')),
+        DB_DATABASE: env.get('DB_DATABASE'),
+    }, confirmProduction);
+}
+export function validarPermisoVerificacion(entorno, confirmProduction = false) {
+    if (entorno.NODE_ENV === 'production') {
+        if (!confirmProduction) {
+            throw new Error('Verificacion financiera en produccion bloqueada: vuelve a ejecutar con --confirm-production');
+        }
+        return entorno;
+    }
+    const basePermitida = ['villas_del_rosario_dev', 'villas_del_rosario_test'].includes(entorno.DB_DATABASE);
+    const hostLocal = ['localhost', '127.0.0.1', '::1'].includes(entorno.DB_HOST);
+    if (!['development', 'test'].includes(entorno.NODE_ENV) ||
+        !hostLocal ||
+        entorno.DB_PORT === 5432 ||
+        !basePermitida) {
+        throw new Error('Verificacion financiera bloqueada: fuera de production solo se permite en las bases locales dev/test');
+    }
+    return entorno;
+}
 export function verificarPermisoBackfill(confirmProduction = false) {
     return validarPermisoBackfill({
         NODE_ENV: env.get('NODE_ENV'),
