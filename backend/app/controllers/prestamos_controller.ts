@@ -9,6 +9,7 @@ import { DateTime } from 'luxon'
 import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js'
 import { createVentaValidator, updateVentaValidator } from '#validators/ventas_validator'
 import { cleanEmptyStrings, isValidationError, validationMessages } from '#validators/helpers'
+import { resumenFinancieroVenta } from '#services/mora_service'
 
 export default class PrestamosController {
   private async verifyToken(token: string) {
@@ -128,7 +129,9 @@ export default class PrestamosController {
       const { clienteId, mostrarAntiguos } = request.qs()
       const query = Prestamo.query()
         .preload('cliente')
-        .preload('pagos')
+        .preload('pagos', (q) => q.where('anulado', false))
+        .preload('pagoAplicaciones', (q) => q.orderBy('numero_cuota', 'asc'))
+        .preload('programaciones')
         .preload('lote')
         .preload('predios', (predios) => predios.preload('lote'))
 
@@ -150,7 +153,12 @@ export default class PrestamosController {
       }
 
       const prestamos = await query
-      return response.ok(prestamos)
+      return response.ok(
+        prestamos.map((prestamo) => ({
+          ...prestamo.serialize(),
+          resumenFinanciero: resumenFinancieroVenta(prestamo, prestamo.programaciones || []),
+        }))
+      )
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al obtener ventas' })
@@ -176,7 +184,6 @@ export default class PrestamosController {
 
       // Cargar programaciones y calcular resumen financiero unificado
       await prestamo.load('programaciones')
-      const { resumenFinancieroVenta } = await import('#services/mora_service')
       const resumenFinanciero = resumenFinancieroVenta(prestamo, prestamo.programaciones || [])
 
       return response.ok({ ...prestamo.serialize(), resumenFinanciero })
@@ -195,10 +202,17 @@ export default class PrestamosController {
       const prestamos = await Prestamo.query()
         .where('cliente_id', params.clienteId)
         .preload('cliente')
-        .preload('pagos')
+        .preload('pagos', (q) => q.where('anulado', false))
+        .preload('pagoAplicaciones', (q) => q.orderBy('numero_cuota', 'asc'))
+        .preload('programaciones')
         .preload('lote')
         .preload('predios', (predios) => predios.preload('lote'))
-      return response.ok(prestamos)
+      return response.ok(
+        prestamos.map((prestamo) => ({
+          ...prestamo.serialize(),
+          resumenFinanciero: resumenFinancieroVenta(prestamo, prestamo.programaciones || []),
+        }))
+      )
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al obtener ventas del cliente' })

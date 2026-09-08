@@ -260,6 +260,92 @@ test.group('Aplicacion FIFO persistida', (group) => {
     assert.lengthOf(await Pago.query().where('venta_id', venta.id), 2)
   })
 
+  test('los listados exponen el resumen autoritativo de un abono que cubre varias cuotas', async ({
+    client,
+    assert,
+  }) => {
+    const clienteVenta = await Client.create({
+      nombres: 'FIFO Listados',
+      apellidos: 'Prueba',
+      telefono: `5555${Math.floor(Math.random() * 8999 + 1000)}`,
+      direccion: 'Direccion de prueba',
+      zona: null,
+      activo: true,
+    })
+    const venta = await Prestamo.create({
+      clienteId: clienteVenta.id,
+      loteId: null,
+      monto: 175_000,
+      cuotas: 36,
+      fechaInicio: DateTime.fromISO('2026-01-01'),
+      fechaFin: DateTime.fromISO('2028-12-01'),
+      fechaCobro: DateTime.fromISO('2026-01-01'),
+      estado: 'activo',
+      frecuenciaPago: 'mensual',
+    })
+    await Pago.create({
+      prestamoId: venta.id,
+      usuarioId: null,
+      numeroCuota: 0,
+      montoPagado: 7_500,
+      tipoPago: 'enganche',
+      fechaPago: DateTime.fromISO('2025-12-01'),
+      anulado: false,
+    })
+    const authorization = await crearSesion('fifo-listados')
+
+    const primerPago = await client
+      .post('/api/pagos/abonos')
+      .header('authorization', authorization)
+      .json({ ventaId: venta.id, monto: 20_000, fechaPago: '2026-01-01' })
+    primerPago.assertStatus(201)
+
+    const segundoPago = await client
+      .post('/api/pagos/abonos')
+      .header('authorization', authorization)
+      .json({ ventaId: venta.id, monto: 4_652.78, fechaPago: '2026-02-01' })
+    segundoPago.assertStatus(201)
+
+    const esperado = {
+      enganche: 7_500,
+      montoFinanciado: 167_500,
+      totalPagado: 24_652.78,
+      saldoPendiente: 142_847.22,
+      cuotasPagadas: 5,
+      cuotasContractuales: 36,
+      fraccion: '5/36',
+      porcentaje: 14,
+      cuotaActual: 6,
+      valorCuotaActual: 4_652.77,
+      pagadoCuotaActual: 1_388.93,
+      pendienteCuotaActual: 3_263.84,
+    }
+
+    const listado = await client.get('/api/ventas').header('authorization', authorization)
+    listado.assertStatus(200)
+    const ventaEnListado = listado.body().find((item: any) => item.id === venta.id)
+    assert.exists(ventaEnListado)
+    assert.deepEqual(
+      Object.fromEntries(
+        Object.keys(esperado).map((key) => [key, ventaEnListado.resumenFinanciero[key]])
+      ),
+      esperado
+    )
+
+    const listadoCliente = await client
+      .get(`/api/ventas/cliente/${clienteVenta.id}`)
+      .header('authorization', authorization)
+    listadoCliente.assertStatus(200)
+    const ventaDelCliente = listadoCliente.body().find((item: any) => item.id === venta.id)
+    assert.exists(ventaDelCliente)
+    assert.deepEqual(
+      Object.fromEntries(
+        Object.keys(esperado).map((key) => [key, ventaDelCliente.resumenFinanciero[key]])
+      ),
+      esperado
+    )
+  })
+
   test('anular el segundo pago restaura el resumen persistido y conserva el historial', async ({
     client,
     assert,

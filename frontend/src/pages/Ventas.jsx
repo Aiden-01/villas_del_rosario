@@ -38,21 +38,6 @@ const ESTADO_COLORS = {
   cancelado: "bg-gray-200 text-gray-700",
 };
 
-const esMora = (prestamo) => {
-  if (prestamo.estado !== "activo") return false;
-  const hoy = new Date();
-  const fin = new Date(prestamo.fechaFin);
-  return fin < hoy;
-};
-
-const calcularEnganche = (pagos = []) =>
-  pagos
-    .filter((pago) => pago.tipoPago === "enganche")
-    .reduce((sum, pago) => sum + Number(pago.montoPagado || 0), 0);
-
-const calcularCuotaMensual = (monto, cuotas, pagos = []) =>
-  Math.max(Number(monto || 0) - calcularEnganche(pagos), 0) / Number(cuotas || 1);
-
 const prediosVenta = (venta) =>
   venta?.predios?.length
     ? venta.predios
@@ -68,58 +53,6 @@ const etiquetaLotes = (venta) => {
   const predios = prediosVenta(venta);
   if (predios.length === 0) return "N/A";
   return predios.map((predio) => predio.numeroLote).filter(Boolean).join(", ");
-};
-
-const resumirCuotas = (prestamo, pagos = prestamo?.pagos || []) => {
-  const cuotaMensual = calcularCuotaMensual(prestamo?.monto, prestamo?.cuotas, pagos);
-  const pagosPorCuota = new Map();
-  const totalPagado = pagos.reduce((sum, pago) => sum + Number(pago.montoPagado || 0), 0);
-  const saldoPendiente = Number(Math.max(Number(prestamo?.monto || 0) - totalPagado, 0).toFixed(2));
-
-  pagos.forEach((pago) => {
-    if (Number(pago.numeroCuota) <= 0 || (pago.tipoPago && pago.tipoPago !== "cuota")) return;
-
-    const actual = pagosPorCuota.get(pago.numeroCuota) || 0;
-    pagosPorCuota.set(
-      pago.numeroCuota,
-      Number((actual + Number(pago.montoPagado)).toFixed(2))
-    );
-  });
-
-  let cuotasPagadas = 0;
-  let siguienteCuota = null;
-  let montoPendienteCuota = 0;
-
-  for (let cuota = 1; cuota <= Number(prestamo?.cuotas || 0); cuota++) {
-    const pagado = pagosPorCuota.get(cuota) || 0;
-    const pendiente = Number(Math.max(cuotaMensual - pagado, 0).toFixed(2));
-    if (pendiente <= 0.01) {
-      cuotasPagadas += 1;
-      continue;
-    }
-
-    if (!siguienteCuota) {
-      siguienteCuota = cuota;
-      montoPendienteCuota = Number(Math.min(pendiente, saldoPendiente).toFixed(2));
-    }
-  }
-
-  if (saldoPendiente <= 0.01) {
-    siguienteCuota = null;
-    montoPendienteCuota = 0;
-  } else if (!siguienteCuota && Number(prestamo?.cuotas || 0) > 0) {
-    siguienteCuota = Number(prestamo.cuotas);
-    montoPendienteCuota = saldoPendiente;
-  }
-
-  return {
-    cuotaMensual,
-    cuotasPagadas,
-    siguienteCuota,
-    montoPendienteCuota,
-    saldoPendiente,
-    todasPagadas: !siguienteCuota,
-  };
 };
 
 const etiquetaPago = (pago, totalCuotas) => {
@@ -297,6 +230,7 @@ export default function Ventas() {
 
   const resumenSeleccionado = selectedPrestamo?.resumenFinanciero || null;
   const todasCuotasPagadas = resumenSeleccionado?.cuotaActual === null;
+  const moraSeleccionada = Boolean(selectedPrestamo?.resumenFinanciero?.enMora);
 
   const handleRegistrarPago = async () => {
     if (!selectedPrestamo || !resumenSeleccionado || todasCuotasPagadas) return;
@@ -534,9 +468,9 @@ export default function Ventas() {
       {!loading && prestamosVisibles.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {prestamosVisibles.map((prestamo) => {
-            const mora = esMora(prestamo);
             const pagado = prestamo.estado === "pagado";
-            const resumen = resumirCuotas(prestamo);
+            const resumen = prestamo.resumenFinanciero;
+            const mora = Boolean(prestamo.resumenFinanciero?.enMora);
 
             return (
               <div
@@ -579,15 +513,21 @@ export default function Ventas() {
                       {etiquetaLotes(prestamo)}
                     </p>
                     <p className="font-bold" style={{ color: pagado ? "#6b7280" : "var(--primary)" }}>
-                      Q{resumen.cuotaMensual.toLocaleString("es-GT", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                      /mes
+                      {resumen
+                        ? `Q${Number(resumen.valorCuotaActual).toLocaleString("es-GT", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}/mes`
+                        : "Cargando..."}
                     </p>
                   </div>
                   <p><span className="font-medium text-[var(--text)]">Precio:</span> Q{Number(prestamo.monto).toLocaleString()}</p>
-                  <p><span className="font-medium text-[var(--text)]">Cuotas:</span> {resumen.cuotasPagadas}/{prestamo.cuotas}</p>
+                  <p>
+                    <span className="font-medium text-[var(--text)]">Cuotas:</span>{" "}
+                    {resumen
+                      ? `${resumen.cuotasPagadas}/${resumen.cuotasContractuales}`
+                      : "Cargando..."}
+                  </p>
                   <p><span className="font-medium text-[var(--text)]">Inicio:</span> {formatearFecha(prestamo.fechaInicio)}</p>
                   <p><span className="font-medium text-[var(--text)]">Fin:</span> {formatearFecha(prestamo.fechaFin)}</p>
                 </div>
@@ -607,20 +547,20 @@ export default function Ventas() {
             onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "var(--card)",
-              border: esPagado ? "2px solid #3b82f6" : esMora(selectedPrestamo) ? "2px solid #ef4444" : "none",
+              border: esPagado ? "2px solid #3b82f6" : moraSeleccionada ? "2px solid #ef4444" : "none",
             }}
           >
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span
-                    className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full font-semibold ${esPagado ? "bg-blue-100 text-blue-700" : esMora(selectedPrestamo) ? "bg-red-100 text-red-700" : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"}`}
+                    className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full font-semibold ${esPagado ? "bg-blue-100 text-blue-700" : moraSeleccionada ? "bg-red-100 text-red-700" : ESTADO_COLORS[selectedPrestamo.estado] || "bg-gray-100 text-gray-600"}`}
                   >
                     {esPagado ? (
                       <>
                         <CheckCircle2 size={12} /> Pagada
                       </>
-                    ) : esMora(selectedPrestamo) ? (
+                    ) : moraSeleccionada ? (
                       <>
                         <AlertTriangle size={12} /> En mora
                       </>
