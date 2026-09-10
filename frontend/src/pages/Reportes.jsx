@@ -25,28 +25,6 @@ const formatearFecha = (fecha) => {
 const formatearMoneda = (monto) =>
   Number(monto || 0).toLocaleString("es-GT", { minimumFractionDigits: 2 });
 
-const calcularCuotasPagadas = (venta) => {
-  const enganche = (venta.pagos || [])
-    .filter((pago) => pago.tipoPago === "enganche")
-    .reduce((suma, pago) => suma + Number(pago.montoPagado || 0), 0);
-  const cuotaMensual = Math.max(Number(venta.monto) - enganche, 0) / Number(venta.cuotas || 1);
-  const pagosPorCuota = new Map();
-
-  (venta.pagos || []).forEach((pago) => {
-    if (Number(pago.numeroCuota) <= 0 || pago.tipoPago !== "cuota") return;
-
-    const actual = pagosPorCuota.get(pago.numeroCuota) || 0;
-    pagosPorCuota.set(pago.numeroCuota, Number((actual + Number(pago.montoPagado)).toFixed(2)));
-  });
-
-  let completas = 0;
-  for (let cuota = 1; cuota <= Number(venta.cuotas || 0); cuota++) {
-    if ((pagosPorCuota.get(cuota) || 0) + 0.01 >= cuotaMensual) completas += 1;
-  }
-
-  return completas;
-};
-
 const lotesVenta = (venta) => {
   if (venta.predios?.length) {
     return venta.predios.map((predio) => predio.numeroLote).filter(Boolean).join(", ");
@@ -58,7 +36,7 @@ const lotesVenta = (venta) => {
 const etiquetaPago = (pago) => {
   if (pago.tipoPago === "abono") return "Abono";
   if (pago.tipoPago === "enganche") return "Enganche";
-  return `${pago.numeroCuota}/${pago.prestamo?.cuotas || 0}`;
+  return "Pago de cuota";
 };
 
 const TABS = [
@@ -344,8 +322,15 @@ export default function Reportes() {
               <div className="p-4" style={{ backgroundColor: "var(--card)" }}>
                 <p className="font-semibold">Total de ventas: {datos.length}</p>
                 <p className="text-sm opacity-60">
-                  Valor total de lotes: Q
-                  {formatearMoneda(datos.reduce((suma, venta) => suma + Number(venta.monto), 0))}
+                  Valor total de lotes:{" "}
+                  {datos.every((venta) => venta.resumenFinanciero)
+                    ? `Q${formatearMoneda(
+                        datos.reduce(
+                          (suma, venta) => suma + Number(venta.resumenFinanciero.montoTotal),
+                          0
+                        )
+                      )}`
+                    : "—"}
                 </p>
                 {(fechaInicio || fechaFin) && (
                   <p className="text-xs opacity-50 mt-1">
@@ -371,13 +356,7 @@ export default function Reportes() {
                   </thead>
                   <tbody>
                     {datos.map((venta) => {
-                      const cuotasPagadas = calcularCuotasPagadas(venta);
-                      const porcentaje = venta.cuotas ? Math.round((cuotasPagadas / venta.cuotas) * 100) : 0;
-                      const totalCobrado = (venta.pagos || []).reduce(
-                        (suma, pago) => suma + Number(pago.montoPagado),
-                        0
-                      );
-                      const saldoPendiente = Math.max(Number(venta.monto) - totalCobrado, 0);
+                      const resumen = venta.resumenFinanciero;
 
                       return (
                         <tr key={venta.id} className="border-t" style={{ borderColor: "var(--card-border)" }}>
@@ -386,25 +365,27 @@ export default function Reportes() {
                           </td>
                           <td className="p-3">{lotesVenta(venta)}</td>
                           <td className="p-3 font-semibold" style={{ color: "var(--primary)" }}>
-                            Q{formatearMoneda(venta.monto)}
+                            {resumen ? `Q${formatearMoneda(resumen.montoTotal)}` : "—"}
+                          </td>
+                          <td className="p-3">{resumen?.fraccion || "—"}</td>
+                          <td className="p-3">
+                            {resumen ? `${resumen.porcentaje}%` : "—"}
                           </td>
                           <td className="p-3">
-                            {cuotasPagadas}/{venta.cuotas}
+                            {resumen ? `Q${formatearMoneda(resumen.saldoPendiente)}` : "—"}
                           </td>
-                          <td className="p-3">{porcentaje}%</td>
-                          <td className="p-3">Q{formatearMoneda(saldoPendiente)}</td>
                           <td className="p-3">{formatearFecha(venta.fechaCobro) || "N/A"}</td>
                           <td className="p-3">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                venta.estado === "activo"
+                                resumen?.estado === "activo"
                                   ? "bg-green-100 text-green-700"
-                                  : venta.estado === "pagado"
+                                  : resumen?.estado === "pagado"
                                     ? "bg-blue-100 text-blue-700"
                                     : "bg-red-100 text-red-700"
                               }`}
                             >
-                              {venta.estado}
+                              {resumen?.estado || "—"}
                             </span>
                           </td>
                         </tr>
@@ -482,33 +463,41 @@ export default function Reportes() {
                       </tr>
                     </thead>
                     <tbody>
-                      {datos.detalle.map((item, index) => (
-                        <tr key={`${item.lote}-${index}`} className="border-t" style={{ borderColor: "var(--card-border)" }}>
-                          <td className="p-3">{item.cliente}</td>
-                          <td className="p-3">{item.lote}</td>
-                          <td className="p-3">
-                            {item.fraccion} ({item.porcentaje}%)
-                          </td>
-                          <td className="p-3">Q{formatearMoneda(item.cobrado)}</td>
-                          <td className="p-3 font-semibold text-amber-500">
-                            Q{formatearMoneda(item.saldoPendiente)}
-                          </td>
-                          <td className="p-3">{formatearFecha(item.ultimoPago) || "N/A"}</td>
-                          <td className="p-3">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                item.estado === "activo"
-                                  ? "bg-green-100 text-green-700"
-                                  : item.estado === "pagado"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-red-100 text-red-700"
-                              }`}
-                            >
-                              {item.estado}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {datos.detalle.map((item, index) => {
+                        const resumen = item.resumenFinanciero;
+
+                        return (
+                          <tr key={`${item.lote}-${index}`} className="border-t" style={{ borderColor: "var(--card-border)" }}>
+                            <td className="p-3">{item.cliente}</td>
+                            <td className="p-3">{item.lote}</td>
+                            <td className="p-3">
+                              {resumen ? `${resumen.fraccion} (${resumen.porcentaje}%)` : "—"}
+                            </td>
+                            <td className="p-3">
+                              {resumen && item.totalCobradoHistorico != null
+                                ? `Q${formatearMoneda(item.totalCobradoHistorico)}`
+                                : "—"}
+                            </td>
+                            <td className="p-3 font-semibold text-amber-500">
+                              {resumen ? `Q${formatearMoneda(resumen.saldoPendiente)}` : "—"}
+                            </td>
+                            <td className="p-3">{formatearFecha(item.ultimoPago) || "N/A"}</td>
+                            <td className="p-3">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                  resumen?.estado === "activo"
+                                    ? "bg-green-100 text-green-700"
+                                    : resumen?.estado === "pagado"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {resumen?.estado || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

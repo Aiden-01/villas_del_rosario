@@ -2,7 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import ApiToken from '#models/api_token'
 import Pago from '#models/pago'
 import Prestamo from '#models/prestamo'
-import { resumenCuotasVenta } from '#services/cuotas_ventas_service'
+import { resumenFinancieroVenta } from '#services/mora_service'
 import ExcelJS from 'exceljs'
 import PDFDocument from 'pdfkit'
 
@@ -27,10 +27,6 @@ const fechaMasUnDia = (fecha?: string) => {
 }
 
 const formatearMoneda = (valor: number) => `Q${Number(valor || 0).toFixed(2)}`
-
-const calcularCuotasPagadas = (prestamo: Prestamo) => {
-  return resumenCuotasVenta(prestamo).cuotasPagadas
-}
 
 const normalizarTipoReporte = (tipo?: string) => {
   if (tipo === 'prestamos') return 'ventas'
@@ -88,47 +84,129 @@ const agregarInfoReporte = (
   sheet.addRow([])
 }
 
-const calcularCobrado = (prestamo: Prestamo) =>
-  Number(
-    (prestamo.pagos || [])
-      .filter((p) => !p.anulado) // Excluir pagos anulados
-      .reduce((suma, pago) => suma + Number(pago.montoPagado), 0)
-      .toFixed(2)
-  )
-
 const etiquetaPago = (pago: Pago) => {
   if (pago.tipoPago === 'abono') return 'Abono'
   if (pago.tipoPago === 'enganche') return 'Enganche'
-  return `Cuota ${pago.numeroCuota}/${pago.prestamo.cuotas}`
+  return 'Pago de cuota'
 }
 
-const calcularResumenVenta = (prestamo: Prestamo) => {
-  const cobrado = calcularCobrado(prestamo)
-  const saldoPendiente = Math.max(Number(prestamo.monto) - cobrado, 0)
-  const cuotasPagadas = calcularCuotasPagadas(prestamo)
-  const totalCuotas = Number(prestamo.cuotas || 0)
-  const porcentaje = totalCuotas > 0 ? Math.round((cuotasPagadas / totalCuotas) * 100) : 0
-  const ultimoPago = [...(prestamo.pagos || [])].sort((a, b) =>
-    String(b.fechaPago).localeCompare(String(a.fechaPago))
-  )[0]
+type FiltrosVentasReporte = {
+  estado?: string
+  fechaInicio?: string
+  fechaFin?: string
+}
+
+const obtenerPagosReporte = async (fechaInicio?: string, fechaFin?: string) => {
+  const query = Pago.query()
+    .where('anulado', false)
+    .preload('prestamo', (prestamo) =>
+      prestamo
+        .preload('cliente')
+        .preload('lote')
+        .preload('predios', (predios) => predios.preload('lote'))
+    )
+    .preload('usuario')
+
+  if (fechaInicio) query.where('fecha_pago', '>=', fechaInicio)
+  if (fechaFin) query.where('fecha_pago', '<', fechaMasUnDia(fechaFin)!)
+
+  return query.orderBy('fecha_pago', 'asc')
+}
+
+const obtenerVentasReporte = async ({ estado, fechaInicio, fechaFin }: FiltrosVentasReporte) => {
+  const query = Prestamo.query()
+    .preload('cliente')
+    .preload('pagos', (pagos) => pagos.where('anulado', false))
+    .preload('pagoAplicaciones', (aplicaciones) => aplicaciones.orderBy('numero_cuota', 'asc'))
+    .preload('programaciones')
+    .preload('lote')
+    .preload('predios', (predios) => predios.preload('lote'))
+
+  if (estado) query.where('estado', estado)
+  if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
+  if (fechaFin) query.where('fecha_inicio', '<', fechaMasUnDia(fechaFin)!)
+
+  const ventas = await query.orderBy('created_at', 'desc')
+  return ventas.map((prestamo) => {
+    const resumenFinanciero = resumenFinancieroVenta(prestamo, prestamo.programaciones || [])
+    const ultimoPago = [...(prestamo.pagos || [])].sort((a, b) =>
+      String(b.fechaPago).localeCompare(String(a.fechaPago))
+    )[0]
+
+    return {
+      prestamo,
+      resumenFinanciero,
+      totalCobradoHistorico: Number(
+        (resumenFinanciero.enganche + resumenFinanciero.totalPagado).toFixed(2)
+      ),
+      ultimoPago: ultimoPago?.fechaPago || null,
+    }
+  })
+}
+
+const calcularTotalesCartera = (ventas: Awaited<ReturnType<typeof obtenerVentasReporte>>) => {
+  const totalValorLotes = ventas.reduce(
+    (suma, venta) => suma + venta.resumenFinanciero.montoTotal,
+    0
+  )
+  const totalCobradoHistorico = ventas.reduce(
+    (suma, venta) => suma + venta.totalCobradoHistorico,
+    0
+  )
+  const totalSaldoPendiente = ventas.reduce(
+    (suma, venta) => suma + venta.resumenFinanciero.saldoPendiente,
+    0
+  )
+  const totalCuotasPagadas = ventas.reduce(
+    (suma, venta) => suma + venta.resumenFinanciero.cuotasPagadas,
+    0
+  )
+  const totalCuotas = ventas.reduce(
+    (suma, venta) => suma + venta.resumenFinanciero.cuotasContractuales,
+    0
+  )
 
   return {
-    lote: prestamo.numeroLote || 'N/A',
-    cliente: `${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}`,
-    precioLote: Number(prestamo.monto),
-    cuotasPagadas,
+    totalVentas: ventas.length,
+    totalValorLotes: Number(totalValorLotes.toFixed(2)),
+    totalCobradoHistorico: Number(totalCobradoHistorico.toFixed(2)),
+    totalSaldoPendiente: Number(totalSaldoPendiente.toFixed(2)),
+    totalCuotasPagadas,
     totalCuotas,
-    fraccion: `${cuotasPagadas}/${totalCuotas || 0}`,
-    porcentaje,
-    cobrado,
-    saldoPendiente: Number(saldoPendiente.toFixed(2)),
-    estado: prestamo.estado,
-    fechaInicio: prestamo.fechaInicio,
-    fechaFin: prestamo.fechaFin,
-    fechaCobro: prestamo.fechaCobro,
-    ultimoPago: ultimoPago?.fechaPago || null,
+    porcentajeGeneral: totalCuotas > 0 ? Math.round((totalCuotasPagadas / totalCuotas) * 100) : 0,
   }
 }
+
+const serializarVentaReporte = (
+  venta: Awaited<ReturnType<typeof obtenerVentasReporte>>[number]
+) => ({
+  ...venta.prestamo.serialize(),
+  resumenFinanciero: venta.resumenFinanciero,
+  totalCobradoHistorico: venta.totalCobradoHistorico,
+  ultimoPago: venta.ultimoPago,
+})
+
+const construirDetalleCartera = (
+  venta: Awaited<ReturnType<typeof obtenerVentasReporte>>[number]
+) => ({
+  id: venta.prestamo.id,
+  lote: venta.prestamo.numeroLote || 'N/A',
+  cliente: `${venta.prestamo.cliente.nombres} ${venta.prestamo.cliente.apellidos}`,
+  fechaInicio: venta.prestamo.fechaInicio,
+  fechaFin: venta.prestamo.fechaFin,
+  fechaCobro: venta.prestamo.fechaCobro,
+  ultimoPago: venta.ultimoPago,
+  totalCobradoHistorico: venta.totalCobradoHistorico,
+  resumenFinanciero: venta.resumenFinanciero,
+  precioLote: venta.resumenFinanciero.montoTotal,
+  cuotasPagadas: venta.resumenFinanciero.cuotasPagadas,
+  totalCuotas: venta.resumenFinanciero.cuotasContractuales,
+  fraccion: venta.resumenFinanciero.fraccion,
+  porcentaje: venta.resumenFinanciero.porcentaje,
+  cobrado: venta.totalCobradoHistorico,
+  saldoPendiente: venta.resumenFinanciero.saldoPendiente,
+  estado: venta.resumenFinanciero.estado,
+})
 
 export default class ReportesController {
   private async verifyToken(token: string) {
@@ -151,17 +229,7 @@ export default class ReportesController {
         return response.badRequest({ message: 'fechaInicio y fechaFin son requeridos' })
       }
 
-      const pagos = await Pago.query()
-        .where('fecha_pago', '>=', fechaInicio)
-        .where('fecha_pago', '<', fechaMasUnDia(fechaFin)!)
-        .preload('prestamo', (query) =>
-          query
-            .preload('cliente')
-            .preload('lote')
-            .preload('predios', (predios) => predios.preload('lote'))
-        )
-        .preload('usuario')
-        .orderBy('fecha_pago', 'asc')
+      const pagos = await obtenerPagosReporte(fechaInicio, fechaFin)
 
       return response.ok(pagos)
     } catch (error) {
@@ -176,18 +244,8 @@ export default class ReportesController {
       if (!user || user.role !== 'admin') return response.forbidden({ message: 'No autorizado' })
 
       const { estado, fechaInicio, fechaFin } = request.qs()
-      const query = Prestamo.query()
-        .preload('cliente')
-        .preload('pagos')
-        .preload('lote')
-        .preload('predios', (predios) => predios.preload('lote'))
-
-      if (estado) query.where('estado', estado)
-      if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
-      if (fechaFin) query.where('fecha_inicio', '<', fechaMasUnDia(fechaFin)!)
-
-      const ventas = await query.orderBy('created_at', 'desc')
-      return response.ok(ventas)
+      const ventas = await obtenerVentasReporte({ estado, fechaInicio, fechaFin })
+      return response.ok(ventas.map(serializarVentaReporte))
     } catch (error) {
       console.error(error)
       return response.internalServerError({ message: 'Error al obtener reporte de ventas' })
@@ -205,33 +263,12 @@ export default class ReportesController {
 
       const { estado, fechaInicio, fechaFin } = request.qs()
 
-      const query = Prestamo.query()
-        .preload('cliente')
-        .preload('pagos')
-        .preload('lote')
-        .preload('predios', (predios) => predios.preload('lote'))
-      if (estado) query.where('estado', estado)
-      if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
-      if (fechaFin) query.where('fecha_inicio', '<', fechaMasUnDia(fechaFin)!)
-
-      const ventas = await query.orderBy('created_at', 'desc')
-      const detalle = ventas.map(calcularResumenVenta)
-
-      const totalValorLotes = detalle.reduce((suma, venta) => suma + venta.precioLote, 0)
-      const totalCobradoHistorico = detalle.reduce((suma, venta) => suma + venta.cobrado, 0)
-      const totalSaldoPendiente = detalle.reduce((suma, venta) => suma + venta.saldoPendiente, 0)
-      const totalCuotasPagadas = detalle.reduce((suma, venta) => suma + venta.cuotasPagadas, 0)
-      const totalCuotas = detalle.reduce((suma, venta) => suma + venta.totalCuotas, 0)
+      const ventas = await obtenerVentasReporte({ estado, fechaInicio, fechaFin })
+      const totales = calcularTotalesCartera(ventas)
+      const detalle = ventas.map(construirDetalleCartera)
 
       return response.ok({
-        totalVentas: detalle.length,
-        totalValorLotes: Number(totalValorLotes.toFixed(2)),
-        totalCobradoHistorico: Number(totalCobradoHistorico.toFixed(2)),
-        totalSaldoPendiente: Number(totalSaldoPendiente.toFixed(2)),
-        totalCuotasPagadas,
-        totalCuotas,
-        porcentajeGeneral:
-          totalCuotas > 0 ? Math.round((totalCuotasPagadas / totalCuotas) * 100) : 0,
+        ...totales,
         detalle,
       })
     } catch (error) {
@@ -251,8 +288,6 @@ export default class ReportesController {
 
       const tipo = normalizarTipoReporte(request.qs().tipo)
       const { fechaInicio, fechaFin, estado } = request.qs()
-      const fechaFinStr = fechaMasUnDia(fechaFin)
-
       const workbook = new ExcelJS.Workbook()
       workbook.creator = 'Villas del Rosario'
       workbook.created = new Date()
@@ -262,17 +297,7 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Pagos')
         sheet.properties.defaultRowHeight = 20
 
-        const pagos = await Pago.query()
-          .where('fecha_pago', '>=', fechaInicio)
-          .where('fecha_pago', '<', fechaFinStr!)
-          .preload('prestamo', (query) =>
-            query
-              .preload('cliente')
-              .preload('lote')
-              .preload('predios', (predios) => predios.preload('lote'))
-          )
-          .preload('usuario')
-          .orderBy('fecha_pago', 'asc')
+        const pagos = await obtenerPagosReporte(fechaInicio, fechaFin)
 
         agregarInfoReporte(sheet, 'Reporte de Pagos Manuales', [
           { label: 'Periodo', valor: `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}` },
@@ -326,15 +351,7 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Ventas')
         sheet.properties.defaultRowHeight = 20
 
-        const query = Prestamo.query()
-          .preload('cliente')
-          .preload('pagos')
-          .preload('lote')
-          .preload('predios', (predios) => predios.preload('lote'))
-        if (estado) query.where('estado', estado)
-        if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
-        if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
-        const ventas = await query.orderBy('created_at', 'desc')
+        const ventas = await obtenerVentasReporte({ estado, fechaInicio, fechaFin })
 
         agregarInfoReporte(sheet, 'Reporte de Ventas de Lotes', [
           { label: 'Estado filtrado', valor: estado || 'Todos' },
@@ -376,18 +393,18 @@ export default class ReportesController {
         let totalPendiente = 0
 
         ventas.forEach((venta, index) => {
-          const resumen = calcularResumenVenta(venta)
-          totalVendido += resumen.precioLote
+          const resumen = venta.resumenFinanciero
+          totalVendido += resumen.montoTotal
           totalPendiente += resumen.saldoPendiente
 
           const row = sheet.addRow([
-            resumen.cliente,
-            resumen.lote,
-            resumen.precioLote,
+            `${venta.prestamo.cliente.nombres} ${venta.prestamo.cliente.apellidos}`,
+            venta.prestamo.numeroLote || 'N/A',
+            resumen.montoTotal,
             resumen.fraccion,
             `${resumen.porcentaje}%`,
             resumen.saldoPendiente,
-            fechaCorta(resumen.fechaCobro),
+            fechaCorta(venta.prestamo.fechaCobro),
             resumen.estado,
           ])
 
@@ -405,20 +422,8 @@ export default class ReportesController {
         const sheet = workbook.addWorksheet('Cartera')
         sheet.properties.defaultRowHeight = 20
 
-        const query = Prestamo.query()
-          .preload('cliente')
-          .preload('pagos')
-          .preload('lote')
-          .preload('predios', (predios) => predios.preload('lote'))
-        if (estado) query.where('estado', estado)
-        if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
-        if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
-        const ventas = await query.orderBy('created_at', 'desc')
-        const detalle = ventas.map(calcularResumenVenta)
-
-        const totalValorLotes = detalle.reduce((suma, venta) => suma + venta.precioLote, 0)
-        const totalCobrado = detalle.reduce((suma, venta) => suma + venta.cobrado, 0)
-        const totalPendiente = detalle.reduce((suma, venta) => suma + venta.saldoPendiente, 0)
+        const detalle = await obtenerVentasReporte({ estado, fechaInicio, fechaFin })
+        const totales = calcularTotalesCartera(detalle)
 
         agregarInfoReporte(sheet, 'Resumen de Cartera', [
           { label: 'Estado filtrado', valor: estado || 'Todos' },
@@ -429,9 +434,12 @@ export default class ReportesController {
                 ? `${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`
                 : 'Todos',
           },
-          { label: 'Valor de lotes', valor: formatearMoneda(totalValorLotes) },
-          { label: 'Cobrado historico', valor: formatearMoneda(totalCobrado) },
-          { label: 'Saldo pendiente', valor: formatearMoneda(totalPendiente) },
+          { label: 'Valor de lotes', valor: formatearMoneda(totales.totalValorLotes) },
+          {
+            label: 'Cobrado historico',
+            valor: formatearMoneda(totales.totalCobradoHistorico),
+          },
+          { label: 'Saldo pendiente', valor: formatearMoneda(totales.totalSaldoPendiente) },
         ])
 
         sheet.columns = [
@@ -456,14 +464,15 @@ export default class ReportesController {
         estilizarEncabezado(headerRow)
 
         detalle.forEach((venta, index) => {
+          const resumen = venta.resumenFinanciero
           const row = sheet.addRow([
-            venta.cliente,
-            venta.lote,
-            `${venta.fraccion} (${venta.porcentaje}%)`,
-            venta.cobrado,
-            venta.saldoPendiente,
+            `${venta.prestamo.cliente.nombres} ${venta.prestamo.cliente.apellidos}`,
+            venta.prestamo.numeroLote || 'N/A',
+            `${resumen.fraccion} (${resumen.porcentaje}%)`,
+            venta.totalCobradoHistorico,
+            resumen.saldoPendiente,
             fechaCorta(venta.ultimoPago),
-            venta.estado,
+            resumen.estado,
           ])
 
           estilizarFila(row, index % 2 === 0)
@@ -471,7 +480,15 @@ export default class ReportesController {
           row.getCell(5).numFmt = '"Q"#,##0.00'
         })
 
-        agregarFilaTotales(sheet, ['TOTALES', '', '', totalCobrado, totalPendiente, '', ''])
+        agregarFilaTotales(sheet, [
+          'TOTALES',
+          '',
+          '',
+          totales.totalCobradoHistorico,
+          totales.totalSaldoPendiente,
+          '',
+          '',
+        ])
         sheet.lastRow!.getCell(4).numFmt = '"Q"#,##0.00'
         sheet.lastRow!.getCell(5).numFmt = '"Q"#,##0.00'
       }
@@ -496,7 +513,6 @@ export default class ReportesController {
 
       const tipo = normalizarTipoReporte(request.qs().tipo)
       const { fechaInicio, fechaFin, estado } = request.qs()
-      const fechaFinStr = fechaMasUnDia(fechaFin)
 
       const doc = new PDFDocument({ margin: 40 })
       const chunks: Buffer[] = []
@@ -516,17 +532,7 @@ export default class ReportesController {
       doc.fillColor('#000000').moveDown()
 
       if (tipo === 'pagos') {
-        const pagos = await Pago.query()
-          .where('fecha_pago', '>=', fechaInicio)
-          .where('fecha_pago', '<', fechaFinStr!)
-          .preload('prestamo', (query) =>
-            query
-              .preload('cliente')
-              .preload('lote')
-              .preload('predios', (predios) => predios.preload('lote'))
-          )
-          .preload('usuario')
-          .orderBy('fecha_pago', 'asc')
+        const pagos = await obtenerPagosReporte(fechaInicio, fechaFin)
 
         pagos.forEach((pago) => {
           doc
@@ -547,56 +553,52 @@ export default class ReportesController {
       }
 
       if (tipo === 'ventas') {
-        const query = Prestamo.query()
-          .preload('cliente')
-          .preload('pagos')
-          .preload('lote')
-          .preload('predios', (predios) => predios.preload('lote'))
-        if (estado) query.where('estado', estado)
-        if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
-        if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
-        const ventas = await query.orderBy('created_at', 'desc')
+        const ventas = await obtenerVentasReporte({ estado, fechaInicio, fechaFin })
 
         ventas.forEach((venta) => {
-          const resumen = calcularResumenVenta(venta)
-          doc.font('Helvetica-Bold').fontSize(11).text(`${resumen.cliente} - lote ${resumen.lote}`)
+          const resumen = venta.resumenFinanciero
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(11)
+            .text(
+              `${venta.prestamo.cliente.nombres} ${venta.prestamo.cliente.apellidos} - lote ${venta.prestamo.numeroLote || 'N/A'}`
+            )
           doc
             .font('Helvetica')
             .fontSize(10)
             .fillColor('#4B5563')
             .text(
-              `Precio: ${formatearMoneda(resumen.precioLote)}   Avance: ${resumen.fraccion} (${resumen.porcentaje}%)   Estado: ${resumen.estado}`
+              `Precio: ${formatearMoneda(resumen.montoTotal)}   Avance: ${resumen.fraccion} (${resumen.porcentaje}%)   Estado: ${resumen.estado}`
             )
             .text(
-              `Saldo pendiente: ${formatearMoneda(resumen.saldoPendiente)}   Cobro pactado: ${fechaCorta(resumen.fechaCobro) || 'N/A'}`
+              `Saldo pendiente: ${formatearMoneda(resumen.saldoPendiente)}   Cobro pactado: ${fechaCorta(venta.prestamo.fechaCobro) || 'N/A'}`
             )
           doc.fillColor('#000000').moveDown(0.5)
         })
       }
 
       if (tipo === 'cartera') {
-        const query = Prestamo.query()
-          .preload('cliente')
-          .preload('pagos')
-          .preload('lote')
-          .preload('predios', (predios) => predios.preload('lote'))
-        if (estado) query.where('estado', estado)
-        if (fechaInicio) query.where('fecha_inicio', '>=', fechaInicio)
-        if (fechaFinStr) query.where('fecha_inicio', '<', fechaFinStr)
-        const ventas = await query.orderBy('created_at', 'desc')
-        const detalle = ventas.map(calcularResumenVenta)
-        const totalPendiente = detalle.reduce((suma, venta) => suma + venta.saldoPendiente, 0)
+        const detalle = await obtenerVentasReporte({ estado, fechaInicio, fechaFin })
+        const totales = calcularTotalesCartera(detalle)
 
         detalle.forEach((venta) => {
-          doc.font('Helvetica-Bold').fontSize(11).text(`${venta.cliente} - lote ${venta.lote}`)
+          const resumen = venta.resumenFinanciero
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(11)
+            .text(
+              `${venta.prestamo.cliente.nombres} ${venta.prestamo.cliente.apellidos} - lote ${venta.prestamo.numeroLote || 'N/A'}`
+            )
           doc
             .font('Helvetica')
             .fontSize(10)
             .fillColor('#4B5563')
             .text(
-              `Cobrado: ${formatearMoneda(venta.cobrado)}   Saldo: ${formatearMoneda(venta.saldoPendiente)}   Avance: ${venta.fraccion} (${venta.porcentaje}%)`
+              `Cobrado: ${formatearMoneda(venta.totalCobradoHistorico)}   Saldo: ${formatearMoneda(resumen.saldoPendiente)}   Avance: ${resumen.fraccion} (${resumen.porcentaje}%)`
             )
-            .text(`Ultimo pago: ${fechaCorta(venta.ultimoPago) || 'N/A'}   Estado: ${venta.estado}`)
+            .text(
+              `Ultimo pago: ${fechaCorta(venta.ultimoPago) || 'N/A'}   Estado: ${resumen.estado}`
+            )
           doc.fillColor('#000000').moveDown(0.5)
         })
 
@@ -604,7 +606,9 @@ export default class ReportesController {
         doc
           .font('Helvetica-Bold')
           .fontSize(13)
-          .text(`Saldo total pendiente: ${formatearMoneda(totalPendiente)}`, { align: 'right' })
+          .text(`Saldo total pendiente: ${formatearMoneda(totales.totalSaldoPendiente)}`, {
+            align: 'right',
+          })
       }
 
       doc.end()
