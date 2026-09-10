@@ -65,8 +65,6 @@ export default class AuthController {
         })
       }
 
-      await user.related('apiTokens').query().whereIn('type', ['api', 'access', 'refresh']).delete()
-
       return this.issueTokenPair(user)
     } catch (error) {
       console.error('Login error:', error)
@@ -94,23 +92,44 @@ export default class AuthController {
     }
 
     const user = refreshToken.user
+    const accessTokenValue = request.header('authorization')?.replace('Bearer ', '').trim()
+
+    if (accessTokenValue) {
+      await ApiToken.query()
+        .where('token', accessTokenValue)
+        .where('user_id', user.id)
+        .where('type', 'access')
+        .delete()
+    }
+
     await refreshToken.delete()
-    await user.related('apiTokens').query().where('type', 'access').delete()
 
     return this.issueTokenPair(user)
   }
 
-  public async logout({ request, response }: HttpContext) {
+  public async logout({ request, response, currentUser }: HttpContext) {
     const authHeader = request.header('authorization')
     const token = authHeader?.replace('Bearer ', '').trim()
     const refreshToken = request.input('refreshToken')
 
+    if (!currentUser) {
+      return response.unauthorized({ message: 'No autorizado' })
+    }
+
     if (token) {
-      await ApiToken.query().where('token', token).delete()
+      await ApiToken.query()
+        .where('token', token)
+        .where('user_id', currentUser.id)
+        .whereIn('type', ['api', 'access'])
+        .delete()
     }
 
     if (refreshToken) {
-      await ApiToken.query().where('token', refreshToken).delete()
+      await ApiToken.query()
+        .where('token', refreshToken)
+        .where('user_id', currentUser.id)
+        .where('type', 'refresh')
+        .delete()
     }
 
     return response.ok({ message: 'Sesion cerrada' })

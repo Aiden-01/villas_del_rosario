@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3333'
 
 export const ROUTES = {
   LOGIN: `${API_URL}/api/login`,
@@ -31,11 +31,15 @@ export function clearAuthData() {
 
 async function refreshSession() {
   const refreshToken = getRefreshToken()
+  const accessToken = getToken()
   if (!refreshToken) return null
 
   const response = await fetch(ROUTES.REFRESH, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify({ refreshToken }),
   })
   const data = await response.json().catch(() => ({}))
