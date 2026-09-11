@@ -3,9 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
 import { User, Search, CalendarDays, CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react";
-import { authFetch } from "../services/api";
+import { API_URL, authFetch } from "../services/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const FRECUENCIAS = ["mensual"];
 const predioVacio = () => ({ numeroLote: "", medidaLote: "", areaLote: "", precio: "" });
 

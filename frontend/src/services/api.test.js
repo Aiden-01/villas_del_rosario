@@ -1,6 +1,6 @@
 import test, { afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { authFetch } from './api.js'
+import { API_URL, ROUTES, authFetch, resolveApiUrl } from './api.js'
 
 const originalFetch = globalThis.fetch
 const originalLocalStorage = globalThis.localStorage
@@ -29,6 +29,21 @@ function installLocalStorage(initialValues) {
   }
   return values
 }
+
+test('resuelve la URL del API segun el entorno', () => {
+  assert.equal(resolveApiUrl({ DEV: true }), 'http://localhost:3333')
+  assert.equal(resolveApiUrl({ DEV: false }), '')
+  assert.equal(`${resolveApiUrl({ DEV: false })}/api/pagos`, '/api/pagos')
+  assert.equal(
+    resolveApiUrl({
+      DEV: false,
+      VITE_API_URL: 'https://vallesdelrosario-lotiscobros.hercor-nexus.com',
+    }),
+    'https://vallesdelrosario-lotiscobros.hercor-nexus.com'
+  )
+  assert.equal(API_URL, 'http://localhost:3333')
+  assert.equal(ROUTES.REFRESH, 'http://localhost:3333/api/refresh')
+})
 
 test('un 401 refresca usando solamente los tokens de la sesion local', async () => {
   const storage = installLocalStorage({

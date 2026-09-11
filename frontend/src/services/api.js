@@ -1,4 +1,7 @@
-const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3333'
+export const resolveApiUrl = (env) =>
+  env?.VITE_API_URL ?? ((env?.DEV ?? true) ? 'http://localhost:3333' : '')
+
+export const API_URL = resolveApiUrl(import.meta.env)
 
 export const ROUTES = {
   LOGIN: `${API_URL}/api/login`,

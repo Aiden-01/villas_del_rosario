@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Toast from "./Toast";
 import useToast from "../hooks/useToast";
-import { authFetch } from "../services/api";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+import { API_URL, authFetch } from "../services/api";
 
 export default function ClienteForm({ mode, clienteId }) {
   const navigate = useNavigate();

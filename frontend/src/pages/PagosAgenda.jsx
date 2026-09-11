@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
-import { authFetch } from "../services/api";
+import { API_URL, authFetch } from "../services/api";
 import PagoVoucher from "../components/PagoVoucher";
 import { construirSeccionesAgenda } from "../utils/agendaSections";
 import {
@@ -22,7 +22,6 @@ import {
   X,
 } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const TZ = "America/Guatemala";
 
 const hoyISO = () => new Date().toLocaleDateString("sv-SE", { timeZone: TZ });

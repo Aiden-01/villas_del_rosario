@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
-import { authFetch } from "../services/api";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+import { API_URL, authFetch } from "../services/api";
 
 const ROUTES = {
   CLIENTS: `${API_URL}/api/clientes`,

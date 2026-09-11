@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download, Printer, RefreshCw } from "lucide-react";
-import { authFetch } from "../services/api";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+import { API_URL, authFetch } from "../services/api";
 
 const moneda = (valor) =>
   Number(valor || 0).toLocaleString("es-GT", {

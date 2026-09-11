@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
-import { authFetch } from "../services/api";
+import { API_URL, authFetch } from "../services/api";
 import {
   crearSolicitudAnulacionPago,
   crearSolicitudCancelacionVenta,
@@ -22,8 +22,6 @@ import {
   Filter,
   Wallet,
 } from "lucide-react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
 const ROUTES = {
   PRESTAMOS: `${API_URL}/api/ventas`,

@@ -8,9 +8,8 @@ import {
   FileSpreadsheet,
   FileText,
 } from "lucide-react";
-import { authFetch } from "../services/api";
+import { API_URL, authFetch } from "../services/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 const API = `${API_URL}/api/reportes`;
 const ESTADOS = ["activo", "pagado", "vencido"];
 

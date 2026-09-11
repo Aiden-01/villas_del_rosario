@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import useToast from "../hooks/useToast";
 import Toast from "../components/Toast";
-import { authFetch } from "../services/api";
+import { API_URL, authFetch } from "../services/api";
 import {
   ClipboardList, RefreshCw, Plus, Pencil, X,
   HandCoins, KeyRound, User, DollarSign,
   Users, Pin, Inbox, Calendar, Clock
 } from "lucide-react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
 const TIPO_CONFIG = {
   crear:      { color: "#16a34a", bg: "#dcfce7", icon: Plus,      label: "Creado" },
