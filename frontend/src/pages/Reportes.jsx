@@ -139,20 +139,20 @@ export default function Reportes() {
   const mostrarEstado = tab === "ventas" || tab === "cartera";
 
   return (
-    <div className="pt-16 text-[var(--text)]">
-      <h1 className="flex items-center gap-2 text-2xl font-bold mb-6">
+    <div className="min-w-0 text-[var(--text)]">
+      <h1 className="mb-4 flex items-center gap-2 text-xl font-bold sm:mb-6 sm:text-2xl">
         <FileBarChart2 size={24} style={{ color: "var(--primary)" }} />
         Reportes
       </h1>
 
-      <div className="flex gap-2 mb-6">
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:mb-6 sm:flex">
         {TABS.map(({ key, label, icon }) => {
           const TabIcon = icon;
           return (
             <button
               key={key}
               onClick={() => resetFiltros(key)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition hover:opacity-90"
+              className="flex min-w-0 items-center justify-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold transition hover:opacity-90 sm:gap-2 sm:px-4 sm:text-base"
               style={{
                 backgroundColor: tab === key ? "var(--primary)" : "var(--card)",
                 color: tab === key ? "white" : "var(--text)",
@@ -167,14 +167,14 @@ export default function Reportes() {
       </div>
 
       <div
-        className="rounded-xl p-5 mb-6"
+        className="mb-4 min-w-0 rounded-xl p-3 sm:mb-6 sm:p-5"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
       >
         <p className="text-sm font-semibold mb-3 opacity-60">Filtros</p>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {mostrarFechas && (
             <>
-              <div className="flex flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-1">
                 <label className="text-xs opacity-60">
                   Fecha inicio {tab !== "pagos" && <span className="opacity-50">(opcional)</span>}
                 </label>
@@ -182,7 +182,7 @@ export default function Reportes() {
                   type="date"
                   value={fechaInicio}
                   onChange={(e) => setFechaInicio(e.target.value)}
-                  className="px-3 py-2 rounded-lg"
+                  className="w-full min-w-0 rounded-lg px-3 py-2"
                   style={{
                     backgroundColor: "var(--bg)",
                     color: "var(--text)",
@@ -191,7 +191,7 @@ export default function Reportes() {
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-1">
                 <label className="text-xs opacity-60">
                   Fecha fin {tab !== "pagos" && <span className="opacity-50">(opcional)</span>}
                 </label>
@@ -199,7 +199,7 @@ export default function Reportes() {
                   type="date"
                   value={fechaFin}
                   onChange={(e) => setFechaFin(e.target.value)}
-                  className="px-3 py-2 rounded-lg"
+                  className="w-full min-w-0 rounded-lg px-3 py-2"
                   style={{
                     backgroundColor: "var(--bg)",
                     color: "var(--text)",
@@ -211,12 +211,12 @@ export default function Reportes() {
           )}
 
           {mostrarEstado && (
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <label className="text-xs opacity-60">Estado</label>
               <select
                 value={estado}
                 onChange={(e) => setEstado(e.target.value)}
-                className="px-3 py-2 rounded-lg"
+                className="w-full min-w-0 rounded-lg px-3 py-2"
                 style={{
                   backgroundColor: "var(--bg)",
                   color: "var(--text)",
@@ -233,11 +233,11 @@ export default function Reportes() {
             </div>
           )}
 
-          <div className="flex items-end">
+          <div className="flex min-w-0 items-end">
             <button
               onClick={fetchReporte}
               disabled={loading}
-              className="flex items-center gap-2 px-5 py-2 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: "var(--secondary)" }}
             >
               <Search size={15} />
@@ -251,10 +251,10 @@ export default function Reportes() {
 
       {datos && (
         <>
-          <div className="flex gap-2 mb-4">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row">
             <button
               onClick={() => exportar("excel")}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 text-sm"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white hover:opacity-90 sm:w-auto"
               style={{ backgroundColor: "#16a34a" }}
             >
               <FileSpreadsheet size={15} />
@@ -263,7 +263,7 @@ export default function Reportes() {
 
             <button
               onClick={() => exportar("pdf")}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 text-sm"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white hover:opacity-90 sm:w-auto"
               style={{ backgroundColor: "#dc2626" }}
             >
               <FileText size={15} />
@@ -272,8 +272,8 @@ export default function Reportes() {
           </div>
 
           {tab === "pagos" && Array.isArray(datos) && (
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--card-border)" }}>
-              <div className="p-4" style={{ backgroundColor: "var(--card)" }}>
+            <div className="min-w-0 overflow-hidden rounded-xl" style={{ border: "1px solid var(--card-border)" }}>
+              <div className="p-3 sm:p-4" style={{ backgroundColor: "var(--card)" }}>
                 <p className="font-semibold">Total de pagos registrados: {datos.length}</p>
                 <p className="text-sm opacity-60">
                   Total cobrado: Q
@@ -281,8 +281,8 @@ export default function Reportes() {
                 </p>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ backgroundColor: "var(--card)" }}>
+              <div className="max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[720px] text-sm" style={{ backgroundColor: "var(--card)" }}>
                   <thead>
                     <tr style={{ backgroundColor: "var(--secondary)", color: "white" }}>
                       <th className="p-3 text-left">Fecha</th>
@@ -317,8 +317,8 @@ export default function Reportes() {
           )}
 
           {tab === "ventas" && Array.isArray(datos) && (
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--card-border)" }}>
-              <div className="p-4" style={{ backgroundColor: "var(--card)" }}>
+            <div className="min-w-0 overflow-hidden rounded-xl" style={{ border: "1px solid var(--card-border)" }}>
+              <div className="p-3 sm:p-4" style={{ backgroundColor: "var(--card)" }}>
                 <p className="font-semibold">Total de ventas: {datos.length}</p>
                 <p className="text-sm opacity-60">
                   Valor total de lotes:{" "}
@@ -339,8 +339,8 @@ export default function Reportes() {
                 )}
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ backgroundColor: "var(--card)" }}>
+              <div className="max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[900px] text-sm" style={{ backgroundColor: "var(--card)" }}>
                   <thead>
                     <tr style={{ backgroundColor: "var(--secondary)", color: "white" }}>
                       <th className="p-3 text-left">Cliente</th>
@@ -398,43 +398,43 @@ export default function Reportes() {
 
           {tab === "cartera" && datos.detalle && (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:mb-6 xl:grid-cols-4">
                 <div
-                  className="rounded-xl p-5 text-center"
+                  className="min-w-0 rounded-xl p-4 text-center sm:p-5"
                   style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
                 >
                   <p className="text-sm opacity-60 mb-1">Ventas activas en reporte</p>
-                  <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
+                  <p className="break-words text-xl font-bold sm:text-2xl" style={{ color: "var(--primary)" }}>
                     {datos.totalVentas}
                   </p>
                 </div>
 
                 <div
-                  className="rounded-xl p-5 text-center"
+                  className="min-w-0 rounded-xl p-4 text-center sm:p-5"
                   style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
                 >
                   <p className="text-sm opacity-60 mb-1">Valor total de lotes</p>
-                  <p className="text-2xl font-bold" style={{ color: "var(--secondary)" }}>
+                  <p className="break-words text-xl font-bold sm:text-2xl" style={{ color: "var(--secondary)" }}>
                     Q{formatearMoneda(datos.totalValorLotes)}
                   </p>
                 </div>
 
                 <div
-                  className="rounded-xl p-5 text-center"
+                  className="min-w-0 rounded-xl p-4 text-center sm:p-5"
                   style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
                 >
                   <p className="text-sm opacity-60 mb-1">Cobrado histórico</p>
-                  <p className="text-2xl font-bold text-green-500">
+                  <p className="break-words text-xl font-bold text-green-500 sm:text-2xl">
                     Q{formatearMoneda(datos.totalCobradoHistorico)}
                   </p>
                 </div>
 
                 <div
-                  className="rounded-xl p-5 text-center"
+                  className="min-w-0 rounded-xl p-4 text-center sm:p-5"
                   style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
                 >
                   <p className="text-sm opacity-60 mb-1">Saldo pendiente</p>
-                  <p className="text-2xl font-bold text-amber-500">
+                  <p className="break-words text-xl font-bold text-amber-500 sm:text-2xl">
                     Q{formatearMoneda(datos.totalSaldoPendiente)}
                   </p>
                 </div>
@@ -447,9 +447,9 @@ export default function Reportes() {
                 </p>
               </div>
 
-              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--card-border)" }}>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm" style={{ backgroundColor: "var(--card)" }}>
+              <div className="min-w-0 overflow-hidden rounded-xl" style={{ border: "1px solid var(--card-border)" }}>
+                <div className="max-w-full overflow-x-auto overscroll-x-contain">
+                  <table className="w-full min-w-[800px] text-sm" style={{ backgroundColor: "var(--card)" }}>
                     <thead>
                       <tr style={{ backgroundColor: "var(--secondary)", color: "white" }}>
                         <th className="p-3 text-left">Cliente</th>

@@ -366,29 +366,29 @@ export default function Ventas() {
   const esFinalizada = ["pagado", "cancelado"].includes(selectedPrestamo?.estado);
 
   return (
-    <div className="pt-16 text-[var(--text)]">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <div>
+    <div className="min-w-0 text-[var(--text)]">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Ventas</h1>
           {clienteNombre && (
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-400 mt-1 break-words">
               Filtrando por: <span className="font-semibold text-[var(--primary)]">{clienteNombre}</span>
             </p>
           )}
         </div>
         <button
           onClick={() => navigate(clienteId ? `/ventas/crear?clienteId=${clienteId}` : "/ventas/crear")}
-          className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
         >
           <Plus size={16} />
           Crear Venta
         </button>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="grid grid-cols-2 gap-2 mb-4 sm:flex sm:mb-6">
         <button
           onClick={() => setPestana("activos")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${pestana === "activos" ? "text-white shadow" : "opacity-50 hover:opacity-80"}`}
+          className={`flex items-center justify-center gap-2 px-3 sm:px-5 py-2 rounded-xl font-semibold text-sm transition-all ${pestana === "activos" ? "text-white shadow" : "opacity-50 hover:opacity-80"}`}
           style={{
             backgroundColor: pestana === "activos" ? "var(--primary)" : "var(--card)",
             border: "1px solid var(--card-border)",
@@ -399,7 +399,7 @@ export default function Ventas() {
         </button>
         <button
           onClick={() => setPestana("finalizados")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${pestana === "finalizados" ? "text-white shadow" : "opacity-50 hover:opacity-80"}`}
+          className={`flex items-center justify-center gap-2 px-3 sm:px-5 py-2 rounded-xl font-semibold text-sm transition-all ${pestana === "finalizados" ? "text-white shadow" : "opacity-50 hover:opacity-80"}`}
           style={{
             backgroundColor: pestana === "finalizados" ? "#6b7280" : "var(--card)",
             border: "1px solid var(--card-border)",
@@ -430,7 +430,7 @@ export default function Ventas() {
           {!busquedaFinalizado && finalizadosAntiguos.length > 0 && (
             <button
               onClick={() => setMostrarAntiguos(!mostrarAntiguos)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
               style={{
                 backgroundColor: mostrarAntiguos ? "#6b7280" : "var(--card)",
                 color: mostrarAntiguos ? "white" : "var(--text)",
@@ -447,7 +447,7 @@ export default function Ventas() {
       {error && <p className="text-red-500">{error}</p>}
       {!loading && prestamosVisibles.length === 0 && (
         <div
-          className="rounded-2xl p-10 text-center shadow"
+          className="rounded-2xl p-6 sm:p-10 text-center shadow"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
         >
           <div className="flex justify-center mb-3">
@@ -464,7 +464,7 @@ export default function Ventas() {
       )}
 
       {!loading && prestamosVisibles.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
           {prestamosVisibles.map((prestamo) => {
             const pagado = prestamo.estado === "pagado";
             const resumen = prestamo.resumenFinanciero;
@@ -474,19 +474,19 @@ export default function Ventas() {
               <div
                 key={prestamo.id}
                 onClick={() => abrirModal(prestamo)}
-                className="rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
+                className="min-w-0 rounded-2xl shadow-md p-4 sm:p-5 cursor-pointer sm:hover:scale-105 hover:shadow-xl transition-all duration-200"
                 style={{
                   backgroundColor: "var(--card)",
                   border: pagado ? "2px solid #6b7280" : mora ? "2px solid #ef4444" : "2px solid transparent",
                   opacity: pagado ? 0.85 : 1,
                 }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-bold text-base">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <h2 className="min-w-0 break-words font-bold text-base">
                     {prestamo.cliente?.nombres} {prestamo.cliente?.apellidos}
                   </h2>
                   <span
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${pagado ? "bg-blue-100 text-blue-700" : mora ? "bg-red-100 text-red-700" : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"}`}
+                    className={`flex shrink-0 items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${pagado ? "bg-blue-100 text-blue-700" : mora ? "bg-red-100 text-red-700" : ESTADO_COLORS[prestamo.estado] || "bg-gray-100 text-gray-600"}`}
                   >
                     {pagado ? (
                       <>
@@ -503,14 +503,14 @@ export default function Ventas() {
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-500">
-                  <div className="flex items-center justify-between">
-                    <p>
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <p className="min-w-0 break-words">
                       <span className="font-medium text-[var(--text)]">
                         {prediosVenta(prestamo).length > 1 ? "Lotes:" : "Lote:"}
                       </span>{" "}
                       {etiquetaLotes(prestamo)}
                     </p>
-                    <p className="font-bold" style={{ color: pagado ? "#6b7280" : "var(--primary)" }}>
+                    <p className="shrink-0 font-bold" style={{ color: pagado ? "#6b7280" : "var(--primary)" }}>
                       {resumen
                         ? `Q${Number(resumen.valorCuotaActual).toLocaleString("es-GT", {
                             minimumFractionDigits: 2,
@@ -537,11 +537,11 @@ export default function Ventas() {
 
       {selectedPrestamo && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-6"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-6"
           onClick={cerrarModal}
         >
           <div
-            className="rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl max-h-[92vh] overflow-y-auto"
+            className="w-full max-w-2xl h-[calc(100dvh-0.5rem)] sm:h-auto max-h-[calc(100dvh-0.5rem)] sm:max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "var(--card)",
@@ -570,7 +570,7 @@ export default function Ventas() {
                     {prediosVenta(selectedPrestamo).length > 1 ? "Lotes" : "Lote"} {etiquetaLotes(selectedPrestamo)}
                   </span>
                 </div>
-                <h2 className="text-lg sm:text-xl font-bold leading-tight">
+                <h2 className="break-words text-lg sm:text-xl font-bold leading-tight">
                   {selectedPrestamo.cliente?.nombres} {selectedPrestamo.cliente?.apellidos}
                 </h2>
                 <p className="text-xs sm:text-sm opacity-60 mt-1">
@@ -590,7 +590,7 @@ export default function Ventas() {
               </button>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-x-5 gap-y-2 text-sm mb-4 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
+            <div className="grid min-w-0 sm:grid-cols-2 gap-x-5 gap-y-2 text-sm mb-4 rounded-xl p-3 sm:p-4 break-words" style={{ backgroundColor: "var(--bg)" }}>
               <div className="sm:col-span-2 space-y-2">
                 <p className="font-semibold">Predios:</p>
                 {prediosVenta(selectedPrestamo).map((predio, index) => (
@@ -680,7 +680,7 @@ export default function Ventas() {
                   {pagos.map((pago) => (
                     <div
                       key={pago.id}
-                      className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 text-xs rounded-lg px-3 py-2"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 gap-y-1 text-xs rounded-lg px-3 py-2"
                       style={{
                         backgroundColor: pago.anulado ? "#fef2f2" : "var(--card)",
                         border: pago.anulado ? "1px solid #fecaca" : "1px solid var(--card-border)",
@@ -698,12 +698,12 @@ export default function Ventas() {
                           )}
                         </div>
                         {pago.anulado && pago.motivoAnulacion && (
-                          <p className="mt-1 text-[10px] text-red-700">
+                          <p className="mt-1 break-words text-[10px] text-red-700">
                             Motivo: {pago.motivoAnulacion}
                           </p>
                         )}
                       </div>
-                      <span className={pago.anulado ? "line-through opacity-60" : ""}>
+                      <span className={`justify-self-end whitespace-nowrap ${pago.anulado ? "line-through opacity-60" : ""}`}>
                         Q{Number(pago.montoPagado).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                       </span>
                       <span className={pago.anulado ? "opacity-45" : "opacity-60"}>
@@ -713,7 +713,7 @@ export default function Ventas() {
                         <button
                           onClick={() => handleDeletePago(pago)}
                           disabled={eliminandoPago === pago.id}
-                          className="w-7 h-7 grid place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
+                          className="w-7 h-7 justify-self-end grid place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
                           title="Anular pago"
                           aria-label="Anular pago"
                         >

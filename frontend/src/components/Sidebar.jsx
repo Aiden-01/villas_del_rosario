@@ -85,7 +85,8 @@ export default function Sidebar({
           top: 0,
           left: 0,
           height: "100%",
-          width: collapsed ? 80 : 260,
+          width: isMobile ? "min(260px, calc(100vw - 2.5rem))" : collapsed ? 80 : 260,
+          maxWidth: "100vw",
           background: SIDEBAR_BG,
           color: "#fff",
           zIndex: 100,
@@ -93,6 +94,7 @@ export default function Sidebar({
           transition: "all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
           display: "flex",
           flexDirection: "column",
+          overflowX: "hidden",
           borderRight: "1px solid rgba(255,255,255,0.06)",
         }}
       >
@@ -125,13 +127,14 @@ export default function Sidebar({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <h2
                     style={{
                       fontSize: "1rem",
                       fontWeight: 700,
                       color: "#fff",
                       margin: 0,
+                      overflowWrap: "anywhere",
                     }}
                   >
                     Villas del Rosario

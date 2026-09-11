@@ -178,11 +178,11 @@ export default function PagoVoucher({ voucher, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-white text-slate-900 shadow-2xl overflow-hidden"
+        className="w-full sm:max-w-sm max-h-[100dvh] sm:max-h-[92vh] rounded-t-3xl sm:rounded-3xl bg-white text-slate-900 shadow-2xl overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
-          <div>
+        <div className="px-4 sm:px-5 py-3 sm:py-4 bg-slate-900 text-white flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs opacity-70">Villas del Rosario</p>
             <h2 className="font-bold">Voucher de pago</h2>
           </div>
@@ -191,22 +191,22 @@ export default function PagoVoucher({ voucher, onClose }) {
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          <div>
+        <div className="p-4 sm:p-5 space-y-3 sm:space-y-4">
+          <div className="min-w-0">
             <p className="text-xs text-slate-500">Cliente</p>
-            <p className="text-lg font-bold">{nombre}</p>
-            <p className="text-sm text-slate-500">{etiquetaLotes(voucher)}</p>
+            <p className="text-lg font-bold break-words">{nombre}</p>
+            <p className="text-sm text-slate-500 break-words">{etiquetaLotes(voucher)}</p>
           </div>
 
           <div className="rounded-2xl bg-emerald-50 p-4">
             <p className="text-sm font-semibold text-emerald-700">
               {tituloTipo[voucher.tipo] || "Pago"}
             </p>
-            <p className="text-3xl font-bold text-emerald-700">Q{moneda(voucher.montoPagado)}</p>
+            <p className="text-2xl min-[360px]:text-3xl font-bold text-emerald-700 break-words">Q{moneda(voucher.montoPagado)}</p>
             <p className="text-xs text-emerald-700 mt-1">{fecha(voucher.fechaPago)}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 text-sm">
             <div className="rounded-xl bg-slate-50 p-3">
               <p className="text-xs text-slate-500">Cuota</p>
               <p className="font-bold">

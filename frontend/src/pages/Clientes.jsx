@@ -89,24 +89,24 @@ export default function Clientes() {
   };
 
   return (
-    <div className="pt-16 text-[var(--text)]">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold">Clientes</h1>
+    <div className="min-w-0 text-[var(--text)]">
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Clientes</h1>
         <button
           onClick={() => navigate("/clientes/crear")}
-          className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
+          className="w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-white shadow hover:opacity-90 sm:w-auto"
         >
           + Crear Cliente
         </button>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <input
           type="text"
           placeholder="Buscar por nombre, teléfono o dirección..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-4 py-2 rounded-lg bg-[var(--card)] border border-gray-300 focus:outline-none"
+          className="w-full min-w-0 rounded-lg border border-gray-300 bg-[var(--card)] px-3 py-2 focus:outline-none sm:px-4"
         />
       </div>
 
@@ -115,27 +115,27 @@ export default function Clientes() {
       {!loading && filteredClientes.length === 0 && <p>No se encontraron clientes.</p>}
 
       {!loading && filteredClientes.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filteredClientes.map((cliente) => (
             <div
               key={cliente.id}
               onClick={() => setSelectedCliente(cliente)}
-              className="bg-[var(--card)] rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
+              className="min-w-0 cursor-pointer rounded-2xl bg-[var(--card)] p-4 shadow-md transition-all duration-200 hover:shadow-xl md:hover:scale-[1.02] sm:p-5"
             >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-bold text-lg shrink-0">
+              <div className="mb-3 flex min-w-0 items-center gap-3 sm:mb-4 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-base font-bold text-white sm:h-12 sm:w-12 sm:text-lg">
                   {getInitials(cliente.nombres, cliente.apellidos)}
                 </div>
-                <div>
-                  <h2 className="font-bold text-base leading-tight">
+                <div className="min-w-0">
+                  <h2 className="break-words text-base font-bold leading-tight">
                     {cliente.nombres} {cliente.apellidos}
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5">Cliente</p>
                 </div>
               </div>
-              <div className="space-y-1 text-sm text-gray-500">
-                <p><span className="font-medium text-[var(--text)]">Tel:</span> {cliente.telefono}</p>
-                <p><span className="font-medium text-[var(--text)]">Dir:</span> {cliente.direccion}</p>
+              <div className="min-w-0 space-y-1 text-sm text-gray-500">
+                <p className="break-words"><span className="font-medium text-[var(--text)]">Tel:</span> {cliente.telefono}</p>
+                <p className="break-words"><span className="font-medium text-[var(--text)]">Dir:</span> {cliente.direccion}</p>
               </div>
             </div>
           ))}
@@ -144,27 +144,27 @@ export default function Clientes() {
 
       {selectedCliente && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-2 backdrop-blur-sm sm:p-4"
           onClick={() => setSelectedCliente(null)}
         >
           <div
-            className="bg-[var(--card)] rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4"
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-sm overflow-y-auto rounded-2xl bg-[var(--card)] p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:p-8"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: "zoomIn 0.2s ease-out" }}
           >
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-20 h-20 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-bold text-3xl mb-3">
+            <div className="mb-4 flex min-w-0 flex-col items-center sm:mb-6">
+              <div className="mb-3 flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-2xl font-bold text-white sm:h-20 sm:w-20 sm:text-3xl">
                 {getInitials(selectedCliente.nombres, selectedCliente.apellidos)}
               </div>
-              <h2 className="text-xl font-bold text-center">
+              <h2 className="max-w-full break-words text-center text-xl font-bold">
                 {selectedCliente.nombres} {selectedCliente.apellidos}
               </h2>
               <p className="text-sm text-gray-400">Cliente</p>
             </div>
 
-            <div className="space-y-2 text-sm mb-6 bg-[var(--bg)] rounded-xl p-4">
-              <p><span className="font-semibold">Teléfono:</span> {selectedCliente.telefono}</p>
-              <p><span className="font-semibold">Dirección:</span> {selectedCliente.direccion}</p>
+            <div className="mb-4 min-w-0 space-y-2 rounded-xl bg-[var(--bg)] p-3 text-sm sm:mb-6 sm:p-4">
+              <p className="break-words"><span className="font-semibold">Teléfono:</span> {selectedCliente.telefono}</p>
+              <p className="break-words"><span className="font-semibold">Dirección:</span> {selectedCliente.direccion}</p>
             </div>
 
             <div className="flex flex-col gap-2">

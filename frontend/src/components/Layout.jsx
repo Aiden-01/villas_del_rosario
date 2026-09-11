@@ -8,15 +8,16 @@ export default function Layout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   const usuario = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (!mobile) setMenuOpen(false);
+      if (mobile) setCollapsed(false);
+      else setMenuOpen(false);
     };
 
     window.addEventListener("resize", handleResize);
@@ -54,29 +55,49 @@ export default function Layout() {
   const sidebarWidth = isMobile ? 0 : collapsed ? 80 : 260;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        overflowX: "clip",
+        background: "var(--bg)",
+      }}
+    >
       {isMobile && (
-        <button
-          onClick={() => setMenuOpen(true)}
+        <header
           style={{
-            position: "fixed",
-            top: 14,
-            left: 14,
-            zIndex: 200,
-            background: "var(--primary)",
-            color: "#fff",
-            border: "none",
-            padding: "0.5rem",
-            borderRadius: 8,
-            cursor: "pointer",
+            position: "sticky",
+            top: 0,
+            zIndex: 40,
+            minHeight: 52,
+            padding: "0.5rem 0.75rem",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+            background: "var(--card)",
+            borderBottom: "1px solid var(--card-border)",
           }}
         >
-          <Menu size={22} />
-        </button>
+          <button
+            type="button"
+            aria-label="Abrir menu"
+            onClick={() => setMenuOpen(true)}
+            style={{
+              flex: "0 0 auto",
+              background: "var(--primary)",
+              color: "#fff",
+              border: "none",
+              padding: "0.5rem",
+              borderRadius: 8,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+            }}
+          >
+            <Menu size={22} />
+          </button>
+        </header>
       )}
 
       <Sidebar
@@ -92,9 +113,11 @@ export default function Layout() {
       <main
         style={{
           marginLeft: sidebarWidth,
-          padding: isMobile ? "3.5rem 1rem 1.5rem" : "2rem",
+          minWidth: 0,
+          padding: isMobile ? "0.75rem 0.75rem 1.25rem" : "2rem",
           transition: "margin 0.3s ease",
-          minHeight: "100vh",
+          minHeight: isMobile ? "calc(100vh - 52px)" : "100vh",
+          overflowX: "clip",
         }}
       >
         <Outlet />

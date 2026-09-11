@@ -84,13 +84,13 @@ export default function GestionUsuarios() {
 
   return (
     <>
-      <div className="pt-16 text-[var(--text)]">
+      <div className="min-w-0 text-[var(--text)]">
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-          <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
+        <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="break-words text-xl font-bold sm:text-2xl">Gestión de Usuarios</h1>
           <button
             onClick={() => navigate("/usuarios/crear")}
-            className="text-white px-4 py-2 rounded-lg shadow hover:opacity-90 hover:scale-105 transition"
+            className="w-full rounded-lg px-4 py-2 text-white shadow transition hover:opacity-90 sm:w-auto sm:hover:scale-105"
             style={{ backgroundColor: "var(--primary)" }}
           >
             + Crear Usuario
@@ -98,13 +98,13 @@ export default function GestionUsuarios() {
         </div>
 
         {/* BUSCADOR */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <input
             type="text"
             placeholder="Buscar por nombre, username o email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            className="w-full min-w-0 rounded-lg px-3 py-2 focus:outline-none sm:px-4"
             style={{
               backgroundColor: "var(--card)",
               color: "var(--text)",
@@ -119,12 +119,12 @@ export default function GestionUsuarios() {
 
         {/* GRID */}
         {!loading && filtrados.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filtrados.map((u) => (
               <div
                 key={u.id}
                 onClick={() => setSelectedUsuario(u)}
-                className="rounded-2xl shadow-md p-5 cursor-pointer hover:scale-105 hover:shadow-xl transition-all duration-200"
+                className="min-w-0 cursor-pointer rounded-2xl p-4 shadow-md transition-all duration-200 hover:shadow-xl md:hover:scale-[1.02] sm:p-5"
                 style={{
                   backgroundColor: "var(--card)",
                   border: u.id === user?.id
@@ -132,20 +132,20 @@ export default function GestionUsuarios() {
                     : "2px solid transparent",
                 }}
               >
-                <div className="flex items-center gap-4 mb-4">
+                <div className="mb-3 flex min-w-0 items-center gap-3 sm:mb-4 sm:gap-4">
                   <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-bold text-white sm:h-12 sm:w-12 sm:text-lg"
                     style={{ backgroundColor: "var(--secondary)" }}
                   >
                     {getInitials(u.name)}
                   </div>
-                  <div>
-                    <h2 className="font-bold text-base leading-tight">{u.name}</h2>
-                    <p className="text-xs opacity-50">@{u.username}</p>
+                  <div className="min-w-0">
+                    <h2 className="break-words text-base font-bold leading-tight">{u.name}</h2>
+                    <p className="break-all text-xs opacity-50">@{u.username}</p>
                   </div>
                 </div>
                 <div className="space-y-1 text-sm" style={{ color: "var(--text-muted)" }}>
-                  <p>
+                  <p className="break-all">
                     <span className="font-medium" style={{ color: "var(--text)" }}>Email:</span>{" "}
                     {u.email}
                   </p>
@@ -168,34 +168,34 @@ export default function GestionUsuarios() {
         {/* MODAL */}
         {selectedUsuario && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-2 backdrop-blur-sm sm:p-4"
             onClick={() => setSelectedUsuario(null)}
           >
             <div
-              className="rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4"
+              className="max-h-[calc(100dvh-1rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:p-8"
               onClick={(e) => e.stopPropagation()}
               style={{
                 backgroundColor: "var(--card)",
                 animation: "zoomIn 0.2s ease-out",
               }}
             >
-              <div className="flex flex-col items-center mb-6">
+              <div className="mb-4 flex min-w-0 flex-col items-center sm:mb-6">
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-3xl mb-3"
+                  className="mb-3 flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white sm:h-20 sm:w-20 sm:text-3xl"
                   style={{ backgroundColor: "var(--secondary)" }}
                 >
                   {getInitials(selectedUsuario.name)}
                 </div>
-                <h2 className="text-xl font-bold text-center">{selectedUsuario.name}</h2>
-                <p className="text-sm opacity-50">@{selectedUsuario.username}</p>
+                <h2 className="max-w-full break-words text-center text-xl font-bold">{selectedUsuario.name}</h2>
+                <p className="max-w-full break-all text-sm opacity-50">@{selectedUsuario.username}</p>
                 <span className={`mt-2 text-xs px-3 py-1 rounded-full font-semibold ${ROLE_COLORS[selectedUsuario.role] || "bg-gray-100 text-gray-600"}`}>
                   {selectedUsuario.role}
                 </span>
               </div>
 
-              <div className="space-y-2 text-sm mb-6 rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
-                <p><span className="font-semibold">Email:</span> {selectedUsuario.email}</p>
-                <p><span className="font-semibold">Username:</span> @{selectedUsuario.username}</p>
+              <div className="mb-4 min-w-0 space-y-2 rounded-xl p-3 text-sm sm:mb-6 sm:p-4" style={{ backgroundColor: "var(--bg)" }}>
+                <p className="break-all"><span className="font-semibold">Email:</span> {selectedUsuario.email}</p>
+                <p className="break-all"><span className="font-semibold">Username:</span> @{selectedUsuario.username}</p>
                 <p>
                   <span className="font-semibold">Miembro desde:</span>{" "}
                   {new Date(selectedUsuario.createdAt).toLocaleDateString("es-GT")}

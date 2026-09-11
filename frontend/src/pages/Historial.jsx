@@ -93,18 +93,18 @@ export default function Historial() {
     }, {});
 
   return (
-    <div className="pt-16 text-[var(--text)]">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
-            <ClipboardList size={24} style={{ color: "var(--primary)" }} />
+    <div className="min-w-0 text-[var(--text)]">
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold leading-tight sm:text-2xl">
+            <ClipboardList size={24} className="shrink-0" style={{ color: "var(--primary)" }} />
             Historial de Actividad
           </h1>
           <p className="text-sm opacity-60 mt-1">Registro de todas las acciones del sistema</p>
         </div>
         <button
           onClick={cargarHistorial}
-          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
+          className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-white shadow transition hover:opacity-90 sm:w-auto"
           style={{ backgroundColor: "var(--primary)" }}
         >
           <RefreshCw size={16} />
@@ -113,7 +113,7 @@ export default function Historial() {
       </div>
 
       <div
-        className="rounded-2xl p-4 mb-6 shadow"
+        className="mb-4 rounded-2xl p-3 shadow sm:mb-6 sm:p-4"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
       >
         <div className="flex flex-col gap-3">
@@ -195,7 +195,7 @@ export default function Historial() {
 
       {!loading && actividadesFiltradas.length === 0 && (
         <div
-          className="rounded-2xl p-10 text-center shadow"
+          className="rounded-2xl p-6 text-center shadow sm:p-10"
           style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
         >
           <div className="flex justify-center mb-3">
@@ -210,10 +210,10 @@ export default function Historial() {
         <div className="space-y-6">
           {Object.entries(agruparPorFecha(actividadesFiltradas)).map(([fecha, items]) => (
             <div key={fecha}>
-              <div className="flex items-center gap-3 mb-3">
+              <div className="mb-3 flex min-w-0 items-center gap-2 sm:gap-3">
                 <div className="h-px flex-1" style={{ backgroundColor: "var(--card-border)" }} />
                 <span
-                  className="flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full capitalize"
+                  className="flex max-w-[calc(100%_-_2rem)] min-w-0 items-center gap-1 break-words rounded-full px-2 py-1 text-center text-xs font-bold capitalize sm:px-3"
                   style={{
                     backgroundColor: "var(--card)",
                     border: "1px solid var(--card-border)",
@@ -239,14 +239,14 @@ export default function Historial() {
                   return (
                     <div
                       key={actividad.id}
-                      className="rounded-2xl p-4 shadow-sm flex items-start gap-4"
+                      className="flex min-w-0 items-start gap-3 rounded-2xl p-3 shadow-sm sm:gap-4 sm:p-4"
                       style={{
                         backgroundColor: "var(--card)",
                         border: "1px solid var(--card-border)",
                       }}
                     >
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10"
                         style={{ backgroundColor: tipoConf.bg, color: tipoConf.color }}
                       >
                         <TipoIcon size={16} />
@@ -266,14 +266,14 @@ export default function Historial() {
                             {entidadConf.label}
                           </span>
                           {actividad.usuario && (
-                            <span className="flex items-center gap-1 text-xs opacity-60">
+                            <span className="flex min-w-0 items-center gap-1 break-words text-xs opacity-60">
                               <User size={11} />
                               @{actividad.usuario.username}
                             </span>
                           )}
                         </div>
 
-                        <p className="text-sm font-medium">{actividad.descripcion}</p>
+                        <p className="break-words text-sm font-medium">{actividad.descripcion}</p>
 
                         <p className="flex items-center gap-1 text-xs opacity-40 mt-1">
                           <Clock size={10} />

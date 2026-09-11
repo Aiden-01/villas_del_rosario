@@ -248,10 +248,10 @@ export default function PagosAgenda() {
   const seccionesAgenda = construirSeccionesAgenda(datos);
 
   return (
-    <div className="pt-16 text-[var(--text)]">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-w-0 text-[var(--text)]">
+      <div className="w-full min-w-0 max-w-6xl mx-auto">
         <div
-          className="rounded-[28px] p-6 md:p-7 shadow-sm mb-6 overflow-hidden"
+          className="rounded-2xl sm:rounded-[28px] p-4 sm:p-6 md:p-7 shadow-sm mb-5 sm:mb-6 overflow-hidden"
           style={{
             background:
               "linear-gradient(135deg, rgba(15,118,110,0.16), rgba(14,165,233,0.08) 42%, rgba(255,255,255,0.02))",
@@ -259,11 +259,11 @@ export default function PagosAgenda() {
           }}
         >
           <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
-            <div>
+            <div className="min-w-0">
               <p className="uppercase tracking-[0.22em] text-xs font-semibold opacity-50 mb-2">
                 Tablero mensual
               </p>
-              <h1 className="flex items-center gap-3 text-3xl md:text-4xl font-bold">
+              <h1 className="flex items-center gap-2 sm:gap-3 text-2xl sm:text-3xl md:text-4xl font-bold">
                 <CalendarDays size={30} style={{ color: "var(--primary)" }} />
                 Pagos
               </h1>
@@ -273,21 +273,21 @@ export default function PagosAgenda() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-end sm:gap-3">
+              <div className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
                 <label className="text-xs opacity-60">Mes</label>
                 <input
                   type="month"
                   value={mesSeleccionado}
                   onChange={(e) => setMesSeleccionado(e.target.value)}
-                  className="px-3 py-2 rounded-xl"
+                  className="w-full min-w-0 px-3 py-2 rounded-xl"
                   style={inputStyle}
                 />
               </div>
 
               <button
                 onClick={() => setMesSeleccionado(mesActual())}
-                className="px-4 py-2 rounded-xl font-semibold hover:opacity-90"
+                className="flex items-center justify-center px-4 py-2 rounded-xl font-semibold hover:opacity-90"
                 style={{
                   backgroundColor: "var(--card)",
                   border: "1px solid var(--card-border)",
@@ -298,7 +298,7 @@ export default function PagosAgenda() {
 
               <button
                 onClick={() => cargarCalendario(mesSeleccionado)}
-                className="flex items-center gap-2 text-white px-4 py-2 rounded-xl shadow hover:opacity-90"
+                className="flex items-center justify-center gap-2 text-white px-4 py-2 rounded-xl shadow hover:opacity-90"
                 style={{ backgroundColor: "var(--primary)" }}
               >
                 <RefreshCw size={16} />
@@ -313,9 +313,9 @@ export default function PagosAgenda() {
 
         {!loading && datos && (
           <>
-            <div className="grid gap-3 mb-8 grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-6 sm:mb-8">
               <div
-                className="rounded-3xl p-5 shadow-sm"
+                className="rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -329,7 +329,7 @@ export default function PagosAgenda() {
               </div>
 
               <div
-                className="rounded-3xl p-5 shadow-sm"
+                className="rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -341,7 +341,7 @@ export default function PagosAgenda() {
               </div>
 
               <div
-                className="rounded-3xl p-5 shadow-sm"
+                className="rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -353,7 +353,7 @@ export default function PagosAgenda() {
               </div>
 
               <div
-                className="rounded-3xl p-5 shadow-sm"
+                className="rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -368,12 +368,12 @@ export default function PagosAgenda() {
             </div>
 
             {seccionesAgenda.length > 0 ? (
-              <div className="space-y-8">
+              <div className="space-y-6 sm:space-y-8">
                 {seccionesAgenda.map((grupo) => (
                   <section key={grupo.clave}>
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div>
-                        <h2 className="text-xl font-bold capitalize">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-lg sm:text-xl font-bold capitalize">
                           {grupo.clave.startsWith("proximos-")
                             ? `Próximos · ${formatearFecha(grupo.fecha)}`
                             : grupo.titulo}
@@ -385,7 +385,7 @@ export default function PagosAgenda() {
 
                       {grupo.clave === "hoy" && (
                         <span
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
+                          className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold"
                           style={{ backgroundColor: "#dcfce7", color: "#166534" }}
                         >
                           Hoy
@@ -394,7 +394,7 @@ export default function PagosAgenda() {
                     </div>
 
                     <div
-                      className="rounded-[26px] overflow-hidden"
+                      className="min-w-0 rounded-2xl sm:rounded-[26px] overflow-hidden"
                       style={{
                         backgroundColor: "var(--card)",
                         border: "1px solid var(--card-border)",
@@ -407,7 +407,7 @@ export default function PagosAgenda() {
                         return (
                           <div
                             key={`${item.prestamoId}-${item.proximaCuota}`}
-                            className="px-4 md:px-6 py-4 md:py-5"
+                            className="min-w-0 px-3 sm:px-4 md:px-6 py-4 md:py-5"
                             style={{
                               borderTop:
                                 index === 0 ? "none" : "1px solid rgba(148, 163, 184, 0.18)",
@@ -417,8 +417,8 @@ export default function PagosAgenda() {
                                   : "transparent",
                             }}
                           >
-                            <div className="flex gap-4 items-start">
-                              <div className="pt-3">
+                            <div className="flex min-w-0 gap-0 sm:gap-4 items-start">
+                              <div className="hidden pt-3 sm:block">
                                 <div
                                   className="w-3 h-3 rounded-full"
                                   style={{
@@ -431,7 +431,7 @@ export default function PagosAgenda() {
                                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                                      <h3 className="font-bold text-base md:text-lg truncate">
+                                      <h3 className="w-full min-w-0 break-words font-bold text-base sm:w-auto md:text-lg">
                                         {item.cliente.nombres} {item.cliente.apellidos}
                                       </h3>
 
@@ -492,7 +492,7 @@ export default function PagosAgenda() {
                                       {item.notaReprogramacion && (
                                         <div className="flex items-start gap-2 opacity-70">
                                           <StickyNote size={14} className="mt-0.5 shrink-0" />
-                                          <span>{item.notaReprogramacion}</span>
+                                          <span className="min-w-0 break-words">{item.notaReprogramacion}</span>
                                         </div>
                                       )}
 
@@ -514,8 +514,8 @@ export default function PagosAgenda() {
                                     </div>
                                   </div>
 
-                                  <div className="lg:min-w-[220px] lg:text-right">
-                                    <p className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
+                                  <div className="min-w-0 lg:min-w-[220px] lg:text-right">
+                                    <p className="text-xl sm:text-2xl font-bold" style={{ color: "var(--primary)" }}>
                                       Q{formatearMoneda(item.montoPendienteCuota)}
                                     </p>
                                     <p className="text-sm opacity-60">Pendiente de esta cuota</p>
@@ -527,11 +527,11 @@ export default function PagosAgenda() {
                                   </div>
                                 </div>
 
-                                <div className="flex flex-col xl:flex-row xl:items-center gap-2 mt-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center gap-2 mt-5">
                                   <button
                                     onClick={() => registrarPagoCompleto(item)}
                                     disabled={registrando === item.prestamoId}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                                    className="flex w-full xl:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                                     style={{ backgroundColor: "#16a34a" }}
                                   >
                                     <Check size={16} />
@@ -542,7 +542,7 @@ export default function PagosAgenda() {
 
                                   <button
                                     onClick={() => abrirModal(item, "pago_parcial")}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-white hover:opacity-90"
+                                    className="flex w-full xl:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90"
                                     style={{ backgroundColor: "#d97706" }}
                                   >
                                     <HandCoins size={15} />
@@ -551,16 +551,18 @@ export default function PagosAgenda() {
 
                                   <button
                                     onClick={() => abrirModal(item, "no_pago")}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-white hover:opacity-90"
+                                    className="flex w-full xl:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90"
                                     style={{ backgroundColor: "#dc2626" }}
                                   >
                                     <X size={15} />
                                     No pago
                                   </button>
 
-                                  <div className="xl:ml-auto text-sm opacity-60 flex items-center gap-2">
-                                    <ChevronRight size={15} />
-                                    {item.cliente.zona || item.cliente.direccion || "Sin direccion"}
+                                  <div className="min-w-0 sm:col-span-2 xl:col-span-1 xl:ml-auto text-sm opacity-60 flex items-start gap-2">
+                                    <ChevronRight size={15} className="mt-0.5 shrink-0" />
+                                    <span className="min-w-0 break-words">
+                                      {item.cliente.zona || item.cliente.direccion || "Sin direccion"}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -574,7 +576,7 @@ export default function PagosAgenda() {
               </div>
             ) : (
               <div
-                className="rounded-[28px] p-12 text-center shadow-sm"
+                className="rounded-2xl sm:rounded-[28px] p-6 sm:p-12 text-center shadow-sm"
                 style={{ backgroundColor: "var(--card)", border: "1px solid var(--card-border)" }}
               >
                 <div className="flex justify-center mb-4">
@@ -592,12 +594,12 @@ export default function PagosAgenda() {
 
       {modalItem && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.52)", backdropFilter: "blur(4px)" }}
           onClick={cerrarModal}
         >
           <div
-            className="w-full sm:max-w-md mx-0 sm:mx-4 rounded-t-3xl sm:rounded-3xl shadow-2xl p-6"
+            className="w-full sm:max-w-md h-[calc(100dvh-0.5rem)] sm:h-auto max-h-[calc(100dvh-0.5rem)] overflow-y-auto mx-0 rounded-t-3xl sm:rounded-3xl shadow-2xl p-4 sm:p-6"
             style={{
               backgroundColor: "var(--card)",
               border: "1px solid var(--card-border)",
@@ -606,7 +608,7 @@ export default function PagosAgenda() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-bold text-base flex items-center gap-2">
                   {modalTipo === "no_pago" ? (
                     <>
@@ -618,7 +620,7 @@ export default function PagosAgenda() {
                     </>
                   )}
                 </h2>
-                <p className="text-xs opacity-50 mt-0.5">
+                <p className="text-xs opacity-50 mt-0.5 break-words">
                   {modalItem.cliente.nombres} {modalItem.cliente.apellidos}
                 </p>
               </div>

@@ -244,7 +244,7 @@ export default function VentaForm({ mode, ventaId }) {
     <>
       <form
         onSubmit={handleSubmit}
-        className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
+        className="bg-[var(--card)] p-4 sm:p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
         {clientePreseleccionado && !isEdit ? (
           <div className="flex items-center gap-2 w-full p-2 rounded font-semibold" style={inputStyle}>

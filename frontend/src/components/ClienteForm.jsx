@@ -75,7 +75,7 @@ export default function ClienteForm({ mode, clienteId }) {
     <>
       <form
         onSubmit={handleSubmit}
-        className="bg-[var(--card)] p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
+        className="bg-[var(--card)] p-4 sm:p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
         <input
           type="text"

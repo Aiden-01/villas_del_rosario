@@ -45,22 +45,22 @@ export default function CrearUsuario() {
 
   return (
     <>
-      <div className="pt-16 flex justify-center items-start px-4">
+      <div className="flex justify-center items-start py-2 sm:py-5">
         <div
-          className="w-full max-w-md shadow-lg rounded-2xl p-8"
+          className="w-full max-w-md shadow-lg rounded-2xl p-5 sm:p-8"
           style={{
             backgroundColor: "var(--card)",
             border: "1px solid var(--card-border)",
           }}
         >
-          <div className="text-center mb-6">
+          <div className="text-center mb-5 sm:mb-6">
             <div
               className="mx-auto mb-3 w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow"
               style={{ backgroundColor: "var(--secondary)" }}
             >
               +
             </div>
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: "var(--text)" }}>
               Crear Usuario
             </h1>
             <p className="text-sm opacity-70">

@@ -290,8 +290,8 @@ export default function EstadoCuentaCliente() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <div className="no-print sticky top-0 z-20 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--card-border)]">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div className="no-print sticky top-[52px] lg:top-0 z-20 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--card-border)]">
+        <div className="max-w-md mx-auto px-2 min-[360px]:px-4 py-2 sm:py-3 flex items-center justify-between gap-2">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg font-semibold"
@@ -331,18 +331,18 @@ export default function EstadoCuentaCliente() {
         </div>
       </div>
 
-      <main className="max-w-md mx-auto px-4 py-5 print-page">
+      <main className="max-w-md mx-auto px-0 sm:px-4 py-3 sm:py-5 print-page">
         {loading && <p className="opacity-60">Cargando estado de cuenta...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
         {!loading && estado && (
-          <div className="statement bg-white text-slate-900 rounded-[28px] shadow-xl overflow-hidden">
-            <header className="px-5 py-5 border-b border-slate-200">
+          <div className="statement bg-white text-slate-900 rounded-2xl sm:rounded-[28px] shadow-xl overflow-hidden">
+            <header className="px-4 sm:px-5 py-4 sm:py-5 border-b border-slate-200">
               <div className="flex items-center gap-3">
                 <img
                   src="/logo.jpeg"
                   alt="Villas del Rosario"
-                  className="w-16 h-16 rounded-2xl object-cover border border-amber-200"
+                  className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-2xl object-cover border border-amber-200"
                 />
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-bold leading-tight">Villas del Rosario</h1>
@@ -352,14 +352,14 @@ export default function EstadoCuentaCliente() {
               </div>
             </header>
 
-            <section className="px-5 py-4 border-b border-slate-200">
-              <h2 className="text-xl font-bold leading-tight">{clienteNombre}</h2>
+            <section className="px-4 sm:px-5 py-4 border-b border-slate-200">
+              <h2 className="text-xl font-bold leading-tight break-words">{clienteNombre}</h2>
               <p className="text-sm text-slate-600 mt-1">Tel. {estado.cliente.telefono || "N/A"}</p>
-              <p className="text-sm text-slate-600">{estado.cliente.direccion || "Sin direccion"}</p>
+              <p className="text-sm text-slate-600 break-words">{estado.cliente.direccion || "Sin direccion"}</p>
               {estado.cliente.zona && <p className="text-sm text-slate-600">{estado.cliente.zona}</p>}
             </section>
 
-            <section className="grid grid-cols-2 gap-2 px-5 py-4 border-b border-slate-200">
+            <section className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2 px-4 sm:px-5 py-4 border-b border-slate-200">
               <div className="rounded-2xl bg-blue-50 p-3">
                 <p className="text-[11px] uppercase font-semibold text-blue-700">Vendido</p>
                 <p className="text-base font-bold">Q{moneda(estado.resumen.totalVendido)}</p>
@@ -378,7 +378,7 @@ export default function EstadoCuentaCliente() {
               </div>
             </section>
 
-            <section className="px-5 py-4 border-b border-slate-200">
+            <section className="px-4 sm:px-5 py-4 border-b border-slate-200">
               <h3 className="font-bold mb-3">Ventas</h3>
               <div className="space-y-2">
                 {estado.ventas.length === 0 && (
@@ -386,16 +386,16 @@ export default function EstadoCuentaCliente() {
                 )}
                 {estado.ventas.slice(0, 4).map((venta) => (
                   <div key={venta.id} className="rounded-2xl bg-slate-50 px-3 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold">{etiquetaLotes(venta)}</p>
+                    <div className="flex flex-col min-[390px]:flex-row min-[390px]:items-start min-[390px]:justify-between gap-2 min-[390px]:gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold break-words">{etiquetaLotes(venta)}</p>
                         <p className="text-xs text-slate-500">
                           {venta.cuotasPagadas}/{venta.totalCuotas} cuotas · {venta.estado}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="min-w-0 min-[390px]:shrink-0 min-[390px]:text-right">
                         <p className="text-xs text-slate-500">Saldo</p>
-                        <p className="font-bold text-amber-700">Q{moneda(venta.saldoPendiente)}</p>
+                        <p className="font-bold text-amber-700 break-words">Q{moneda(venta.saldoPendiente)}</p>
                       </div>
                     </div>
                   </div>
@@ -406,21 +406,21 @@ export default function EstadoCuentaCliente() {
               </div>
             </section>
 
-            <section className="px-5 py-4">
+            <section className="px-4 sm:px-5 py-4">
               <h3 className="font-bold mb-3">Ultimos movimientos</h3>
               <div className="divide-y divide-slate-100">
                 {movimientos.length === 0 && (
                   <p className="text-sm text-slate-500">Sin pagos registrados.</p>
                 )}
                 {movimientos.slice(0, 7).map((pago) => (
-                  <div key={pago.id} className="py-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">{etiquetaPago(pago)}</p>
+                  <div key={pago.id} className="py-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold break-words">{etiquetaPago(pago)}</p>
                       <p className="text-xs text-slate-500">
                         {fecha(pago.fechaPago)} · {pago.lote}
                       </p>
                     </div>
-                    <p className="font-bold text-emerald-700">Q{moneda(pago.montoPagado)}</p>
+                    <p className="shrink-0 font-bold text-emerald-700">Q{moneda(pago.montoPagado)}</p>
                   </div>
                 ))}
               </div>
