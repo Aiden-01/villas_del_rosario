@@ -87,6 +87,72 @@ test('un 401 refresca usando solamente los tokens de la sesion local', async () 
   assert.equal(storage.get('refreshToken'), 'refresh-a-renovado')
 })
 
+test('dos 401 simultaneos comparten un solo refresh y reintentan con el mismo token', async () => {
+  const storage = installLocalStorage({
+    token: 'access-a',
+    refreshToken: 'refresh-a',
+    user: JSON.stringify({ id: 1 }),
+  })
+  const calls = []
+  let initialRequests = 0
+  let refreshRequests = 0
+  let releaseInitialResponses
+  const bothInitialRequestsStarted = new Promise((resolve) => {
+    releaseInitialResponses = resolve
+  })
+
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options })
+
+    if (url === ROUTES.REFRESH) {
+      refreshRequests += 1
+      assert.equal(options.headers.Authorization, 'Bearer access-a')
+      assert.deepEqual(JSON.parse(options.body), { refreshToken: 'refresh-a' })
+      return new Response(
+        JSON.stringify({
+          token: 'access-a-renovado',
+          refreshToken: 'refresh-a-renovado',
+          user: { id: 1 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (options.headers.Authorization === 'Bearer access-a') {
+      initialRequests += 1
+      if (initialRequests === 2) releaseInitialResponses()
+      await bothInitialRequestsStarted
+      return new Response('{}', { status: 401 })
+    }
+
+    assert.equal(options.headers.Authorization, 'Bearer access-a-renovado')
+    return new Response('{}', { status: 200 })
+  }
+
+  const [firstResponse, secondResponse] = await Promise.all([
+    authFetch('http://api.test/recurso-a'),
+    authFetch('http://api.test/recurso-b'),
+  ])
+
+  const retries = calls.filter(
+    ({ url, options }) =>
+      url !== ROUTES.REFRESH && options.headers.Authorization === 'Bearer access-a-renovado'
+  )
+
+  assert.equal(firstResponse.status, 200)
+  assert.equal(secondResponse.status, 200)
+  assert.equal(initialRequests, 2)
+  assert.equal(refreshRequests, 1)
+  assert.equal(retries.length, 2)
+  assert.deepEqual(
+    retries.map(({ url }) => url).sort(),
+    ['http://api.test/recurso-a', 'http://api.test/recurso-b']
+  )
+  assert.equal(storage.get('token'), 'access-a-renovado')
+  assert.equal(storage.get('refreshToken'), 'refresh-a-renovado')
+  assert.deepEqual(JSON.parse(storage.get('user')), { id: 1 })
+})
+
 test('un 403 no refresca ni borra la autenticacion local', async () => {
   const storage = installLocalStorage({
     token: 'access-a',

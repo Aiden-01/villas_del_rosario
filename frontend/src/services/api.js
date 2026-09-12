@@ -32,7 +32,9 @@ export function clearAuthData() {
   localStorage.removeItem('user')
 }
 
-async function refreshSession() {
+let refreshPromise = null
+
+async function requestSessionRefresh() {
   const refreshToken = getRefreshToken()
   const accessToken = getToken()
   if (!refreshToken) return null
@@ -56,6 +58,23 @@ async function refreshSession() {
   return data.token
 }
 
+async function refreshSession(failedAccessToken) {
+  if (refreshPromise) return refreshPromise
+
+  const currentAccessToken = getToken()
+  if (failedAccessToken && currentAccessToken && currentAccessToken !== failedAccessToken) {
+    return currentAccessToken
+  }
+
+  refreshPromise = requestSessionRefresh()
+
+  try {
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
+}
+
 export async function authFetch(url, options = {}) {
   const token = getToken()
   const requestOptions = {
@@ -70,7 +89,7 @@ export async function authFetch(url, options = {}) {
   const response = await fetch(url, requestOptions)
   if (response.status !== 401) return response
 
-  const newToken = await refreshSession()
+  const newToken = await refreshSession(token)
   if (!newToken) return response
 
   return fetch(url, {
