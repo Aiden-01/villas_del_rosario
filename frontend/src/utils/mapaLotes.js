@@ -1,3 +1,8 @@
+export const VISTA_INICIAL_MAPA = Object.freeze({
+  centro: Object.freeze([16.49518, -89.41827]),
+  zoom: 18,
+});
+
 export const ESTADOS_MAPA = Object.freeze({
   disponible: Object.freeze({ etiqueta: "Disponible", color: "#22c55e" }),
   vendido: Object.freeze({ etiqueta: "Vendido", color: "#3b82f6" }),

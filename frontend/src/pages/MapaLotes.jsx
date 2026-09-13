@@ -16,6 +16,7 @@ import {
 import { authFetch, ROUTES } from "../services/api";
 import {
   ESTADOS_MAPA,
+  VISTA_INICIAL_MAPA,
   crearDetalleLote,
   obtenerEstadoMapa,
 } from "../utils/mapaLotes";
@@ -24,7 +25,6 @@ import {
   cargarCapaTexto,
 } from "../utils/mapaTextos";
 
-const CENTRO_GUATEMALA = [15.78, -90.23];
 const ORDEN_ESTADOS = ["disponible", "vendido", "pagado", "mora", "conflicto"];
 const ESTADO_DESCONOCIDO = { etiqueta: "Sin estado", color: "#64748b" };
 
@@ -340,8 +340,8 @@ export default function MapaLotes() {
         >
           <div className="h-[52dvh] min-h-[340px] w-full sm:h-[62dvh] sm:min-h-[440px] xl:h-[calc(100dvh-13.5rem)] xl:min-h-[520px] xl:max-h-[760px]">
             <MapContainer
-              center={CENTRO_GUATEMALA}
-              zoom={7}
+              center={VISTA_INICIAL_MAPA.centro}
+              zoom={VISTA_INICIAL_MAPA.zoom}
               minZoom={5}
               maxZoom={19}
               scrollWheelZoom

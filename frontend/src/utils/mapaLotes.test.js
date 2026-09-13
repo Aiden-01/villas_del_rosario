@@ -2,9 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ESTADOS_MAPA,
+  VISTA_INICIAL_MAPA,
   crearDetalleLote,
   obtenerEstadoMapa,
 } from "./mapaLotes.js";
+
+test("inicia enfocado en el proyecto Villas del Rosario", () => {
+  assert.deepEqual(VISTA_INICIAL_MAPA, {
+    centro: [16.49518, -89.41827],
+    zoom: 18,
+  });
+});
 
 test("define una presentacion diferenciada para cada estado del mapa", () => {
   assert.deepEqual(Object.keys(ESTADOS_MAPA), [
