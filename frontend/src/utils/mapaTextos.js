@@ -3,22 +3,67 @@ export const CAPAS_TEXTO_MAPA = Object.freeze({
     etiqueta: "Números y áreas",
     url: "/geo/lotes_textos.geojson",
     visibleInicial: true,
+    zoomMinimo: 19,
+    escalaInicial: 0.78,
+    incrementoEscala: 0.18,
+    escalaMaxima: 1.32,
   }),
   colindancias: Object.freeze({
     etiqueta: "Colindancias",
     url: "/geo/colindancias_textos.geojson",
     visibleInicial: true,
+    zoomMinimo: 18,
+    escalaInicial: 0.68,
+    incrementoEscala: 0.13,
+    escalaMaxima: 1.2,
   }),
   cotas: Object.freeze({
     etiqueta: "Medidas",
     url: "/geo/cotas_textos.geojson",
     visibleInicial: false,
+    zoomMinimo: 19.5,
+    escalaInicial: 0.72,
+    incrementoEscala: 0.16,
+    escalaMaxima: 1.15,
   }),
 });
 
 function numeroFinito(valor) {
   const numero = Number(valor);
   return Number.isFinite(numero) ? numero : null;
+}
+
+export function obtenerPresentacionEtiqueta(
+  tipo,
+  zoom,
+  tamanoFuente,
+  activa = true,
+) {
+  const capa = CAPAS_TEXTO_MAPA[tipo];
+  const zoomActual = numeroFinito(zoom);
+  const tamanoBase = numeroFinito(tamanoFuente);
+
+  if (
+    !capa ||
+    !activa ||
+    zoomActual === null ||
+    tamanoBase === null ||
+    tamanoBase <= 0 ||
+    zoomActual < capa.zoomMinimo
+  ) {
+    return { visible: false, tamanoFuente: 0 };
+  }
+
+  const escala = Math.min(
+    capa.escalaMaxima,
+    capa.escalaInicial +
+      (zoomActual - capa.zoomMinimo) * capa.incrementoEscala,
+  );
+
+  return {
+    visible: true,
+    tamanoFuente: Number((tamanoBase * escala).toFixed(2)),
+  };
 }
 
 export function prepararEtiquetaCartografica(feature) {

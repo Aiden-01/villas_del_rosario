@@ -5,13 +5,30 @@ import {
   VISTA_INICIAL_MAPA,
   crearDetalleLote,
   obtenerEstadoMapa,
+  obtenerPaddingAjusteMapa,
 } from "./mapaLotes.js";
 
 test("inicia enfocado en el proyecto Villas del Rosario", () => {
   assert.deepEqual(VISTA_INICIAL_MAPA, {
     centro: [16.49518, -89.41827],
     zoom: 18,
+    maxZoom: 22,
+    maxNativeZoom: 19,
+    maxZoomAjuste: 21,
+    zoomSnap: 0.25,
+    zoomDelta: 0.25,
   });
+});
+
+test("elige el padding segun el ancho real del contenedor del mapa", () => {
+  assert.equal(obtenerPaddingAjusteMapa(320), 8);
+  assert.equal(obtenerPaddingAjusteMapa(360), 8);
+  assert.equal(obtenerPaddingAjusteMapa(390), 8);
+  assert.equal(obtenerPaddingAjusteMapa(430), 8);
+  assert.equal(obtenerPaddingAjusteMapa(431), 12);
+  assert.equal(obtenerPaddingAjusteMapa(768), 12);
+  assert.equal(obtenerPaddingAjusteMapa(769), 16);
+  assert.equal(obtenerPaddingAjusteMapa(1280), 16);
 });
 
 test("define una presentacion diferenciada para cada estado del mapa", () => {

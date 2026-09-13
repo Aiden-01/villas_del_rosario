@@ -41,6 +41,10 @@ body {
   transition: none;
 }
 
+.mapa-lotes-map path.leaflet-interactive {
+  cursor: pointer;
+}
+
 .mapa-texto-wrapper {
   border: 0;
   background: transparent;
@@ -61,6 +65,8 @@ body {
   line-height: 1.05;
   text-align: center;
   text-shadow:
+    0 0 2px rgb(255 255 255 / 100%),
+    0 0 4px rgb(255 255 255 / 95%),
     -1px -1px 0 rgb(255 255 255 / 95%),
     1px -1px 0 rgb(255 255 255 / 95%),
     -1px 1px 0 rgb(255 255 255 / 95%),
@@ -93,6 +99,27 @@ body {
 
 .dark .mapa-lotes-map .leaflet-control-attribution a {
   color: #93c5fd;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mapa-lotes-map path.leaflet-interactive {
+    transition:
+      filter 120ms ease,
+      fill-opacity 120ms ease,
+      stroke-width 120ms ease !important;
+  }
+
+  .mapa-lotes-map path.leaflet-interactive:hover {
+    filter: brightness(1.08) drop-shadow(0 1px 2px rgb(15 23 42 / 45%));
+  }
+}
+
+@media (max-width: 768px) {
+  .mapa-lotes-map .leaflet-bar a {
+    width: 42px;
+    height: 42px;
+    line-height: 42px;
+  }
 }
 
 @media (max-width: 430px) {

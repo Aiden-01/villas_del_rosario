@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   CAPAS_TEXTO_MAPA,
   cargarCapaTexto,
+  obtenerPresentacionEtiqueta,
   prepararCapaTexto,
   prepararEtiquetaCartografica,
 } from "./mapaTextos.js";
@@ -27,6 +28,35 @@ test("define las tres capas con la visibilidad inicial solicitada", () => {
       ["cotas", "Medidas", false, "/geo/cotas_textos.geojson"],
     ],
   );
+});
+
+test("muestra y escala las etiquetas según el zoom sin saturar el mapa", () => {
+  assert.deepEqual(obtenerPresentacionEtiqueta("lotes", 18.99, 11.2), {
+    visible: false,
+    tamanoFuente: 0,
+  });
+
+  const lote19 = obtenerPresentacionEtiqueta("lotes", 19, 11.2);
+  const lote20 = obtenerPresentacionEtiqueta("lotes", 20, 11.2);
+  const lote22 = obtenerPresentacionEtiqueta("lotes", 22, 11.2);
+  assert.equal(lote19.visible, true);
+  assert.ok(lote19.tamanoFuente < lote20.tamanoFuente);
+  assert.ok(lote20.tamanoFuente < lote22.tamanoFuente);
+
+  assert.equal(
+    obtenerPresentacionEtiqueta("colindancias", 18, 14).visible,
+    true,
+  );
+  assert.equal(obtenerPresentacionEtiqueta("cotas", 19.49, 12).visible, false);
+  assert.equal(obtenerPresentacionEtiqueta("cotas", 19.5, 12).visible, true);
+  assert.equal(
+    obtenerPresentacionEtiqueta("cotas", 22, 12, false).visible,
+    false,
+  );
+  assert.deepEqual(obtenerPresentacionEtiqueta("desconocida", 22, 12), {
+    visible: false,
+    tamanoFuente: 0,
+  });
 });
 
 test("usa STRING, TEXT_ANGLE y HEIGHT e ignora TEXTSTRING", () => {

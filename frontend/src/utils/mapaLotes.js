@@ -1,7 +1,18 @@
 export const VISTA_INICIAL_MAPA = Object.freeze({
   centro: Object.freeze([16.49518, -89.41827]),
   zoom: 18,
+  maxZoom: 22,
+  maxNativeZoom: 19,
+  maxZoomAjuste: 21,
+  zoomSnap: 0.25,
+  zoomDelta: 0.25,
 });
+
+export function obtenerPaddingAjusteMapa(anchoMapa) {
+  if (anchoMapa <= 430) return 8;
+  if (anchoMapa <= 768) return 12;
+  return 16;
+}
 
 export const ESTADOS_MAPA = Object.freeze({
   disponible: Object.freeze({ etiqueta: "Disponible", color: "#22c55e" }),

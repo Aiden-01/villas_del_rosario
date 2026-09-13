@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import {
   GeoJSON,
@@ -10,6 +10,7 @@ import {
 import {
   AlertTriangle,
   LoaderCircle,
+  LocateFixed,
   MapPinned,
   RefreshCw,
 } from "lucide-react";
@@ -19,10 +20,12 @@ import {
   VISTA_INICIAL_MAPA,
   crearDetalleLote,
   obtenerEstadoMapa,
+  obtenerPaddingAjusteMapa,
 } from "../utils/mapaLotes";
 import {
   CAPAS_TEXTO_MAPA,
   cargarCapaTexto,
+  obtenerPresentacionEtiqueta,
 } from "../utils/mapaTextos";
 
 const ORDEN_ESTADOS = ["disponible", "vendido", "pagado", "mora", "conflicto"];
@@ -69,16 +72,26 @@ function mostrarArea(valor) {
   return Number.isFinite(numero) ? `${formatoArea.format(numero)} m²` : "—";
 }
 
+function enfocarLotes(map, coleccion, { animate = false } = {}) {
+  if (!coleccion?.features?.length) return false;
+
+  const bounds = L.geoJSON(coleccion).getBounds();
+  if (!bounds.isValid()) return false;
+
+  const padding = obtenerPaddingAjusteMapa(map.getSize().x);
+  map.fitBounds(bounds, {
+    animate,
+    padding: [padding, padding],
+    maxZoom: VISTA_INICIAL_MAPA.maxZoomAjuste,
+  });
+  return true;
+}
+
 function AjustarVista({ coleccion }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!coleccion?.features?.length) return;
-
-    const bounds = L.geoJSON(coleccion).getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 19 });
-    }
+    enfocarLotes(map, coleccion);
   }, [coleccion, map]);
 
   useEffect(() => {
@@ -95,7 +108,20 @@ function AjustarVista({ coleccion }) {
   return null;
 }
 
-function EtiquetaCartografica({ etiqueta, tipo }) {
+function ObservarZoom({ onZoomChange }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const actualizarZoom = () => onZoomChange(map.getZoom());
+    actualizarZoom();
+    map.on("zoomend", actualizarZoom);
+    return () => map.off("zoomend", actualizarZoom);
+  }, [map, onZoomChange]);
+
+  return null;
+}
+
+function EtiquetaCartografica({ etiqueta, tamanoFuente, tipo }) {
   const icono = useMemo(() => {
     const contenido = document.createElement("span");
     contenido.className = `mapa-texto mapa-texto--${tipo}`;
@@ -107,7 +133,7 @@ function EtiquetaCartografica({ etiqueta, tipo }) {
     );
     contenido.style.setProperty(
       "--mapa-texto-tamano",
-      `${etiqueta.tamanoFuente}px`,
+      `${tamanoFuente}px`,
     );
 
     return L.divIcon({
@@ -116,7 +142,7 @@ function EtiquetaCartografica({ etiqueta, tipo }) {
       iconSize: [0, 0],
       iconAnchor: [0, 0],
     });
-  }, [etiqueta, tipo]);
+  }, [etiqueta, tamanoFuente, tipo]);
 
   return (
     <Marker
@@ -143,6 +169,7 @@ function FilaDetalle({ etiqueta, valor, destacado = false }) {
 }
 
 export default function MapaLotes() {
+  const mapaRef = useRef(null);
   const [coleccion, setColeccion] = useState({
     type: "FeatureCollection",
     features: [],
@@ -151,6 +178,7 @@ export default function MapaLotes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [capasTexto, setCapasTexto] = useState(crearEstadoInicialCapasTexto);
+  const [zoomActual, setZoomActual] = useState(VISTA_INICIAL_MAPA.zoom);
 
   const cargarLotes = useCallback(async () => {
     setLoading(true);
@@ -234,6 +262,17 @@ export default function MapaLotes() {
     [seleccion],
   );
 
+  const recentrarMapa = useCallback(() => {
+    const map = mapaRef.current;
+    if (!map) return;
+
+    if (!enfocarLotes(map, coleccion, { animate: true })) {
+      map.setView(VISTA_INICIAL_MAPA.centro, VISTA_INICIAL_MAPA.zoom, {
+        animate: true,
+      });
+    }
+  }, [coleccion]);
+
   return (
     <div className="min-w-0 text-[var(--text)]">
       <div className="mb-4 flex min-w-0 flex-col gap-3 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -249,15 +288,25 @@ export default function MapaLotes() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={cargarLotes}
-          disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold shadow-sm hover:opacity-80 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Actualizar
-        </button>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <button
+            type="button"
+            onClick={recentrarMapa}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold shadow-sm hover:opacity-80"
+          >
+            <LocateFixed size={16} />
+            Recentrar
+          </button>
+          <button
+            type="button"
+            onClick={cargarLotes}
+            disabled={loading}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold shadow-sm hover:opacity-80 disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       <section
@@ -289,7 +338,7 @@ export default function MapaLotes() {
             return (
               <label
                 key={id}
-                className={`flex min-w-0 items-start gap-2 rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm ${estado.error ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                className={`flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm ${estado.error ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
               >
                 <input
                   type="checkbox"
@@ -302,7 +351,7 @@ export default function MapaLotes() {
                       [id]: { ...actual[id], visible },
                     }));
                   }}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+                  className="h-4 w-4 shrink-0 accent-emerald-600"
                 />
                 <span className="min-w-0 break-words font-medium">
                   {capa.etiqueta}
@@ -316,6 +365,14 @@ export default function MapaLotes() {
                       No disponible
                     </span>
                   )}
+                  {estado.visible &&
+                    !estado.cargando &&
+                    !estado.error &&
+                    zoomActual < capa.zoomMinimo && (
+                      <span className="block text-[11px] font-normal text-[var(--text-muted)]">
+                        Visible al acercar desde zoom {capa.zoomMinimo}
+                      </span>
+                    )}
                 </span>
               </label>
             );
@@ -333,26 +390,31 @@ export default function MapaLotes() {
         </div>
       )}
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_320px]">
         <section
           aria-label="Mapa interactivo de lotes"
           className="relative min-w-0 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"
         >
           <div className="h-[52dvh] min-h-[340px] w-full sm:h-[62dvh] sm:min-h-[440px] xl:h-[calc(100dvh-13.5rem)] xl:min-h-[520px] xl:max-h-[760px]">
             <MapContainer
+              ref={mapaRef}
               center={VISTA_INICIAL_MAPA.centro}
               zoom={VISTA_INICIAL_MAPA.zoom}
               minZoom={5}
-              maxZoom={19}
+              maxZoom={VISTA_INICIAL_MAPA.maxZoom}
+              zoomSnap={VISTA_INICIAL_MAPA.zoomSnap}
+              zoomDelta={VISTA_INICIAL_MAPA.zoomDelta}
               scrollWheelZoom
               className="mapa-lotes-map h-full w-full"
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maxZoom={19}
+                maxNativeZoom={VISTA_INICIAL_MAPA.maxNativeZoom}
+                maxZoom={VISTA_INICIAL_MAPA.maxZoom}
               />
               <AjustarVista coleccion={coleccion} />
+              <ObservarZoom onZoomChange={setZoomActual} />
 
               {coleccion.features.map((feature) => {
                 const properties = feature.properties || {};
@@ -365,10 +427,10 @@ export default function MapaLotes() {
                     key={`${properties.loteId}-${properties.codigo}`}
                     data={feature}
                     style={{
-                      color: presentacion.color,
+                      color: seleccionada ? "#111827" : presentacion.color,
                       fillColor: presentacion.color,
-                      fillOpacity: seleccionada ? 0.62 : 0.42,
-                      weight: seleccionada ? 4 : 2.5,
+                      fillOpacity: seleccionada ? 0.72 : 0.4,
+                      weight: seleccionada ? 5 : 2.25,
                       dashArray:
                         properties.estadoMapa === "conflicto"
                           ? "8 6"
@@ -379,17 +441,28 @@ export default function MapaLotes() {
                 );
               })}
 
-              {Object.entries(CAPAS_TEXTO_MAPA).map(([tipo]) =>
-                capasTexto[tipo].visible
-                  ? capasTexto[tipo].etiquetas.map((etiqueta, index) => (
-                      <EtiquetaCartografica
-                        key={`${tipo}-${index}`}
-                        etiqueta={etiqueta}
-                        tipo={tipo}
-                      />
-                    ))
-                  : null,
-              )}
+              {Object.entries(CAPAS_TEXTO_MAPA).map(([tipo]) => {
+                const estado = capasTexto[tipo];
+                if (!estado.visible) return null;
+
+                return estado.etiquetas.map((etiqueta, index) => {
+                  const presentacion = obtenerPresentacionEtiqueta(
+                    tipo,
+                    zoomActual,
+                    etiqueta.tamanoFuente,
+                    estado.visible,
+                  );
+
+                  return presentacion.visible ? (
+                    <EtiquetaCartografica
+                      key={`${tipo}-${index}`}
+                      etiqueta={etiqueta}
+                      tamanoFuente={presentacion.tamanoFuente}
+                      tipo={tipo}
+                    />
+                  ) : null;
+                });
+              })}
             </MapContainer>
           </div>
 
