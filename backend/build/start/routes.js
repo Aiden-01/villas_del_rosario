@@ -10,6 +10,7 @@ const PrestamosController = () => import('#controllers/prestamos_controller');
 const PagosController = () => import('#controllers/pagos_controller');
 const ReportesController = () => import('#controllers/reportes_controller');
 const ActividadesController = () => import('#controllers/actividades_controller');
+const MapaController = () => import('#controllers/mapa_controller');
 router.get('/', async () => {
     return { message: 'Backend funcionando' };
 });
@@ -19,6 +20,7 @@ router.post('/api/logout', [AuthController, 'logout']).use(middleware.auth());
 router.get('/api/test', async () => {
     return { test: 'ok', timestamp: new Date().toISOString() };
 });
+router.get('/api/mapa/lotes', [MapaController, 'lotes']).use(middleware.auth());
 router
     .group(() => {
     router.get('/', [UsersController, 'index']);

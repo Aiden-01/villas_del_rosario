@@ -28,3 +28,78 @@ body {
   background-color: var(--bg);
   color: var(--text);
 }
+
+.mapa-lotes-map {
+  z-index: 0;
+  font-family: inherit;
+  background: #dbe4ea;
+}
+
+.mapa-lotes-map *,
+.mapa-lotes-map *::before,
+.mapa-lotes-map *::after {
+  transition: none;
+}
+
+.mapa-texto-wrapper {
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  pointer-events: none !important;
+}
+
+.mapa-texto {
+  position: absolute;
+  display: block;
+  width: max-content;
+  max-width: 12rem;
+  transform: translate(-50%, -50%) rotate(var(--mapa-texto-angulo));
+  transform-origin: center;
+  color: #111827;
+  font-size: var(--mapa-texto-tamano);
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+  text-shadow:
+    -1px -1px 0 rgb(255 255 255 / 95%),
+    1px -1px 0 rgb(255 255 255 / 95%),
+    -1px 1px 0 rgb(255 255 255 / 95%),
+    1px 1px 0 rgb(255 255 255 / 95%);
+  white-space: pre;
+  pointer-events: none !important;
+  user-select: none;
+}
+
+.mapa-texto--colindancias {
+  color: #7c2d12;
+  font-weight: 700;
+}
+
+.mapa-texto--cotas {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.dark .mapa-lotes-map {
+  background: #0f172a;
+}
+
+.dark .mapa-lotes-map .leaflet-bar a,
+.dark .mapa-lotes-map .leaflet-control-attribution {
+  border-color: #475569;
+  background: rgb(30 41 59 / 94%);
+  color: #e2e8f0;
+}
+
+.dark .mapa-lotes-map .leaflet-control-attribution a {
+  color: #93c5fd;
+}
+
+@media (max-width: 430px) {
+  .mapa-lotes-map .leaflet-control-attribution {
+    max-width: calc(100vw - 5rem);
+    overflow-wrap: anywhere;
+    font-size: 0.58rem;
+    line-height: 1.15;
+  }
+}

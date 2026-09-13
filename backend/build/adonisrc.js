@@ -13,6 +13,10 @@ export default defineConfig({
             pattern: 'database/seeders/**',
             reloadServer: false,
         },
+        {
+            pattern: 'database/geo/**',
+            reloadServer: false,
+        },
     ],
     commands: [() => import('@adonisjs/core/commands'), () => import('@adonisjs/lucid/commands')],
     providers: [

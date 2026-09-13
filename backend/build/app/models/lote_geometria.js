@@ -8,50 +8,43 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { DateTime } from 'luxon';
-import { BaseModel, column, hasMany, hasOne } from '@adonisjs/lucid/orm';
-import Prestamo from '#models/prestamo';
-import LoteGeometria from '#models/lote_geometria';
-export default class Lote extends BaseModel {
-    static table = 'lotes';
+import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm';
+import Lote from '#models/lote';
+export default class LoteGeometria extends BaseModel {
+    static table = 'lote_geometrias';
 }
 __decorate([
     column({ isPrimary: true }),
     __metadata("design:type", Number)
-], Lote.prototype, "id", void 0);
+], LoteGeometria.prototype, "id", void 0);
+__decorate([
+    column(),
+    __metadata("design:type", Number)
+], LoteGeometria.prototype, "loteId", void 0);
 __decorate([
     column(),
     __metadata("design:type", String)
-], Lote.prototype, "numero", void 0);
+], LoteGeometria.prototype, "codigo", void 0);
 __decorate([
     column(),
     __metadata("design:type", Object)
-], Lote.prototype, "medida", void 0);
-__decorate([
-    column(),
-    __metadata("design:type", Object)
-], Lote.prototype, "area", void 0);
+], LoteGeometria.prototype, "areaFuente", void 0);
 __decorate([
     column(),
     __metadata("design:type", String)
-], Lote.prototype, "estado", void 0);
+], LoteGeometria.prototype, "geom", void 0);
 __decorate([
     column.dateTime({ autoCreate: true }),
     __metadata("design:type", DateTime)
-], Lote.prototype, "createdAt", void 0);
+], LoteGeometria.prototype, "createdAt", void 0);
 __decorate([
     column.dateTime({ autoCreate: true, autoUpdate: true }),
     __metadata("design:type", Object)
-], Lote.prototype, "updatedAt", void 0);
+], LoteGeometria.prototype, "updatedAt", void 0);
 __decorate([
-    hasMany(() => Prestamo, {
+    belongsTo(() => Lote, {
         foreignKey: 'loteId',
     }),
     __metadata("design:type", Object)
-], Lote.prototype, "ventas", void 0);
-__decorate([
-    hasOne(() => LoteGeometria, {
-        foreignKey: 'loteId',
-    }),
-    __metadata("design:type", Object)
-], Lote.prototype, "geometria", void 0);
-//# sourceMappingURL=lote.js.map
+], LoteGeometria.prototype, "lote", void 0);
+//# sourceMappingURL=lote_geometria.js.map

@@ -7,14 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/services/api.test.js src/services/financialActions.test.js src/utils/agendaSections.test.js",
+    "test": "node --test src/services/api.test.js src/services/financialActions.test.js src/utils/agendaSections.test.js src/utils/mapaLotes.test.js src/utils/mapaTextos.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.13.5",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.13.0"
   },
   "devDependencies": {

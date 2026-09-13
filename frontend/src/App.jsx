@@ -12,6 +12,7 @@ import GestionUsuarios from "./pages/GestionUsuarios";
 import Reportes from "./pages/Reportes";
 import Historial from "./pages/Historial";
 import PagosAgenda from "./pages/PagosAgenda";
+import MapaLotes from "./pages/MapaLotes";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/ventas/crear" element={<CrearVenta />} />
           <Route path="/ventas/editar/:ventaId" element={<CrearVenta />} />
           <Route path="/pagos" element={<PagosAgenda />} />
+          <Route path="/mapa" element={<MapaLotes />} />
           <Route path="/prestamos" element={<Navigate to="/ventas" replace />} />
           <Route path="/prestamos/crear" element={<Navigate to="/ventas/crear" replace />} />
           <Route path="/prestamos/editar/:prestamoId" element={<CrearVenta />} />

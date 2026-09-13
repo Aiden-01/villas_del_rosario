@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany, hasOne } from '@adonisjs/lucid/orm'
+import type { HasMany, HasOne } from '@adonisjs/lucid/types/relations'
 import Prestamo from '#models/prestamo'
+import LoteGeometria from '#models/lote_geometria'
 
 export default class Lote extends BaseModel {
   public static table = 'lotes'
@@ -31,4 +32,9 @@ export default class Lote extends BaseModel {
     foreignKey: 'loteId',
   })
   declare ventas: HasMany<typeof Prestamo>
+
+  @hasOne(() => LoteGeometria, {
+    foreignKey: 'loteId',
+  })
+  declare geometria: HasOne<typeof LoteGeometria>
 }

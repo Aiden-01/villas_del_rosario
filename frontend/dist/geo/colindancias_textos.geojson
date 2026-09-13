@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "colindancias_textos",
+"features": [
+{"type":"Feature","properties":{"HEIGHT":1.5,"LAYER":"GEO_COLINDANCIAS_TXT","ROTATION":0.0029057186878369999,"STRING":"9a. Calle \"A\" Zona 3","STYLE":"Standard","TEXTSTRING":"9a. Calle \"A\" Zona 3","TEXT_SIZE":1.5,"TEXT_ANGLE":0.166485417265365},"geometry":{"type":"Point","coordinates":[-89.4182721,16.4948933,0.0]}},
+{"type":"Feature","properties":{"HEIGHT":1.5,"LAYER":"GEO_COLINDANCIAS_TXT","ROTATION":5.0581461986712357,"STRING":"11 Avenida Zona 3","STYLE":"Standard","TEXTSTRING":"11 Avenida Zona 3","TEXT_SIZE":1.5,"TEXT_ANGLE":289.81042934400256},"geometry":{"type":"Point","coordinates":[-89.4178705,16.4953031,0.0]}},
+{"type":"Feature","properties":{"HEIGHT":1.5,"LAYER":"GEO_COLINDANCIAS_TXT","ROTATION":0.34071461689101701,"STRING":"9a. Calle Zona 3","STYLE":"Standard","TEXTSTRING":"9a. Calle Zona 3","TEXT_SIZE":1.5,"TEXT_ANGLE":19.521509566271995},"geometry":{"type":"Point","coordinates":[-89.4183118,16.4953469,0.0]}}
+]
+}

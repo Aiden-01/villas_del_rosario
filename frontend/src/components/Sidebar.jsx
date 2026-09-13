@@ -11,6 +11,7 @@ import {
   X,
   LogOut,
   Menu,
+  MapPinned,
   Moon,
   Sun,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV = [
   { label: "Clientes", path: "/clientes", icon: Users, delay: 50 },
   { label: "Ventas", path: "/ventas", icon: HandCoins, delay: 100 },
   { label: "Pagos", path: "/pagos", icon: CalendarDays, delay: 150 },
+  { label: "Mapa de Lotes", path: "/mapa", icon: MapPinned, delay: 200 },
 ];
 
 const NAV_ADMIN = [

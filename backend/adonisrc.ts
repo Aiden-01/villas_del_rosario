@@ -33,6 +33,10 @@ export default defineConfig({
       pattern: 'database/seeders/**',
       reloadServer: false,
     },
+    {
+      pattern: 'database/geo/**',
+      reloadServer: false,
+    },
   ],
 
   /*

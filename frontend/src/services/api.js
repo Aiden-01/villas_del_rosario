@@ -10,6 +10,7 @@ export const ROUTES = {
   ME: `${API_URL}/api/me`,
   USERS: `${API_URL}/api/users`,
   CLIENTS: `${API_URL}/api/clientes`,
+  MAPA_LOTES: `${API_URL}/api/mapa/lotes`,
 }
 
 export function saveAuthData(data) {
