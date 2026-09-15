@@ -43,6 +43,7 @@ test('resuelve la URL del API segun el entorno', () => {
   )
   assert.equal(API_URL, 'http://localhost:3333')
   assert.equal(ROUTES.REFRESH, 'http://localhost:3333/api/refresh')
+  assert.equal(ROUTES.LOTES, 'http://localhost:3333/api/lotes')
 })
 
 test('un 401 refresca usando solamente los tokens de la sesion local', async () => {

@@ -7,6 +7,7 @@ import {
   TileLayer,
   useMap,
 } from "react-leaflet";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   LoaderCircle,
@@ -19,6 +20,7 @@ import {
   ESTADOS_MAPA,
   VISTA_INICIAL_MAPA,
   crearDetalleLote,
+  crearRutaVentaDesdeMapa,
   obtenerEstadoMapa,
   obtenerPaddingAjusteMapa,
 } from "../utils/mapaLotes";
@@ -169,6 +171,7 @@ function FilaDetalle({ etiqueta, valor, destacado = false }) {
 }
 
 export default function MapaLotes() {
+  const navigate = useNavigate();
   const mapaRef = useRef(null);
   const [coleccion, setColeccion] = useState({
     type: "FeatureCollection",
@@ -259,6 +262,10 @@ export default function MapaLotes() {
 
   const detalle = useMemo(
     () => (seleccion ? crearDetalleLote(seleccion) : null),
+    [seleccion],
+  );
+  const rutaVenta = useMemo(
+    () => crearRutaVentaDesdeMapa(seleccion),
     [seleccion],
   );
 
@@ -554,12 +561,11 @@ export default function MapaLotes() {
                 />
               </dl>
 
-              {detalle.mostrarVender && (
+              {detalle.mostrarVender && rutaVenta && (
                 <button
                   type="button"
-                  disabled
-                  title="La creación de ventas desde el mapa estará disponible próximamente"
-                  className="mt-4 w-full cursor-not-allowed rounded-lg bg-[var(--primary)] px-4 py-2.5 font-bold text-white opacity-70"
+                  onClick={() => navigate(rutaVenta)}
+                  className="mt-4 min-h-11 w-full rounded-lg bg-[var(--primary)] px-4 py-2.5 font-bold text-white transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   Vender
                 </button>

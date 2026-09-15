@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/services/api.test.js src/services/financialActions.test.js src/utils/agendaSections.test.js src/utils/mapaLotes.test.js src/utils/mapaTextos.test.js",
+    "test": "node --test src/services/api.test.js src/services/financialActions.test.js src/utils/agendaSections.test.js src/utils/lotesVenta.test.js src/utils/mapaLotes.test.js src/utils/mapaTextos.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

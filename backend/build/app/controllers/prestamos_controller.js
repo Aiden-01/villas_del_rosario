@@ -1,3 +1,4 @@
+import db from '@adonisjs/lucid/services/db';
 import Prestamo from '#models/prestamo';
 import Pago from '#models/pago';
 import Lote from '#models/lote';
@@ -9,6 +10,15 @@ import { aplicarAbonoAVenta } from '../services/abonos_ventas_service.js';
 import { createVentaValidator, updateVentaValidator } from '#validators/ventas_validator';
 import { cleanEmptyStrings, isValidationError, validationMessages } from '#validators/helpers';
 import { resumenFinancieroVenta } from '#services/mora_service';
+class LoteVentaError extends Error {
+    status;
+    loteId;
+    constructor(message, status, loteId) {
+        super(message);
+        this.status = status;
+        this.loteId = loteId;
+    }
+}
 export default class PrestamosController {
     async verifyToken(token) {
         if (!token)
@@ -75,6 +85,71 @@ export default class PrestamosController {
                 precio: item.predio.precio ?? null,
             });
         }
+    }
+    async resolverLotesPrediosConLoteId(predios, trx) {
+        const ids = [...new Set(predios.flatMap((predio) => (predio.loteId ? [predio.loteId] : [])))];
+        const numeros = [...new Set(predios.map((predio) => predio.numeroLote))];
+        const lotesBloqueados = await Lote.query({ client: trx })
+            .where((query) => {
+            if (ids.length > 0)
+                query.whereIn('id', ids);
+            if (numeros.length > 0) {
+                if (ids.length > 0)
+                    query.orWhereIn('numero', numeros);
+                else
+                    query.whereIn('numero', numeros);
+            }
+        })
+            .orderBy('id', 'asc')
+            .forUpdate();
+        const lotesPorId = new Map(lotesBloqueados.map((lote) => [lote.id, lote]));
+        const lotesPorNumero = new Map(lotesBloqueados.map((lote) => [lote.numero, lote]));
+        const resultado = [];
+        for (const predio of predios) {
+            let lote = predio.loteId
+                ? lotesPorId.get(predio.loteId)
+                : lotesPorNumero.get(predio.numeroLote);
+            if (predio.loteId && !lote) {
+                throw new LoteVentaError('El lote seleccionado ya no existe', 404, predio.loteId);
+            }
+            if (predio.loteId && lote?.numero !== predio.numeroLote) {
+                throw new LoteVentaError('El lote seleccionado no coincide con el numero recibido', 400, predio.loteId);
+            }
+            if (!lote) {
+                lote = await Lote.create({
+                    numero: predio.numeroLote,
+                    medida: predio.medidaLote?.trim() || null,
+                    area: predio.areaLote?.trim() || null,
+                    estado: 'vendido',
+                }, { client: trx });
+                lotesPorId.set(lote.id, lote);
+                lotesPorNumero.set(lote.numero, lote);
+            }
+            else {
+                const ventaActiva = await Prestamo.query({ client: trx })
+                    .where('estado', '!=', 'cancelado')
+                    .where((query) => {
+                    query
+                        .whereHas('predios', (ventaPredios) => ventaPredios.where('lote_id', lote.id))
+                        .orWhere((legacy) => {
+                        legacy.where('lote_id', lote.id).whereDoesntHave('predios', () => { });
+                    });
+                })
+                    .first();
+                if (ventaActiva) {
+                    throw new LoteVentaError('El lote seleccionado ya no esta disponible', 409, lote.id);
+                }
+                lote.merge({ estado: 'vendido' });
+                await lote.useTransaction(trx).save();
+            }
+            resultado.push({ predio, lote });
+        }
+        const idsResueltos = resultado.map(({ lote }) => lote.id);
+        const loteDuplicado = idsResueltos.find((id, index) => idsResueltos.indexOf(id) !== index);
+        if (loteDuplicado) {
+            throw new LoteVentaError('No se puede agregar el mismo lote mas de una vez', 400, loteDuplicado);
+        }
+        return resultado;
     }
     async index({ request, response }) {
         try {
@@ -175,27 +250,43 @@ export default class PrestamosController {
             if (predios.length === 0) {
                 return response.badRequest({ message: 'Debe agregar al menos un predio a la venta' });
             }
-            const lotesPredios = await this.resolverLotesPredios(predios);
-            const lote = lotesPredios[0]?.lote || null;
             const enganche = Number(data.enganche || 0);
+            const prediosConLoteId = predios.map((predio, index) => ({
+                ...predio,
+                loteId: data.predios?.[index]?.loteId ?? (index === 0 ? data.loteId : undefined),
+            }));
             if (enganche < 0) {
                 return response.badRequest({ message: 'El enganche no puede ser negativo' });
             }
             if (enganche - Number(data.monto) > 0.01) {
                 return response.badRequest({ message: 'El enganche no puede exceder el precio del lote' });
             }
-            const prestamo = await Prestamo.create({
-                clienteId: data.clienteId,
-                loteId: lote?.id || null,
-                monto: data.monto,
-                cuotas: data.cuotas,
-                fechaInicio: this.fechaDesdeIso(data.fechaInicio),
-                fechaFin: this.fechaDesdeIso(data.fechaFin),
-                frecuenciaPago: data.frecuenciaPago || 'mensual',
-                fechaCobro: this.fechaDesdeIso(data.fechaCobro),
-                estado: 'activo',
+            if (data.loteId && prediosConLoteId[0]?.loteId !== data.loteId) {
+                return response.badRequest({ message: 'El lote principal no coincide con los predios' });
+            }
+            const prestamo = await db.transaction(async (trx) => {
+                const lotesPredios = await this.resolverLotesPrediosConLoteId(prediosConLoteId, trx);
+                const lote = lotesPredios[0]?.lote || null;
+                const venta = await Prestamo.create({
+                    clienteId: data.clienteId,
+                    loteId: lote?.id || null,
+                    monto: data.monto,
+                    cuotas: data.cuotas,
+                    fechaInicio: this.fechaDesdeIso(data.fechaInicio),
+                    fechaFin: this.fechaDesdeIso(data.fechaFin),
+                    frecuenciaPago: data.frecuenciaPago || 'mensual',
+                    fechaCobro: this.fechaDesdeIso(data.fechaCobro),
+                    estado: 'activo',
+                }, { client: trx });
+                for (const item of lotesPredios) {
+                    await VentaPredio.create({
+                        ventaId: venta.id,
+                        loteId: item.lote.id,
+                        precio: item.predio.precio ?? null,
+                    }, { client: trx });
+                }
+                return venta;
             });
-            await this.crearPrediosVenta(prestamo.id, lotesPredios);
             await prestamo.load('cliente');
             await prestamo.load('lote');
             await prestamo.load('predios', (prediosQuery) => prediosQuery.preload('lote'));
@@ -238,6 +329,14 @@ export default class PrestamosController {
                     message: 'Datos invalidos para crear venta',
                     errors: validationMessages(error),
                 });
+            }
+            if (error instanceof LoteVentaError) {
+                const payload = { message: error.message, loteId: error.loteId };
+                if (error.status === 404)
+                    return response.notFound(payload);
+                if (error.status === 409)
+                    return response.conflict(payload);
+                return response.badRequest(payload);
             }
             console.error(error);
             return response.internalServerError({ message: 'Error al crear venta' });

@@ -16,6 +16,7 @@ type PropiedadesLote = {
   loteId: number
   codigo: string
   numero: string
+  medida: string | null
   area: number
   estadoMapa: 'disponible' | 'vendido' | 'pagado' | 'mora' | 'conflicto'
   ventaId: number | null
@@ -72,7 +73,7 @@ async function crearLoteConGeometria(etiqueta: string, areaFuente: number) {
   const sufijo = randomUUID().slice(0, 8)
   const lote = await Lote.create({
     numero: `${etiqueta}-${sufijo}`,
-    medida: null,
+    medida: `10x20 ${etiqueta}`,
     area: '999.99 m2',
     estado: 'disponible',
   })
@@ -305,6 +306,7 @@ test.group('API GeoJSON de lotes', (group) => {
       assert.isArray(feature!.geometry.coordinates)
       assert.equal(feature!.properties.loteId, lote.lote.id)
       assert.equal(feature!.properties.numero, lote.lote.numero)
+      assert.equal(feature!.properties.medida, lote.lote.medida)
       assert.equal(feature!.properties.area, lote.areaFuente)
       assert.isNumber(feature!.properties.area)
     }

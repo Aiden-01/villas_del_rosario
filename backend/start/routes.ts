@@ -13,6 +13,7 @@ const PagosController = () => import('#controllers/pagos_controller')
 const ReportesController = () => import('#controllers/reportes_controller')
 const ActividadesController = () => import('#controllers/actividades_controller')
 const MapaController = () => import('#controllers/mapa_controller')
+const LotesController = () => import('#controllers/lotes_controller')
 
 router.get('/', async () => {
   return { message: 'Backend funcionando' }
@@ -27,6 +28,7 @@ router.get('/api/test', async () => {
 })
 
 router.get('/api/mapa/lotes', [MapaController, 'lotes']).use(middleware.auth())
+router.get('/api/lotes', [LotesController, 'index']).use(middleware.auth())
 
 router
   .group(() => {

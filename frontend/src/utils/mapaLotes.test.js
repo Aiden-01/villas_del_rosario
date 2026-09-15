@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import {
   ESTADOS_MAPA,
   VISTA_INICIAL_MAPA,
+  crearRutaVentaDesdeMapa,
   crearDetalleLote,
+  errorInvalidaPreseleccionLoteMapa,
+  limpiarPreseleccionLoteMapa,
   obtenerEstadoMapa,
   obtenerPaddingAjusteMapa,
+  parsearLoteIdMapa,
+  resolverLoteVentaDesdeMapa,
 } from "./mapaLotes.js";
 
 test("inicia enfocado en el proyecto Villas del Rosario", () => {
@@ -93,16 +98,23 @@ test("crea el detalle copiando literalmente cliente y resumen financiero del bac
 
 test("muestra Vender exclusivamente para lotes disponibles", () => {
   for (const estadoMapa of Object.keys(ESTADOS_MAPA)) {
-    const detalle = crearDetalleLote({
+    const feature = {
       properties: {
+        loteId: 10,
         numero: "10",
         estadoMapa,
+        ventaId: estadoMapa === "disponible" ? null : 99,
         cliente: null,
         resumenFinanciero: null,
       },
-    });
+    };
+    const detalle = crearDetalleLote(feature);
 
     assert.equal(detalle.mostrarVender, estadoMapa === "disponible");
+    assert.equal(
+      crearRutaVentaDesdeMapa(feature),
+      estadoMapa === "disponible" ? "/ventas/crear?loteId=10" : null,
+    );
     assert.equal(detalle.cliente, null);
     assert.equal(detalle.resumenFinanciero, null);
     assert.equal(detalle.fraccion, null);
@@ -110,4 +122,198 @@ test("muestra Vender exclusivamente para lotes disponibles", () => {
     assert.equal(detalle.enMora, null);
     assert.equal(detalle.diasAtraso, null);
   }
+});
+
+test("acepta unicamente identificadores enteros positivos para ventas desde el mapa", () => {
+  assert.equal(parsearLoteIdMapa("13"), 13);
+  assert.equal(parsearLoteIdMapa(13), 13);
+
+  for (const valor of [null, "", "0", "-1", "1.5", "13abc"]) {
+    assert.equal(parsearLoteIdMapa(valor), null);
+  }
+});
+
+test("resuelve la preseleccion exclusivamente por loteId y datos autoritativos", () => {
+  const coleccion = {
+    type: "FeatureCollection",
+    features: [
+      {
+        properties: {
+          loteId: 13,
+          codigo: "VR-Z3-L013",
+          numero: "13",
+          medida: "12 x 24",
+          area: 285.43,
+          estadoMapa: "disponible",
+          ventaId: null,
+        },
+      },
+    ],
+  };
+
+  assert.deepEqual(resolverLoteVentaDesdeMapa(coleccion, "13"), {
+    lote: {
+      loteId: 13,
+      codigo: "VR-Z3-L013",
+      numeroLote: "13",
+      medidaLote: "12 x 24",
+      areaLote: "285.43",
+    },
+    error: null,
+  });
+  assert.match(resolverLoteVentaDesdeMapa(coleccion, "999").error, /ya no existe/);
+});
+
+test("invalida la preseleccion cuando el backend cambia el estado del lote", () => {
+  for (const estadoMapa of ["vendido", "pagado", "mora", "conflicto"]) {
+    const resultado = resolverLoteVentaDesdeMapa(
+      {
+        type: "FeatureCollection",
+        features: [
+          {
+            properties: {
+              loteId: 13,
+              numero: "13",
+              area: 285.43,
+              estadoMapa,
+              ventaId: estadoMapa === "conflicto" ? null : 20,
+              conflictoIntegridad: estadoMapa === "conflicto",
+            },
+          },
+        ],
+      },
+      "13",
+    );
+
+    assert.equal(resultado.lote, null);
+    assert.match(resultado.error, /ya no está disponible/);
+  }
+});
+
+test("invalida inconsistencias aunque el estado nominal sea disponible", () => {
+  for (const properties of [
+    {
+      loteId: 13,
+      numero: "13",
+      estadoMapa: "disponible",
+      ventaId: 20,
+    },
+    {
+      loteId: 13,
+      numero: "13",
+      estadoMapa: "disponible",
+      ventaId: null,
+      conflictoIntegridad: true,
+    },
+  ]) {
+    const feature = { properties };
+    const resultado = resolverLoteVentaDesdeMapa(
+      { type: "FeatureCollection", features: [feature] },
+      "13",
+    );
+
+    assert.equal(crearRutaVentaDesdeMapa(feature), null);
+    assert.equal(resultado.lote, null);
+    assert.match(resultado.error, /ya no está disponible/);
+  }
+});
+
+test("rechaza un numero de lote vacio aunque el loteId sea valido", () => {
+  const resultado = resolverLoteVentaDesdeMapa(
+    {
+      type: "FeatureCollection",
+      features: [
+        {
+          properties: {
+            loteId: 13,
+            numero: "   ",
+            estadoMapa: "disponible",
+            ventaId: null,
+          },
+        },
+      ],
+    },
+    "13",
+  );
+
+  assert.equal(resultado.lote, null);
+  assert.match(resultado.error, /número válido/);
+});
+
+test("limpia solamente la preseleccion vinculada al mapa", () => {
+  const formulario = {
+    loteId: 13,
+    clienteId: "8",
+    numeroLote: "13",
+    medidaLote: "12 x 24",
+    areaLote: "285.43",
+    predios: [
+      {
+        loteId: 13,
+        codigo: "VR-Z3-L013",
+        numeroLote: "13",
+        medidaLote: "12 x 24",
+        areaLote: "285.43",
+        precio: "100000",
+      },
+      {
+        numeroLote: "14",
+        medidaLote: "10 x 20",
+        areaLote: "200",
+        precio: "80000",
+      },
+    ],
+  };
+
+  assert.deepEqual(limpiarPreseleccionLoteMapa(formulario), {
+    clienteId: "8",
+    numeroLote: "",
+    medidaLote: "",
+    areaLote: "",
+    predios: [
+      {
+        numeroLote: "",
+        medidaLote: "",
+        areaLote: "",
+        precio: "100000",
+      },
+      {
+        numeroLote: "14",
+        medidaLote: "10 x 20",
+        areaLote: "200",
+        precio: "80000",
+      },
+    ],
+  });
+
+  const formularioManual = { predios: [{ numeroLote: "15" }] };
+  assert.equal(limpiarPreseleccionLoteMapa(formularioManual), formularioManual);
+});
+
+test("atribuye el error exclusivamente al lote preseleccionado", () => {
+  assert.equal(
+    errorInvalidaPreseleccionLoteMapa(
+      { status: 409, data: { loteId: 13 } },
+      13,
+    ),
+    true,
+  );
+  assert.equal(
+    errorInvalidaPreseleccionLoteMapa(
+      { status: 409, data: { loteId: 14 } },
+      13,
+    ),
+    false,
+  );
+  assert.equal(
+    errorInvalidaPreseleccionLoteMapa({ status: 409, data: {} }, 13),
+    false,
+  );
+  assert.equal(
+    errorInvalidaPreseleccionLoteMapa(
+      { status: 500, data: { loteId: 13 } },
+      13,
+    ),
+    false,
+  );
 });

@@ -1,6 +1,7 @@
 import db from '@adonisjs/lucid/services/db';
 import Prestamo from '#models/prestamo';
 import { resumenFinancieroVenta } from '#services/mora_service';
+import { loteIdsAsociadosVenta } from '#services/lotes_disponibilidad_service';
 function estadoMapaVenta(resumen) {
     if (resumen.enMora)
         return 'mora';
@@ -16,6 +17,7 @@ export default class MapaController {
           lg.lote_id AS "loteId",
           lg.codigo,
           l.numero,
+          l.medida,
           lg.area_fuente AS area,
           ST_AsGeoJSON(lg.geom)::json AS geometry
         FROM lote_geometrias lg
@@ -44,12 +46,7 @@ export default class MapaController {
             for (const venta of ventas) {
                 const resumenFinanciero = resumenFinancieroVenta(venta, venta.programaciones || []);
                 const asociacion = { venta, resumenFinanciero };
-                const loteIdsVenta = venta.predios.length > 0
-                    ? venta.predios.flatMap((predio) => (predio.loteId ? [predio.loteId] : []))
-                    : venta.loteId
-                        ? [venta.loteId]
-                        : [];
-                for (const loteId of new Set(loteIdsVenta)) {
+                for (const loteId of loteIdsAsociadosVenta(venta)) {
                     const asociaciones = ventasPorLote.get(loteId) || [];
                     asociaciones.push(asociacion);
                     ventasPorLote.set(loteId, asociaciones);
@@ -67,6 +64,7 @@ export default class MapaController {
                         loteId,
                         codigo: geometria.codigo,
                         numero: geometria.numero,
+                        medida: geometria.medida,
                         area: geometria.area === null ? null : Number(geometria.area),
                         estadoMapa: conflictoIntegridad
                             ? 'conflicto'

@@ -6,6 +6,13 @@ const ventaPredioValidator = vine.object({
     areaLote: vine.string().trim().maxLength(100).optional(),
     precio: vine.number().positive().optional(),
 });
+const ventaPredioCreateValidator = vine.object({
+    loteId: vine.number().positive().withoutDecimals().optional(),
+    numeroLote: vine.string().trim().minLength(1).maxLength(50),
+    medidaLote: vine.string().trim().maxLength(100).optional(),
+    areaLote: vine.string().trim().maxLength(100).optional(),
+    precio: vine.number().positive().optional(),
+});
 export const createVentaValidator = vine.compile(vine.object({
     clienteId: vine.number().positive().withoutDecimals(),
     monto: vine.number().positive(),
@@ -13,10 +20,11 @@ export const createVentaValidator = vine.compile(vine.object({
     fechaInicio: vine.string().trim().regex(isoDate),
     fechaFin: vine.string().trim().regex(isoDate),
     frecuenciaPago: vine.enum(['mensual']).optional(),
+    loteId: vine.number().positive().withoutDecimals().optional(),
     numeroLote: vine.string().trim().minLength(1).maxLength(50),
     medidaLote: vine.string().trim().maxLength(100).optional(),
     areaLote: vine.string().trim().maxLength(100).optional(),
-    predios: vine.array(ventaPredioValidator).optional(),
+    predios: vine.array(ventaPredioCreateValidator).optional(),
     fechaCobro: vine.string().trim().regex(isoDate).optional(),
     enganche: vine.number().min(0).optional(),
 }));
