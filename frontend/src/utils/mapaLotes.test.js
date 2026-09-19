@@ -39,6 +39,7 @@ test("elige el padding segun el ancho real del contenedor del mapa", () => {
 test("define una presentacion diferenciada para cada estado del mapa", () => {
   assert.deepEqual(Object.keys(ESTADOS_MAPA), [
     "disponible",
+    "no_autorizado",
     "vendido",
     "mora",
     "pagado",
@@ -46,7 +47,7 @@ test("define una presentacion diferenciada para cada estado del mapa", () => {
   ]);
 
   const colores = Object.values(ESTADOS_MAPA).map(({ color }) => color);
-  assert.equal(new Set(colores).size, 5);
+  assert.equal(new Set(colores).size, 6);
   assert.deepEqual(obtenerEstadoMapa("disponible"), {
     etiqueta: "Disponible",
     color: "#22c55e",
@@ -54,6 +55,10 @@ test("define una presentacion diferenciada para cada estado del mapa", () => {
   assert.deepEqual(obtenerEstadoMapa("conflicto"), {
     etiqueta: "Conflicto",
     color: "#f59e0b",
+  });
+  assert.deepEqual(obtenerEstadoMapa("no_autorizado"), {
+    etiqueta: "No autorizado",
+    color: "#64748b",
   });
   assert.equal(obtenerEstadoMapa("desconocido"), null);
 });
@@ -103,7 +108,8 @@ test("muestra Vender exclusivamente para lotes disponibles", () => {
         loteId: 10,
         numero: "10",
         estadoMapa,
-        ventaId: estadoMapa === "disponible" ? null : 99,
+        habilitadoVenta: estadoMapa === "disponible",
+        ventaId: ["disponible", "no_autorizado"].includes(estadoMapa) ? null : 99,
         cliente: null,
         resumenFinanciero: null,
       },
@@ -111,6 +117,7 @@ test("muestra Vender exclusivamente para lotes disponibles", () => {
     const detalle = crearDetalleLote(feature);
 
     assert.equal(detalle.mostrarVender, estadoMapa === "disponible");
+    assert.equal(detalle.ventaNoAutorizada, estadoMapa === "no_autorizado");
     assert.equal(
       crearRutaVentaDesdeMapa(feature),
       estadoMapa === "disponible" ? "/ventas/crear?loteId=10" : null,
@@ -145,6 +152,7 @@ test("resuelve la preseleccion exclusivamente por loteId y datos autoritativos",
           medida: "12 x 24",
           area: 285.43,
           estadoMapa: "disponible",
+          habilitadoVenta: true,
           ventaId: null,
         },
       },
@@ -165,7 +173,13 @@ test("resuelve la preseleccion exclusivamente por loteId y datos autoritativos",
 });
 
 test("invalida la preseleccion cuando el backend cambia el estado del lote", () => {
-  for (const estadoMapa of ["vendido", "pagado", "mora", "conflicto"]) {
+  for (const estadoMapa of [
+    "no_autorizado",
+    "vendido",
+    "pagado",
+    "mora",
+    "conflicto",
+  ]) {
     const resultado = resolverLoteVentaDesdeMapa(
       {
         type: "FeatureCollection",
@@ -176,7 +190,8 @@ test("invalida la preseleccion cuando el backend cambia el estado del lote", () 
               numero: "13",
               area: 285.43,
               estadoMapa,
-              ventaId: estadoMapa === "conflicto" ? null : 20,
+              habilitadoVenta: false,
+              ventaId: ["no_autorizado", "conflicto"].includes(estadoMapa) ? null : 20,
               conflictoIntegridad: estadoMapa === "conflicto",
             },
           },
@@ -196,12 +211,14 @@ test("invalida inconsistencias aunque el estado nominal sea disponible", () => {
       loteId: 13,
       numero: "13",
       estadoMapa: "disponible",
+      habilitadoVenta: true,
       ventaId: 20,
     },
     {
       loteId: 13,
       numero: "13",
       estadoMapa: "disponible",
+      habilitadoVenta: true,
       ventaId: null,
       conflictoIntegridad: true,
     },
@@ -218,6 +235,27 @@ test("invalida inconsistencias aunque el estado nominal sea disponible", () => {
   }
 });
 
+test("no habilita Vender si falta autorización comercial explícita", () => {
+  const feature = {
+    properties: {
+      loteId: 13,
+      numero: "13",
+      estadoMapa: "disponible",
+      habilitadoVenta: false,
+      ventaId: null,
+    },
+  };
+
+  const detalle = crearDetalleLote(feature);
+  assert.equal(detalle.mostrarVender, false);
+  assert.equal(detalle.ventaNoAutorizada, true);
+  assert.equal(crearRutaVentaDesdeMapa(feature), null);
+  assert.equal(resolverLoteVentaDesdeMapa(
+    { type: "FeatureCollection", features: [feature] },
+    13,
+  ).lote, null);
+});
+
 test("rechaza un numero de lote vacio aunque el loteId sea valido", () => {
   const resultado = resolverLoteVentaDesdeMapa(
     {
@@ -228,6 +266,7 @@ test("rechaza un numero de lote vacio aunque el loteId sea valido", () => {
             loteId: 13,
             numero: "   ",
             estadoMapa: "disponible",
+            habilitadoVenta: true,
             ventaId: null,
           },
         },

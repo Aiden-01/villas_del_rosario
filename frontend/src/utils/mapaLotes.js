@@ -16,6 +16,7 @@ export function obtenerPaddingAjusteMapa(anchoMapa) {
 
 export const ESTADOS_MAPA = Object.freeze({
   disponible: Object.freeze({ etiqueta: "Disponible", color: "#22c55e" }),
+  no_autorizado: Object.freeze({ etiqueta: "No autorizado", color: "#64748b" }),
   vendido: Object.freeze({ etiqueta: "Vendido", color: "#3b82f6" }),
   mora: Object.freeze({ etiqueta: "Mora", color: "#ef4444" }),
   pagado: Object.freeze({ etiqueta: "Pagado", color: "#8b5cf6" }),
@@ -85,7 +86,9 @@ export function errorInvalidaPreseleccionLoteMapa(error, loteIdPreseleccionado) 
 
 function esLoteDisponibleParaVenta(properties, loteId) {
   return (
+    Boolean(loteId) &&
     parsearLoteIdMapa(properties?.loteId) === loteId &&
+    properties?.habilitadoVenta === true &&
     properties?.estadoMapa === "disponible" &&
     properties?.ventaId == null &&
     properties?.conflictoIntegridad !== true
@@ -159,7 +162,13 @@ export function crearDetalleLote(feature) {
     ...properties,
     properties,
     etiqueta: properties.numero == null ? "Lote" : `Lote ${properties.numero}`,
-    mostrarVender: properties.estadoMapa === "disponible",
+    mostrarVender: esLoteDisponibleParaVenta(
+      properties,
+      parsearLoteIdMapa(properties.loteId),
+    ),
+    ventaNoAutorizada:
+      properties.estadoMapa === "no_autorizado" ||
+      (properties.estadoMapa === "disponible" && properties.habilitadoVenta !== true),
     cliente: properties.cliente,
     resumenFinanciero,
     fraccion: resumenFinanciero?.fraccion ?? null,

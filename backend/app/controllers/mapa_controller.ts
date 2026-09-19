@@ -15,10 +15,11 @@ type FilaGeometria = {
   numero: string
   medida: string | null
   area: number | string | null
+  habilitadoVenta: boolean
   geometry: GeoJsonPolygon
 }
 
-type EstadoMapa = 'disponible' | 'vendido' | 'pagado' | 'mora' | 'conflicto'
+type EstadoMapa = 'disponible' | 'no_autorizado' | 'vendido' | 'pagado' | 'mora' | 'conflicto'
 
 type VentaConResumen = {
   venta: Prestamo
@@ -40,6 +41,7 @@ export default class MapaController {
           lg.codigo,
           l.numero,
           l.medida,
+          l.habilitado_venta AS "habilitadoVenta",
           lg.area_fuente AS area,
           ST_AsGeoJSON(lg.geom)::json AS geometry
         FROM lote_geometrias lg
@@ -95,11 +97,14 @@ export default class MapaController {
             numero: geometria.numero,
             medida: geometria.medida,
             area: geometria.area === null ? null : Number(geometria.area),
+            habilitadoVenta: geometria.habilitadoVenta,
             estadoMapa: conflictoIntegridad
               ? ('conflicto' as const)
               : asociacion
                 ? estadoMapaVenta(asociacion.resumenFinanciero)
-                : ('disponible' as const),
+                : geometria.habilitadoVenta
+                  ? ('disponible' as const)
+                  : ('no_autorizado' as const),
             ventaId: asociacion?.venta.id ?? null,
             cliente: asociacion
               ? {

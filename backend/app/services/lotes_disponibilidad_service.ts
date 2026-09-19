@@ -3,7 +3,7 @@ type VentaConLotes = {
   predios?: Array<{ loteId: number | null }>
 }
 
-export type EstadoDisponibilidadLote = 'disponible' | 'ocupado' | 'conflicto'
+export type EstadoDisponibilidadLote = 'disponible' | 'no_autorizado' | 'ocupado' | 'conflicto'
 
 export function loteIdsAsociadosVenta(venta: VentaConLotes) {
   if (venta.predios?.length) {
@@ -27,8 +27,11 @@ export function agruparVentasActivasPorLote<T extends VentaConLotes>(ventas: T[]
   return ventasPorLote
 }
 
-export function estadoDisponibilidadLote(cantidadVentasActivas: number): EstadoDisponibilidadLote {
+export function estadoDisponibilidadLote(
+  cantidadVentasActivas: number,
+  habilitadoVenta: boolean
+): EstadoDisponibilidadLote {
   if (cantidadVentasActivas > 1) return 'conflicto'
   if (cantidadVentasActivas === 1) return 'ocupado'
-  return 'disponible'
+  return habilitadoVenta ? 'disponible' : 'no_autorizado'
 }

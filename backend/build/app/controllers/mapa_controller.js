@@ -18,6 +18,7 @@ export default class MapaController {
           lg.codigo,
           l.numero,
           l.medida,
+          l.habilitado_venta AS "habilitadoVenta",
           lg.area_fuente AS area,
           ST_AsGeoJSON(lg.geom)::json AS geometry
         FROM lote_geometrias lg
@@ -66,11 +67,14 @@ export default class MapaController {
                         numero: geometria.numero,
                         medida: geometria.medida,
                         area: geometria.area === null ? null : Number(geometria.area),
+                        habilitadoVenta: geometria.habilitadoVenta,
                         estadoMapa: conflictoIntegridad
                             ? 'conflicto'
                             : asociacion
                                 ? estadoMapaVenta(asociacion.resumenFinanciero)
-                                : 'disponible',
+                                : geometria.habilitadoVenta
+                                    ? 'disponible'
+                                    : 'no_autorizado',
                         ventaId: asociacion?.venta.id ?? null,
                         cliente: asociacion
                             ? {

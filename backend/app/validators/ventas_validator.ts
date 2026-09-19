@@ -2,13 +2,14 @@ import vine from '@vinejs/vine'
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/
 const ventaPredioValidator = vine.object({
+  loteId: vine.number().positive().withoutDecimals(),
   numeroLote: vine.string().trim().minLength(1).maxLength(50),
   medidaLote: vine.string().trim().maxLength(100).optional(),
   areaLote: vine.string().trim().maxLength(100).optional(),
   precio: vine.number().positive().optional(),
 })
 const ventaPredioCreateValidator = vine.object({
-  loteId: vine.number().positive().withoutDecimals().optional(),
+  loteId: vine.number().positive().withoutDecimals(),
   numeroLote: vine.string().trim().minLength(1).maxLength(50),
   medidaLote: vine.string().trim().maxLength(100).optional(),
   areaLote: vine.string().trim().maxLength(100).optional(),

@@ -22,6 +22,9 @@ export default class Lote extends BaseModel {
   @column()
   declare estado: string
 
+  @column()
+  declare habilitadoVenta: boolean
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

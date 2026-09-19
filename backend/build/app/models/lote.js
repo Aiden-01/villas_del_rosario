@@ -35,6 +35,10 @@ __decorate([
     __metadata("design:type", String)
 ], Lote.prototype, "estado", void 0);
 __decorate([
+    column(),
+    __metadata("design:type", Boolean)
+], Lote.prototype, "habilitadoVenta", void 0);
+__decorate([
     column.dateTime({ autoCreate: true }),
     __metadata("design:type", DateTime)
 ], Lote.prototype, "createdAt", void 0);

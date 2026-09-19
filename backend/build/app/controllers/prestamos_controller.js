@@ -32,29 +32,12 @@ export default class PrestamosController {
     fechaDesdeIso(fecha) {
         return fecha ? DateTime.fromISO(fecha, { zone: 'America/Guatemala' }) : null;
     }
-    async resolverLote(data) {
-        const numero = data.numeroLote?.trim();
-        if (!numero)
-            return null;
-        const lote = await Lote.firstOrCreate({ numero }, {
-            numero,
-            medida: data.medidaLote?.trim() || null,
-            area: data.areaLote?.trim() || null,
-            estado: 'disponible',
-        });
-        lote.merge({
-            medida: data.medidaLote?.trim() || lote.medida || null,
-            area: data.areaLote?.trim() || lote.area || null,
-            estado: 'vendido',
-        });
-        await lote.save();
-        return lote;
-    }
     normalizarPredios(data) {
         const predios = data.predios?.length
             ? data.predios
             : [
                 {
+                    loteId: data.loteId,
                     numeroLote: data.numeroLote,
                     medidaLote: data.medidaLote,
                     areaLote: data.areaLote,
@@ -62,6 +45,7 @@ export default class PrestamosController {
             ];
         return predios
             .map((predio) => ({
+            loteId: predio.loteId,
             numeroLote: predio.numeroLote?.trim() || '',
             medidaLote: predio.medidaLote?.trim() || undefined,
             areaLote: predio.areaLote?.trim() || undefined,
@@ -69,79 +53,48 @@ export default class PrestamosController {
         }))
             .filter((predio) => predio.numeroLote);
     }
-    async resolverLotesPredios(predios) {
-        return Promise.all(predios.map(async (predio) => ({
-            predio,
-            lote: await this.resolverLote(predio),
-        })));
-    }
-    async crearPrediosVenta(ventaId, lotesPredios) {
-        for (const item of lotesPredios) {
-            if (!item.lote)
-                continue;
-            await VentaPredio.create({
-                ventaId,
-                loteId: item.lote.id,
-                precio: item.predio.precio ?? null,
-            });
+    async resolverLotesPrediosConLoteId(predios, trx, opciones = {}) {
+        const predioSinLoteId = predios.find((predio) => !predio.loteId);
+        if (predioSinLoteId) {
+            throw new LoteVentaError('El lote debe estar registrado y autorizado antes de venderse', 409);
         }
-    }
-    async resolverLotesPrediosConLoteId(predios, trx) {
-        const ids = [...new Set(predios.flatMap((predio) => (predio.loteId ? [predio.loteId] : [])))];
-        const numeros = [...new Set(predios.map((predio) => predio.numeroLote))];
+        const ids = [...new Set(predios.map((predio) => predio.loteId))];
         const lotesBloqueados = await Lote.query({ client: trx })
-            .where((query) => {
-            if (ids.length > 0)
-                query.whereIn('id', ids);
-            if (numeros.length > 0) {
-                if (ids.length > 0)
-                    query.orWhereIn('numero', numeros);
-                else
-                    query.whereIn('numero', numeros);
-            }
-        })
+            .whereIn('id', ids)
             .orderBy('id', 'asc')
             .forUpdate();
         const lotesPorId = new Map(lotesBloqueados.map((lote) => [lote.id, lote]));
-        const lotesPorNumero = new Map(lotesBloqueados.map((lote) => [lote.numero, lote]));
         const resultado = [];
         for (const predio of predios) {
-            let lote = predio.loteId
-                ? lotesPorId.get(predio.loteId)
-                : lotesPorNumero.get(predio.numeroLote);
-            if (predio.loteId && !lote) {
+            const lote = lotesPorId.get(predio.loteId);
+            if (!lote) {
                 throw new LoteVentaError('El lote seleccionado ya no existe', 404, predio.loteId);
             }
-            if (predio.loteId && lote?.numero !== predio.numeroLote) {
+            if (predio.numeroLote && lote.numero !== predio.numeroLote) {
                 throw new LoteVentaError('El lote seleccionado no coincide con el numero recibido', 400, predio.loteId);
             }
-            if (!lote) {
-                lote = await Lote.create({
-                    numero: predio.numeroLote,
-                    medida: predio.medidaLote?.trim() || null,
-                    area: predio.areaLote?.trim() || null,
-                    estado: 'vendido',
-                }, { client: trx });
-                lotesPorId.set(lote.id, lote);
-                lotesPorNumero.set(lote.numero, lote);
+            const perteneceVentaActual = opciones.loteIdsActuales?.has(lote.id) ?? false;
+            if (!perteneceVentaActual && !lote.habilitadoVenta) {
+                throw new LoteVentaError('El lote no esta autorizado para venta', 409, lote.id);
             }
-            else {
-                const ventaActiva = await Prestamo.query({ client: trx })
-                    .where('estado', '!=', 'cancelado')
-                    .where((query) => {
-                    query
-                        .whereHas('predios', (ventaPredios) => ventaPredios.where('lote_id', lote.id))
-                        .orWhere((legacy) => {
-                        legacy.where('lote_id', lote.id).whereDoesntHave('predios', () => { });
-                    });
-                })
-                    .first();
-                if (ventaActiva) {
-                    throw new LoteVentaError('El lote seleccionado ya no esta disponible', 409, lote.id);
-                }
-                lote.merge({ estado: 'vendido' });
-                await lote.useTransaction(trx).save();
+            const consultaVentaActiva = Prestamo.query({ client: trx })
+                .where('estado', '!=', 'cancelado')
+                .where((query) => {
+                query
+                    .whereHas('predios', (ventaPredios) => ventaPredios.where('lote_id', lote.id))
+                    .orWhere((legacy) => {
+                    legacy.where('lote_id', lote.id).whereDoesntHave('predios', () => { });
+                });
+            });
+            if (opciones.ventaIdActual) {
+                consultaVentaActiva.whereNot('id', opciones.ventaIdActual);
             }
+            const ventaActiva = await consultaVentaActiva.first();
+            if (ventaActiva) {
+                throw new LoteVentaError('El lote seleccionado ya no esta disponible', 409, lote.id);
+            }
+            lote.merge({ estado: 'vendido' });
+            await lote.useTransaction(trx).save();
             resultado.push({ predio, lote });
         }
         const idsResueltos = resultado.map(({ lote }) => lote.id);
@@ -246,15 +199,11 @@ export default class PrestamosController {
             if (!user)
                 return response.forbidden({ message: 'No autorizado' });
             const data = await createVentaValidator.validate(cleanEmptyStrings(request.all(), ['medidaLote', 'areaLote', 'fechaCobro', 'enganche']));
-            const predios = this.normalizarPredios(data);
-            if (predios.length === 0) {
+            const prediosConLoteId = this.normalizarPredios(data);
+            if (prediosConLoteId.length === 0) {
                 return response.badRequest({ message: 'Debe agregar al menos un predio a la venta' });
             }
             const enganche = Number(data.enganche || 0);
-            const prediosConLoteId = predios.map((predio, index) => ({
-                ...predio,
-                loteId: data.predios?.[index]?.loteId ?? (index === 0 ? data.loteId : undefined),
-            }));
             if (enganche < 0) {
                 return response.badRequest({ message: 'El enganche no puede ser negativo' });
             }
@@ -306,12 +255,12 @@ export default class PrestamosController {
                 tipo: 'crear',
                 entidad: 'prestamo',
                 entidadId: prestamo.id,
-                descripcion: `Creo venta de ${predios.length} predio(s) (${prestamo.numeroLote || 'N/A'}) por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}${enganche > 0 ? ` con enganche de Q${enganche}` : ''}`,
+                descripcion: `Creo venta de ${prediosConLoteId.length} predio(s) (${prestamo.numeroLote || 'N/A'}) por Q${prestamo.monto} para ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos}${enganche > 0 ? ` con enganche de Q${enganche}` : ''}`,
                 detalle: {
                     monto: prestamo.monto,
                     cuotas: prestamo.cuotas,
                     numeroLote: prestamo.numeroLote,
-                    predios,
+                    predios: prediosConLoteId,
                     enganche,
                 },
             });
@@ -373,51 +322,103 @@ export default class PrestamosController {
                     message: 'No se pueden modificar las condiciones financieras (monto o cuotas) de una venta con movimientos financieros registrados. Requiere un proceso de reestructuracion financiera.',
                 });
             }
-            if (data.clienteId !== undefined && Number(data.clienteId) !== Number(prestamo.clienteId)) {
+            const cambiaCliente = data.clienteId !== undefined && Number(data.clienteId) !== Number(prestamo.clienteId);
+            const clienteAnteriorId = prestamo.clienteId;
+            const intentaCambiarLoteSinPredios = data.predios === undefined &&
+                (data.numeroLote !== undefined ||
+                    data.medidaLote !== undefined ||
+                    data.areaLote !== undefined);
+            if (intentaCambiarLoteSinPredios) {
+                return response.badRequest({
+                    message: 'Para cambiar predios debe seleccionar lotes registrados y enviar su loteId',
+                });
+            }
+            const predios = data.predios ? this.normalizarPredios(data) : [];
+            if (data.predios && predios.length === 0) {
+                return response.badRequest({ message: 'Debe agregar al menos un predio a la venta' });
+            }
+            const prestamoActualizado = await db.transaction(async (trx) => {
+                const venta = await Prestamo.query({ client: trx })
+                    .where('id', prestamo.id)
+                    .forUpdate()
+                    .firstOrFail();
+                venta.useTransaction(trx);
+                const reactivandoVenta = venta.estado === 'cancelado' && data.estado !== undefined && data.estado !== 'cancelado';
+                let loteId = venta.loteId;
+                let loteIdsActuales = new Set();
+                if (data.predios || reactivandoVenta) {
+                    await venta.load('predios');
+                    loteIdsActuales = new Set(venta.predios.length > 0
+                        ? venta.predios.flatMap((predio) => (predio.loteId ? [predio.loteId] : []))
+                        : venta.loteId
+                            ? [venta.loteId]
+                            : []);
+                }
+                if (data.predios) {
+                    const lotesPredios = await this.resolverLotesPrediosConLoteId(predios, trx, {
+                        ventaIdActual: venta.id,
+                        loteIdsActuales: reactivandoVenta ? undefined : loteIdsActuales,
+                    });
+                    loteId = lotesPredios[0]?.lote.id ?? null;
+                    await VentaPredio.query({ client: trx }).where('venta_id', venta.id).delete();
+                    for (const item of lotesPredios) {
+                        await VentaPredio.create({
+                            ventaId: venta.id,
+                            loteId: item.lote.id,
+                            precio: item.predio.precio ?? null,
+                        }, { client: trx });
+                    }
+                }
+                else if (reactivandoVenta) {
+                    if (loteIdsActuales.size === 0 ||
+                        (venta.predios.length > 0 && venta.predios.some((predio) => !predio.loteId))) {
+                        throw new LoteVentaError('La venta no tiene todos sus lotes registrados y autorizados para reactivarse', 409);
+                    }
+                    await this.resolverLotesPrediosConLoteId([...loteIdsActuales].map((id) => ({ loteId: id })), trx, { ventaIdActual: venta.id });
+                }
+                venta.merge({
+                    clienteId: data.clienteId ?? venta.clienteId,
+                    monto: data.monto ?? venta.monto,
+                    cuotas: data.cuotas ?? venta.cuotas,
+                    fechaInicio: this.fechaDesdeIso(data.fechaInicio) ?? venta.fechaInicio,
+                    fechaFin: this.fechaDesdeIso(data.fechaFin) ?? venta.fechaFin,
+                    frecuenciaPago: data.frecuenciaPago ?? venta.frecuenciaPago,
+                    fechaCobro: data.fechaCobro === undefined ? venta.fechaCobro : this.fechaDesdeIso(data.fechaCobro),
+                    estado: data.estado ?? venta.estado,
+                    loteId,
+                });
+                await venta.save();
+                return venta;
+            });
+            if (cambiaCliente) {
                 await registrarActividad({
                     usuarioId: user.id,
                     tipo: 'actualizar',
                     entidad: 'prestamo',
-                    entidadId: prestamo.id,
-                    descripcion: `Transfirio venta #${prestamo.id} del cliente anterior #${prestamo.clienteId} al nuevo cliente #${data.clienteId}`,
+                    entidadId: prestamoActualizado.id,
+                    descripcion: `Transfirio venta #${prestamoActualizado.id} del cliente anterior #${clienteAnteriorId} al nuevo cliente #${data.clienteId}`,
                     detalle: {
-                        clienteAnteriorId: prestamo.clienteId,
+                        clienteAnteriorId,
                         clienteNuevoId: data.clienteId,
-                        ventaId: prestamo.id,
+                        ventaId: prestamoActualizado.id,
                         transferidoPor: user.id,
                     },
                 });
             }
-            const predios = data.predios ? this.normalizarPredios(data) : [];
-            const lotesPredios = data.predios ? await this.resolverLotesPredios(predios) : [];
-            const lote = data.predios ? lotesPredios[0]?.lote || null : await this.resolverLote(data);
-            prestamo.merge({
-                clienteId: data.clienteId ?? prestamo.clienteId,
-                monto: data.monto ?? prestamo.monto,
-                cuotas: data.cuotas ?? prestamo.cuotas,
-                fechaInicio: this.fechaDesdeIso(data.fechaInicio) ?? prestamo.fechaInicio,
-                fechaFin: this.fechaDesdeIso(data.fechaFin) ?? prestamo.fechaFin,
-                frecuenciaPago: data.frecuenciaPago ?? prestamo.frecuenciaPago,
-                fechaCobro: data.fechaCobro === undefined ? prestamo.fechaCobro : this.fechaDesdeIso(data.fechaCobro),
-                estado: data.estado ?? prestamo.estado,
-                loteId: lote?.id ?? prestamo.loteId,
-            });
-            await prestamo.save();
-            if (data.predios) {
-                await VentaPredio.query().where('venta_id', prestamo.id).delete();
-                await this.crearPrediosVenta(prestamo.id, lotesPredios);
-            }
-            await prestamo.load('cliente');
-            await prestamo.load('lote');
-            await prestamo.load('predios', (prediosQuery) => prediosQuery.preload('lote'));
+            await prestamoActualizado.load('cliente');
+            await prestamoActualizado.load('lote');
+            await prestamoActualizado.load('predios', (prediosQuery) => prediosQuery.preload('lote'));
             await registrarActividad({
                 usuarioId: user.id,
                 tipo: 'actualizar',
                 entidad: 'prestamo',
-                entidadId: prestamo.id,
-                descripcion: `Actualizo venta del lote ${prestamo.numeroLote || 'N/A'} de ${prestamo.cliente.nombres} ${prestamo.cliente.apellidos} - estado: ${prestamo.estado}`,
+                entidadId: prestamoActualizado.id,
+                descripcion: `Actualizo venta del lote ${prestamoActualizado.numeroLote || 'N/A'} de ${prestamoActualizado.cliente.nombres} ${prestamoActualizado.cliente.apellidos} - estado: ${prestamoActualizado.estado}`,
             });
-            return response.ok({ message: 'Venta actualizada exitosamente', prestamo });
+            return response.ok({
+                message: 'Venta actualizada exitosamente',
+                prestamo: prestamoActualizado,
+            });
         }
         catch (error) {
             if (isValidationError(error)) {
@@ -425,6 +426,14 @@ export default class PrestamosController {
                     message: 'Datos invalidos para actualizar venta',
                     errors: validationMessages(error),
                 });
+            }
+            if (error instanceof LoteVentaError) {
+                const payload = { message: error.message, loteId: error.loteId };
+                if (error.status === 404)
+                    return response.notFound(payload);
+                if (error.status === 409)
+                    return response.conflict(payload);
+                return response.badRequest(payload);
             }
             console.error(error);
             return response.internalServerError({ message: 'Error al actualizar venta' });

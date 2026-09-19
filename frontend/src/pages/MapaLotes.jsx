@@ -30,7 +30,14 @@ import {
   obtenerPresentacionEtiqueta,
 } from "../utils/mapaTextos";
 
-const ORDEN_ESTADOS = ["disponible", "vendido", "pagado", "mora", "conflicto"];
+const ORDEN_ESTADOS = [
+  "disponible",
+  "no_autorizado",
+  "vendido",
+  "pagado",
+  "mora",
+  "conflicto",
+];
 const ESTADO_DESCONOCIDO = { etiqueta: "Sin estado", color: "#64748b" };
 
 function presentacionEstado(estado) {
@@ -568,6 +575,15 @@ export default function MapaLotes() {
                   className="mt-4 min-h-11 w-full rounded-lg bg-[var(--primary)] px-4 py-2.5 font-bold text-white transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   Vender
+                </button>
+              )}
+              {detalle.ventaNoAutorizada && (
+                <button
+                  type="button"
+                  disabled
+                  className="mt-4 min-h-11 w-full cursor-not-allowed rounded-lg bg-slate-500 px-4 py-2.5 font-bold text-white opacity-70"
+                >
+                  Vender · No autorizado
                 </button>
               )}
             </div>

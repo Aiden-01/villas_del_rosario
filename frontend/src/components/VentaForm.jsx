@@ -72,7 +72,6 @@ function SelectorLotePredio({
   index,
   inputStyle,
   onBuscar,
-  onModoManual,
   onSeleccionar,
   predio,
   predios,
@@ -120,7 +119,9 @@ function SelectorLotePredio({
         {opciones.map((lote) => (
           <option key={lote.loteId} value={lote.loteId} disabled={!lote.disponible}>
             Lote {lote.numeroLote} · Área {lote.areaLote || "sin dato"} ·{" "}
-            {lote.estadoDisponibilidad}
+            {lote.estadoDisponibilidad === "no_autorizado"
+              ? "No autorizado"
+              : lote.estadoDisponibilidad}
           </option>
         ))}
       </select>
@@ -150,20 +151,13 @@ function SelectorLotePredio({
           </span>
           {!seleccionado.disponible && (
             <span className="font-semibold text-red-700 dark:text-red-300 sm:col-span-3">
-              Este lote ya no está disponible.
+              {seleccionado.estadoDisponibilidad === "no_autorizado"
+                ? "Este lote no está autorizado para venta."
+                : "Este lote ya no está disponible."}
             </span>
           )}
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={() => onModoManual(index, true)}
-        className="text-left text-xs font-semibold underline-offset-2 hover:underline"
-        style={{ color: "var(--secondary)" }}
-      >
-        El lote todavía no está registrado
-      </button>
     </div>
   );
 }
@@ -214,7 +208,7 @@ export default function VentaForm({ mode, ventaId }) {
   const [errorLoteMapa, setErrorLoteMapa] = useState("");
   const [guardandoVenta, setGuardandoVenta] = useState(false);
   const [lotesComerciales, setLotesComerciales] = useState([]);
-  const [cargandoLotes, setCargandoLotes] = useState(esCreacionManual);
+  const [cargandoLotes, setCargandoLotes] = useState(!isEdit);
   const [errorLotes, setErrorLotes] = useState("");
   const guardandoVentaRef = useRef(false);
 
@@ -270,6 +264,7 @@ export default function VentaForm({ mode, ventaId }) {
       const predios =
         venta.predios?.length > 0
           ? venta.predios.map((predio) => ({
+              loteId: predio.loteId || undefined,
               numeroLote: predio.numeroLote || "",
               medidaLote: predio.medidaLote || "",
               areaLote: predio.areaLote || "",
@@ -277,6 +272,7 @@ export default function VentaForm({ mode, ventaId }) {
             }))
           : [
               {
+                loteId: venta.loteId || undefined,
                 numeroLote: venta.numeroLote || "",
                 medidaLote: venta.medidaLote || "",
                 areaLote: venta.areaLote || "",
@@ -358,7 +354,7 @@ export default function VentaForm({ mode, ventaId }) {
   }, [isEdit, obtenerClientes, obtenerVenta, ventaId]);
 
   useEffect(() => {
-    if (!esCreacionManual) {
+    if (isEdit) {
       setCargandoLotes(false);
       return undefined;
     }
@@ -382,7 +378,7 @@ export default function VentaForm({ mode, ventaId }) {
     return () => {
       activo = false;
     };
-  }, [esCreacionManual, obtenerLotesComerciales]);
+  }, [isEdit, obtenerLotesComerciales]);
 
   useEffect(() => {
     setLotePreseleccionado(null);
@@ -423,6 +419,9 @@ export default function VentaForm({ mode, ventaId }) {
     if (isEdit) {
       const predios = formData.predios
         .map((predio) => ({
+          ...(parsearLoteIdMapa(predio.loteId)
+            ? { loteId: parsearLoteIdMapa(predio.loteId) }
+            : {}),
           numeroLote: predio.numeroLote.trim(),
           medidaLote: predio.medidaLote.trim() || undefined,
           areaLote: predio.areaLote.trim() || undefined,
@@ -473,6 +472,23 @@ export default function VentaForm({ mode, ventaId }) {
         setLotePreseleccionado(loteActual);
         setErrorLoteMapa("");
         setCargandoLoteMapa(false);
+
+        if (datosEnvio.predios.length > 1) {
+          setCargandoLotes(true);
+          const catalogoActual = await obtenerLotesComerciales();
+          setLotesComerciales(catalogoActual);
+          const validacion = resolverPrediosSeleccionados(catalogoActual, datosEnvio.predios);
+          if (!validacion.predios) {
+            const error = new Error(validacion.error);
+            error.status = 409;
+            error.data = { loteId: validacion.loteId };
+            error.esErrorLotes = true;
+            throw error;
+          }
+          datosEnvio = aplicarPrediosFormulario(datosEnvio, validacion.predios);
+          setErrorLotes("");
+          setCargandoLotes(false);
+        }
       } else {
         setCargandoLotes(true);
         const catalogoActual = await obtenerLotesComerciales();
@@ -538,7 +554,7 @@ export default function VentaForm({ mode, ventaId }) {
         setLotePreseleccionado(null);
         setErrorLoteMapa(mensaje);
       }
-      if (esCreacionManual && error?.esErrorLotes) {
+      if (requiereCatalogoLotes && error?.esErrorLotes) {
         setErrorLotes(mensaje);
         if ([400, 404, 409].includes(Number(error?.status))) {
           try {
@@ -626,12 +642,6 @@ export default function VentaForm({ mode, ventaId }) {
     setErrorLotes("");
   };
 
-  const cambiarModoLote = (index, modoManual) => {
-    const predios = cambiarModoPredio(formData.predios, index, modoManual);
-    setFormData((prev) => aplicarPrediosFormulario(prev, predios));
-    setErrorLotes("");
-  };
-
   const quitarPredio = (index) => {
     setFormData((prev) => {
       const predios = prev.predios.filter((_, predioIndex) => predioIndex !== index);
@@ -655,12 +665,10 @@ export default function VentaForm({ mode, ventaId }) {
   const saldoDespuesEnganche = Math.max(precio - enganche, 0);
   const cuotaMensual = cuotas > 0 ? saldoDespuesEnganche / cuotas : 0;
   const requiereCatalogoLotes =
-    esCreacionManual && formData.predios.some((predio) => !predio.modoManual);
+    esCreacionManual || (desdeMapa && formData.predios.length > 1);
   const selectorLoteIncompleto =
     requiereCatalogoLotes &&
-    formData.predios.some(
-      (predio) => !predio.modoManual && !parsearLoteIdMapa(predio.loteId),
-    );
+    formData.predios.some((predio) => !parsearLoteIdMapa(predio.loteId));
   const formularioBloqueadoPorLote =
     guardandoVenta ||
     (desdeMapa && (cargandoLoteMapa || Boolean(errorLoteMapa) || !lotePreseleccionado)) ||
@@ -817,13 +825,13 @@ export default function VentaForm({ mode, ventaId }) {
             </button>
           </div>
 
-          {esCreacionManual && cargandoLotes && (
+          {requiereCatalogoLotes && cargandoLotes && (
             <p className="flex items-center gap-2 rounded-lg border border-[var(--card-border)] px-3 py-2 text-xs">
               <LoaderCircle size={15} className="animate-spin" />
               Cargando lotes comerciales...
             </p>
           )}
-          {esCreacionManual && errorLotes && (
+          {requiereCatalogoLotes && errorLotes && (
             <div
               role="alert"
               className="flex flex-col gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between"
@@ -838,13 +846,13 @@ export default function VentaForm({ mode, ventaId }) {
               </button>
             </div>
           )}
-          {esCreacionManual &&
+          {requiereCatalogoLotes &&
             !cargandoLotes &&
             !errorLotes &&
             !lotesComerciales.some((lote) => lote.disponible) && (
               <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-200">
-                No hay lotes disponibles. Puedes usar el modo de lote no registrado únicamente si
-                corresponde a un alta legítima.
+                No hay lotes autorizados y disponibles. Solicita el registro y la autorización
+                comercial antes de crear la venta.
               </p>
             )}
 
@@ -874,28 +882,19 @@ export default function VentaForm({ mode, ventaId }) {
                   Predio principal vinculado al mapa
                 </p>
               )}
-              {esCreacionManual && !predio.modoManual ? (
+              {!isEdit && !esPredioPreseleccionado(predio, index) ? (
                 <SelectorLotePredio
                   catalogo={lotesComerciales}
                   cargando={cargandoLotes}
                   index={index}
                   inputStyle={inputStyle}
                   onBuscar={actualizarPredio}
-                  onModoManual={cambiarModoLote}
                   onSeleccionar={seleccionarLote}
                   predio={predio}
                   predios={formData.predios}
                 />
               ) : (
                 <>
-                  {esCreacionManual && predio.modoManual && (
-                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-200">
-                      <p className="font-semibold">Lote no registrado</p>
-                      <p className="mt-1">
-                        Usa estos campos únicamente cuando el lote aún no exista en el catálogo.
-                      </p>
-                    </div>
-                  )}
                   <input
                     type="text"
                     placeholder="Numero de lote"
@@ -923,16 +922,6 @@ export default function VentaForm({ mode, ventaId }) {
                     className="w-full rounded p-2 read-only:cursor-not-allowed read-only:opacity-75"
                     style={inputStyle}
                   />
-                  {esCreacionManual && predio.modoManual && (
-                    <button
-                      type="button"
-                      onClick={() => cambiarModoLote(index, false)}
-                      className="text-left text-xs font-semibold underline-offset-2 hover:underline"
-                      style={{ color: "var(--secondary)" }}
-                    >
-                      Seleccionar un lote existente
-                    </button>
-                  )}
                 </>
               )}
               <input

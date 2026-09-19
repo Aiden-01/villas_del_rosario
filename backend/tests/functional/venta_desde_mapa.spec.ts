@@ -63,6 +63,7 @@ async function prepararEscenario() {
     medida: '12 x 24',
     area: '285.43',
     estado: 'disponible',
+    habilitadoVenta: true,
   })
 
   return { authorization: `Bearer ${token.token}`, user, token, cliente, lote }
@@ -163,6 +164,28 @@ function registrarPruebasVentaSegura() {
       assert.equal(lote.estado, 'vendido')
     })
 
+    test('rechaza un lote registrado sin autorizacion comercial', async ({ client, assert }) => {
+      const { authorization, cliente } = await prepararEscenario()
+      const loteNoAutorizado = await Lote.create({
+        numero: `NO-AUTORIZADO-${randomUUID().slice(0, 8)}`,
+        medida: '10 x 20',
+        area: '200',
+        estado: 'disponible',
+      })
+
+      const response = await client
+        .post('/api/ventas')
+        .header('authorization', authorization)
+        .json(datosVenta(cliente.id, loteNoAutorizado))
+
+      response.assertStatus(409)
+      response.assertBodyContains({ loteId: loteNoAutorizado.id })
+      await loteNoAutorizado.refresh()
+      assert.isFalse(loteNoAutorizado.habilitadoVenta)
+      assert.equal(loteNoAutorizado.estado, 'disponible')
+      assert.lengthOf(await VentaPredio.query().where('lote_id', loteNoAutorizado.id), 0)
+    })
+
     test('conserva el enganche sin convertirlo en cuota ni aplicacion FIFO', async ({
       client,
       assert,
@@ -216,6 +239,7 @@ function registrarPruebasVentaSegura() {
         medida: '15 x 25',
         area: '375',
         estado: 'disponible',
+        habilitadoVenta: true,
       })
       const datos = datosVenta(cliente.id, lote)
       datos.predios[0].precio = 60_000
@@ -251,47 +275,35 @@ function registrarPruebasVentaSegura() {
       assert.equal(segundo.area, '375')
     })
 
-    test('sin loteId conserva datos autoritativos y no permite revender un lote existente', async ({
-      client,
-      assert,
-    }) => {
+    test('rechaza un lote existente enviado sin loteId', async ({ client, assert }) => {
       const { authorization, cliente, lote } = await prepararEscenario()
       const datos = datosVenta(cliente.id, lote)
       delete (datos as Partial<DatosVentaMapa>).loteId
       delete datos.predios[0].loteId
+      const ventasAntes = await Prestamo.query().count('* as total')
 
-      const primera = await client
+      const response = await client
         .post('/api/ventas')
         .header('authorization', authorization)
         .json(datos)
 
-      primera.assertStatus(201)
+      response.assertStatus(400)
       await lote.refresh()
       assert.equal(lote.medida, '12 x 24')
       assert.equal(lote.area, '285.43')
-
-      const segunda = await client
-        .post('/api/ventas')
-        .header('authorization', authorization)
-        .json(datos)
-
-      segunda.assertStatus(409)
-      segunda.assertBodyContains({ loteId: lote.id })
-      assert.equal(
-        await VentaPredio.query()
-          .where('lote_id', lote.id)
-          .count('* as total')
-          .then((rows) => Number(rows[0].$extras.total)),
-        1
-      )
+      assert.lengthOf(await VentaPredio.query().where('lote_id', lote.id), 0)
+      const ventasDespues = await Prestamo.query().count('* as total')
+      assert.equal(Number(ventasDespues[0].$extras.total), Number(ventasAntes[0].$extras.total))
     })
 
-    test('conserva la venta normal multipredio y el enganche cuando no recibe loteId', async ({
+    test('rechaza lotes no registrados y no los crea automaticamente', async ({
       client,
       assert,
     }) => {
       const { authorization, cliente } = await prepararEscenario()
       const sufijo = randomUUID().slice(0, 8)
+      const numeros = [`NORMAL-A-${sufijo}`, `NORMAL-B-${sufijo}`]
+      const ventasAntes = await Prestamo.query().count('* as total')
       const response = await client
         .post('/api/ventas')
         .header('authorization', authorization)
@@ -323,63 +335,10 @@ function registrarPruebasVentaSegura() {
           enganche: 20_000,
         })
 
-      response.assertStatus(201)
-      response.assertBodyContains({ message: 'Venta creada exitosamente con enganche registrado' })
-      const ventaId = response.body().prestamo.id as number
-      const venta = await Prestamo.findOrFail(ventaId)
-      const predios = await VentaPredio.query().where('venta_id', ventaId).orderBy('id', 'asc')
-      const lotes = await Lote.query()
-        .whereIn('numero', [`NORMAL-A-${sufijo}`, `NORMAL-B-${sufijo}`])
-        .orderBy('numero', 'asc')
-      const pagos = await Pago.query().where('venta_id', ventaId)
-      const actividades = await Actividad.query()
-        .where('entidad', 'prestamo')
-        .where('entidad_id', ventaId)
-
-      assert.equal(venta.clienteId, cliente.id)
-      assert.equal(Number(venta.monto), 120_000)
-      assert.equal(venta.cuotas, 20)
-      assert.equal(venta.fechaInicio.toISODate(), '2026-01-01')
-      assert.equal(venta.fechaFin.toISODate(), '2027-09-01')
-      assert.equal(venta.fechaCobro?.toISODate(), '2026-02-01')
-      assert.equal(venta.frecuenciaPago, 'mensual')
-      assert.lengthOf(predios, 2)
-      assert.deepEqual(
-        predios.map((predio) => Number(predio.precio)),
-        [70_000, 50_000]
-      )
-      assert.lengthOf(lotes, 2)
-      assert.deepEqual(
-        lotes.map((loteCreado) => [loteCreado.numero, loteCreado.medida, loteCreado.area]),
-        [
-          [`NORMAL-A-${sufijo}`, '10 x 20', '200'],
-          [`NORMAL-B-${sufijo}`, '12 x 20', '240'],
-        ]
-      )
-      assert.lengthOf(pagos, 1)
-      assert.equal(pagos[0].tipoPago, 'enganche')
-      assert.equal(pagos[0].numeroCuota, 0)
-      assert.equal(Number(pagos[0].montoPagado), 20_000)
-      assert.equal(pagos[0].anulado, false)
-      assert.lengthOf(await PagoAplicacion.query().where('pago_id', pagos[0].id), 0)
-      assert.lengthOf(actividades, 1)
-
-      const detalle = await client
-        .get(`/api/ventas/${ventaId}`)
-        .header('authorization', authorization)
-      detalle.assertStatus(200)
-      detalle.assertBodyContains({
-        resumenFinanciero: {
-          enganche: 20_000,
-          montoFinanciado: 100_000,
-          totalPagado: 0,
-          saldoPendiente: 100_000,
-          cuotasPagadas: 0,
-          cuotasContractuales: 20,
-          fraccion: '0/20',
-          cuotaActual: 1,
-        },
-      })
+      response.assertStatus(400)
+      assert.lengthOf(await Lote.query().whereIn('numero', numeros), 0)
+      const ventasDespues = await Prestamo.query().count('* as total')
+      assert.equal(Number(ventasDespues[0].$extras.total), Number(ventasAntes[0].$extras.total))
     })
 
     test('rechaza si el lote cambia de disponible a ocupado antes del POST', async ({
@@ -498,6 +457,7 @@ function registrarPruebasVentaSegura() {
         medida: '10 x 20',
         area: '200',
         estado: 'vendido',
+        habilitadoVenta: true,
       })
       const ventaExistente = await crearVentaExistente(cliente.id, ocupado.id)
       await VentaPredio.create({ ventaId: ventaExistente.id, loteId: ocupado.id, precio: null })
@@ -527,7 +487,42 @@ function registrarPruebasVentaSegura() {
       )
     })
 
-    test('rechaza el mismo lote mezclando loteId y numero', async ({ client, assert }) => {
+    test('rechaza y revierte un multipredio si un lote no esta autorizado', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, cliente, lote } = await prepararEscenario()
+      const noAutorizado = await Lote.create({
+        numero: `MULTI-NO-AUTORIZADO-${randomUUID().slice(0, 8)}`,
+        medida: '10 x 20',
+        area: '200',
+        estado: 'disponible',
+      })
+      const datos = datosVenta(cliente.id, lote)
+      datos.predios.push({
+        loteId: noAutorizado.id,
+        numeroLote: noAutorizado.numero,
+        medidaLote: noAutorizado.medida || '',
+        areaLote: noAutorizado.area || '',
+      })
+
+      const response = await client
+        .post('/api/ventas')
+        .header('authorization', authorization)
+        .json(datos)
+
+      response.assertStatus(409)
+      response.assertBodyContains({ loteId: noAutorizado.id })
+      await lote.refresh()
+      assert.equal(lote.estado, 'disponible')
+      assert.isTrue(lote.habilitadoVenta)
+      assert.lengthOf(await VentaPredio.query().whereIn('lote_id', [lote.id, noAutorizado.id]), 0)
+    })
+
+    test('rechaza cualquier predio sin loteId aunque su numero exista', async ({
+      client,
+      assert,
+    }) => {
       const { authorization, cliente, lote } = await prepararEscenario()
       const datos = datosVenta(cliente.id, lote)
       datos.predios.push({
@@ -542,7 +537,7 @@ function registrarPruebasVentaSegura() {
         .json(datos)
 
       response.assertStatus(400)
-      response.assertBodyContains({ loteId: lote.id })
+      response.assertBodyContains({ message: 'Datos invalidos para crear venta' })
       await lote.refresh()
       assert.equal(lote.estado, 'disponible')
       assert.equal(
@@ -625,6 +620,242 @@ function registrarPruebasVentaSegura() {
         0
       )
     })
+
+    test('PUT conserva un lote ya asociado aunque su autorizacion este desactivada', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, cliente, lote } = await prepararEscenario()
+      const venta = await crearVentaExistente(cliente.id, lote.id)
+      await VentaPredio.create({ ventaId: venta.id, loteId: lote.id, precio: 100_000 })
+      lote.habilitadoVenta = false
+      await lote.save()
+
+      const response = await client
+        .put(`/api/ventas/${venta.id}`)
+        .header('authorization', authorization)
+        .json({
+          predios: [
+            {
+              loteId: lote.id,
+              numeroLote: lote.numero,
+              medidaLote: lote.medida,
+              areaLote: lote.area,
+              precio: 100_000,
+            },
+          ],
+        })
+
+      response.assertStatus(200)
+      const asociaciones = await VentaPredio.query().where('venta_id', venta.id)
+      assert.lengthOf(asociaciones, 1)
+      assert.equal(asociaciones[0].loteId, lote.id)
+    })
+
+    test('PUT no reactiva una venta cancelada con un lote no autorizado aunque envie predios', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, user, cliente, lote } = await prepararEscenario()
+      user.role = 'admin'
+      await user.save()
+      const venta = await crearVentaExistente(cliente.id, lote.id, 'cancelado')
+      await VentaPredio.create({ ventaId: venta.id, loteId: lote.id, precio: 100_000 })
+      lote.habilitadoVenta = false
+      await lote.save()
+
+      const response = await client
+        .put(`/api/ventas/${venta.id}`)
+        .header('authorization', authorization)
+        .json({
+          estado: 'activo',
+          predios: [
+            {
+              loteId: lote.id,
+              numeroLote: lote.numero,
+              medidaLote: lote.medida,
+              areaLote: lote.area,
+              precio: 100_000,
+            },
+          ],
+        })
+
+      response.assertStatus(409)
+      response.assertBodyContains({ loteId: lote.id })
+      await venta.refresh()
+      assert.equal(venta.estado, 'cancelado')
+      assert.lengthOf(await VentaPredio.query().where('venta_id', venta.id), 1)
+    })
+
+    test('PUT no reactiva una venta cancelada si otro contrato ocupa el lote', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, user, cliente, lote } = await prepararEscenario()
+      user.role = 'admin'
+      await user.save()
+      const cancelada = await crearVentaExistente(cliente.id, lote.id, 'cancelado')
+      const activa = await crearVentaExistente(cliente.id, lote.id)
+      await VentaPredio.createMany([
+        { ventaId: cancelada.id, loteId: lote.id, precio: 100_000 },
+        { ventaId: activa.id, loteId: lote.id, precio: 100_000 },
+      ])
+
+      const response = await client
+        .put(`/api/ventas/${cancelada.id}`)
+        .header('authorization', authorization)
+        .json({ estado: 'activo' })
+
+      response.assertStatus(409)
+      response.assertBodyContains({ loteId: lote.id })
+      await cancelada.refresh()
+      assert.equal(cancelada.estado, 'cancelado')
+    })
+
+    test('PUT reactiva una venta cancelada cuando todos sus lotes estan autorizados y libres', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, user, cliente, lote } = await prepararEscenario()
+      user.role = 'admin'
+      await user.save()
+      const venta = await crearVentaExistente(cliente.id, lote.id, 'cancelado')
+      await VentaPredio.create({ ventaId: venta.id, loteId: lote.id, precio: 100_000 })
+
+      const response = await client
+        .put(`/api/ventas/${venta.id}`)
+        .header('authorization', authorization)
+        .json({ estado: 'activo' })
+
+      response.assertStatus(200)
+      await venta.refresh()
+      await lote.refresh()
+      assert.equal(venta.estado, 'activo')
+      assert.equal(lote.estado, 'vendido')
+    })
+
+    test('PUT permite agregar un lote autorizado y libre junto al predio existente', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, cliente, lote } = await prepararEscenario()
+      const venta = await crearVentaExistente(cliente.id, lote.id)
+      await VentaPredio.create({ ventaId: venta.id, loteId: lote.id, precio: 60_000 })
+      lote.habilitadoVenta = false
+      await lote.save()
+      const autorizado = await Lote.create({
+        numero: `PUT-AUTORIZADO-${randomUUID().slice(0, 8)}`,
+        medida: '10 x 20',
+        area: '200',
+        estado: 'disponible',
+        habilitadoVenta: true,
+      })
+
+      const response = await client
+        .put(`/api/ventas/${venta.id}`)
+        .header('authorization', authorization)
+        .json({
+          predios: [
+            {
+              loteId: lote.id,
+              numeroLote: lote.numero,
+              medidaLote: lote.medida,
+              areaLote: lote.area,
+              precio: 60_000,
+            },
+            {
+              loteId: autorizado.id,
+              numeroLote: autorizado.numero,
+              medidaLote: autorizado.medida,
+              areaLote: autorizado.area,
+              precio: 40_000,
+            },
+          ],
+        })
+
+      response.assertStatus(200)
+      const asociaciones = await VentaPredio.query()
+        .where('venta_id', venta.id)
+        .orderBy('id', 'asc')
+      assert.deepEqual(
+        asociaciones.map((predio) => predio.loteId),
+        [lote.id, autorizado.id]
+      )
+    })
+
+    test('PUT rechaza un lote nuevo no autorizado y conserva los predios actuales', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, cliente, lote } = await prepararEscenario()
+      const venta = await crearVentaExistente(cliente.id, lote.id)
+      await VentaPredio.create({ ventaId: venta.id, loteId: lote.id, precio: 100_000 })
+      const noAutorizado = await Lote.create({
+        numero: `PUT-NO-AUTORIZADO-${randomUUID().slice(0, 8)}`,
+        medida: '10 x 20',
+        area: '200',
+        estado: 'disponible',
+      })
+
+      const response = await client
+        .put(`/api/ventas/${venta.id}`)
+        .header('authorization', authorization)
+        .json({
+          predios: [
+            {
+              loteId: lote.id,
+              numeroLote: lote.numero,
+              medidaLote: lote.medida,
+              areaLote: lote.area,
+              precio: 60_000,
+            },
+            {
+              loteId: noAutorizado.id,
+              numeroLote: noAutorizado.numero,
+              medidaLote: noAutorizado.medida,
+              areaLote: noAutorizado.area,
+              precio: 40_000,
+            },
+          ],
+        })
+
+      response.assertStatus(409)
+      response.assertBodyContains({ loteId: noAutorizado.id })
+      const asociaciones = await VentaPredio.query().where('venta_id', venta.id)
+      assert.lengthOf(asociaciones, 1)
+      assert.equal(asociaciones[0].loteId, lote.id)
+      assert.equal(Number(asociaciones[0].precio), 100_000)
+    })
+
+    test('PUT no permite cambiar el lote usando solo campos legacy sin loteId', async ({
+      client,
+      assert,
+    }) => {
+      const { authorization, cliente, lote } = await prepararEscenario()
+      const venta = await crearVentaExistente(cliente.id, lote.id)
+      await VentaPredio.create({ ventaId: venta.id, loteId: lote.id, precio: 100_000 })
+      const otro = await Lote.create({
+        numero: `PUT-LEGACY-${randomUUID().slice(0, 8)}`,
+        medida: '10 x 20',
+        area: '200',
+        estado: 'disponible',
+        habilitadoVenta: true,
+      })
+
+      const response = await client
+        .put(`/api/ventas/${venta.id}`)
+        .header('authorization', authorization)
+        .json({
+          numeroLote: otro.numero,
+          medidaLote: otro.medida,
+          areaLote: otro.area,
+        })
+
+      response.assertStatus(400)
+      const asociaciones = await VentaPredio.query().where('venta_id', venta.id)
+      assert.lengthOf(asociaciones, 1)
+      assert.equal(asociaciones[0].loteId, lote.id)
+    })
   })
 }
 
@@ -636,6 +867,7 @@ test.group('Rollback de venta desde el mapa', () => {
       medida: '10 x 20',
       area: '200',
       estado: 'disponible',
+      habilitadoVenta: true,
     })
 
     try {

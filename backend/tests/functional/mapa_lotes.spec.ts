@@ -18,7 +18,8 @@ type PropiedadesLote = {
   numero: string
   medida: string | null
   area: number
-  estadoMapa: 'disponible' | 'vendido' | 'pagado' | 'mora' | 'conflicto'
+  habilitadoVenta: boolean
+  estadoMapa: 'disponible' | 'no_autorizado' | 'vendido' | 'pagado' | 'mora' | 'conflicto'
   ventaId: number | null
   cliente: { id: number; nombres: string; apellidos: string } | null
   resumenFinanciero: Record<string, unknown> | null
@@ -69,13 +70,18 @@ async function crearCliente(etiqueta: string) {
 
 let desplazamientoGeometria = 0
 
-async function crearLoteConGeometria(etiqueta: string, areaFuente: number) {
+async function crearLoteConGeometria(
+  etiqueta: string,
+  areaFuente: number,
+  habilitadoVenta = false
+) {
   const sufijo = randomUUID().slice(0, 8)
   const lote = await Lote.create({
     numero: `${etiqueta}-${sufijo}`,
     medida: `10x20 ${etiqueta}`,
     area: '999.99 m2',
     estado: 'disponible',
+    habilitadoVenta,
   })
   const codigo = `MAP-${etiqueta}-${sufijo}`
   const x = -89 + desplazamientoGeometria * 0.001
@@ -205,11 +211,12 @@ test.group('API GeoJSON de lotes', (group) => {
     const clientePagado = await crearCliente('Pagado')
     const clienteMora = await crearCliente('Mora')
 
-    const loteDisponible = await crearLoteConGeometria('DISP', 101.25)
+    const loteDisponible = await crearLoteConGeometria('DISP', 101.25, true)
+    const loteNoAutorizado = await crearLoteConGeometria('NO-AUTORIZADO', 102.75)
     const loteMultiUno = await crearLoteConGeometria('MULTI-1', 202.5)
     const loteMultiDos = await crearLoteConGeometria('MULTI-2', 203.75)
     const loteLegacy = await crearLoteConGeometria('LEGACY', 304.5)
-    const loteCancelado = await crearLoteConGeometria('CANCEL', 405.25)
+    const loteCancelado = await crearLoteConGeometria('CANCEL', 405.25, true)
     const lotePagado = await crearLoteConGeometria('PAGADO', 506.75)
     const loteMora = await crearLoteConGeometria('MORA', 607.5)
 
@@ -292,6 +299,7 @@ test.group('API GeoJSON de lotes', (group) => {
 
     for (const lote of [
       loteDisponible,
+      loteNoAutorizado,
       loteMultiUno,
       loteMultiDos,
       loteLegacy,
@@ -312,10 +320,18 @@ test.group('API GeoJSON de lotes', (group) => {
     }
 
     const disponible = buscarFeature(body.features, loteDisponible.codigo)!
+    assert.isTrue(disponible.properties.habilitadoVenta)
     assert.equal(disponible.properties.estadoMapa, 'disponible')
     assert.isNull(disponible.properties.ventaId)
     assert.isNull(disponible.properties.cliente)
     assert.isNull(disponible.properties.resumenFinanciero)
+
+    const noAutorizado = buscarFeature(body.features, loteNoAutorizado.codigo)!
+    assert.isFalse(noAutorizado.properties.habilitadoVenta)
+    assert.equal(noAutorizado.properties.estadoMapa, 'no_autorizado')
+    assert.isNull(noAutorizado.properties.ventaId)
+    assert.isNull(noAutorizado.properties.cliente)
+    assert.isNull(noAutorizado.properties.resumenFinanciero)
 
     const multiUno = buscarFeature(body.features, loteMultiUno.codigo)!
     const multiDos = buscarFeature(body.features, loteMultiDos.codigo)!

@@ -15,11 +15,11 @@ export function agruparVentasActivasPorLote(ventas) {
     }
     return ventasPorLote;
 }
-export function estadoDisponibilidadLote(cantidadVentasActivas) {
+export function estadoDisponibilidadLote(cantidadVentasActivas, habilitadoVenta) {
     if (cantidadVentasActivas > 1)
         return 'conflicto';
     if (cantidadVentasActivas === 1)
         return 'ocupado';
-    return 'disponible';
+    return habilitadoVenta ? 'disponible' : 'no_autorizado';
 }
 //# sourceMappingURL=lotes_disponibilidad_service.js.map

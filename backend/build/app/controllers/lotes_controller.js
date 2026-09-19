@@ -20,12 +20,13 @@ export default class LotesController {
             return response.ok({
                 lotes: lotes.map((lote) => {
                     const cantidadVentasActivas = ventasPorLote.get(lote.id)?.length || 0;
-                    const estadoDisponibilidad = estadoDisponibilidadLote(cantidadVentasActivas);
+                    const estadoDisponibilidad = estadoDisponibilidadLote(cantidadVentasActivas, lote.habilitadoVenta);
                     return {
                         loteId: lote.id,
                         numero: lote.numero,
                         area: lote.area,
                         medida: lote.medida,
+                        habilitadoVenta: lote.habilitadoVenta,
                         estadoDisponibilidad,
                         disponible: estadoDisponibilidad === 'disponible',
                         cantidadVentasActivas,

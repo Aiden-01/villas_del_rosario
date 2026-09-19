@@ -1,6 +1,11 @@
 import { parsearLoteIdMapa } from "./mapaLotes.js";
 
-const ESTADOS_DISPONIBILIDAD = new Set(["disponible", "ocupado", "conflicto"]);
+const ESTADOS_DISPONIBILIDAD = new Set([
+  "disponible",
+  "no_autorizado",
+  "ocupado",
+  "conflicto",
+]);
 
 export function normalizarCatalogoLotes(respuesta) {
   if (!Array.isArray(respuesta?.lotes)) return [];
@@ -11,11 +16,13 @@ export function normalizarCatalogoLotes(respuesta) {
     if (!loteId || !numeroLote) return [];
 
     const cantidadVentasActivas = Number(item?.cantidadVentasActivas ?? 0);
+    const habilitadoVenta = item?.habilitadoVenta === true;
     const estadoDisponibilidad = ESTADOS_DISPONIBILIDAD.has(item?.estadoDisponibilidad)
       ? item.estadoDisponibilidad
       : "ocupado";
     const disponible =
       item?.disponible === true &&
+      habilitadoVenta &&
       estadoDisponibilidad === "disponible" &&
       cantidadVentasActivas === 0;
 
@@ -26,6 +33,7 @@ export function normalizarCatalogoLotes(respuesta) {
         areaLote: item?.area == null ? "" : String(item.area),
         medidaLote: item?.medida == null ? "" : String(item.medida),
         estadoDisponibilidad,
+        habilitadoVenta,
         disponible,
         cantidadVentasActivas,
       },
@@ -100,34 +108,11 @@ export function resolverPrediosSeleccionados(catalogo, predios) {
   for (let index = 0; index < predios.length; index += 1) {
     const predio = predios[index];
     if (predio.modoManual) {
-      const numeroLote = String(predio.numeroLote ?? "").trim();
-      if (!numeroLote) {
-        return {
-          predios: null,
-          error: `Escribe el número del lote no registrado del predio ${index + 1}.`,
-          loteId: null,
-        };
-      }
-
-      const loteExistente = catalogo.find((lote) => lote.numeroLote === numeroLote);
-      if (loteExistente) {
-        return {
-          predios: null,
-          error: `El lote ${numeroLote} ya existe en el catálogo. Selecciónalo en la lista.`,
-          loteId: loteExistente.loteId,
-        };
-      }
-      if (numeros.has(numeroLote)) {
-        return {
-          predios: null,
-          error: "No se puede agregar el mismo lote más de una vez.",
-          loteId: null,
-        };
-      }
-
-      numeros.add(numeroLote);
-      resultado.push({ ...predio, numeroLote });
-      continue;
+      return {
+        predios: null,
+        error: `El predio ${index + 1} debe seleccionarse del catálogo y estar autorizado para venta.`,
+        loteId: null,
+      };
     }
 
     const loteId = parsearLoteIdMapa(predio.loteId);

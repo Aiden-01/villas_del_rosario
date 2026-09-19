@@ -14,7 +14,8 @@ type LoteCatalogo = {
   numero: string
   area: string | null
   medida: string | null
-  estadoDisponibilidad: 'disponible' | 'ocupado' | 'conflicto'
+  habilitadoVenta: boolean
+  estadoDisponibilidad: 'disponible' | 'no_autorizado' | 'ocupado' | 'conflicto'
   disponible: boolean
   cantidadVentasActivas: number
 }
@@ -51,13 +52,14 @@ async function crearCliente() {
   })
 }
 
-async function crearLote(etiqueta: string, estado = 'disponible') {
+async function crearLote(etiqueta: string, estado = 'disponible', habilitadoVenta?: boolean) {
   const sufijo = randomUUID().slice(0, 8)
   return Lote.create({
     numero: `${etiqueta}-${sufijo}`,
     medida: `10 x 20 ${etiqueta}`,
     area: `200 ${etiqueta}`,
     estado,
+    ...(habilitadoVenta === undefined ? {} : { habilitadoVenta }),
   })
 }
 
@@ -88,17 +90,18 @@ test.group('Catalogo autoritativo de lotes', (group) => {
     response.assertStatus(401)
   })
 
-  test('lista todos los lotes comerciales y deriva disponibilidad de ventas activas', async ({
+  test('exige autorizacion comercial y deriva ocupacion de ventas activas', async ({
     client,
     assert,
   }) => {
     const authorization = await crearSesion()
     const cliente = await crearCliente()
-    const disponible = await crearLote('DISPONIBLE', 'vendido')
+    const disponible = await crearLote('DISPONIBLE', 'vendido', true)
+    const noAutorizado = await crearLote('NO-AUTORIZADO')
     const ocupadoPredio = await crearLote('OCUPADO-PREDIO')
     const ocupadoLegacy = await crearLote('OCUPADO-LEGACY')
     const conflicto = await crearLote('CONFLICTO')
-    const cancelado = await crearLote('CANCELADO', 'vendido')
+    const cancelado = await crearLote('CANCELADO', 'vendido', true)
 
     const ventaPredios = await crearVenta(cliente.id, disponible.id)
     await VentaPredio.create({ ventaId: ventaPredios.id, loteId: ocupadoPredio.id, precio: null })
@@ -124,11 +127,19 @@ test.group('Catalogo autoritativo de lotes', (group) => {
       numero: disponible.numero,
       area: disponible.area,
       medida: disponible.medida,
+      habilitadoVenta: true,
       estadoDisponibilidad: 'disponible',
       disponible: true,
       cantidadVentasActivas: 0,
     })
+    assert.deepInclude(buscarLote(lotes, noAutorizado.id)!, {
+      habilitadoVenta: false,
+      estadoDisponibilidad: 'no_autorizado',
+      disponible: false,
+      cantidadVentasActivas: 0,
+    })
     assert.deepInclude(buscarLote(lotes, ocupadoPredio.id)!, {
+      habilitadoVenta: false,
       estadoDisponibilidad: 'ocupado',
       disponible: false,
       cantidadVentasActivas: 1,
@@ -144,9 +155,13 @@ test.group('Catalogo autoritativo de lotes', (group) => {
       cantidadVentasActivas: 2,
     })
     assert.deepInclude(buscarLote(lotes, cancelado.id)!, {
+      habilitadoVenta: true,
       estadoDisponibilidad: 'disponible',
       disponible: true,
       cantidadVentasActivas: 0,
     })
+
+    await noAutorizado.refresh()
+    assert.isFalse(noAutorizado.habilitadoVenta)
   })
 })
